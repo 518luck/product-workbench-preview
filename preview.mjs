@@ -34,18 +34,29 @@ const server = http.createServer(async (request, response) => {
       }
       body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     } catch { json(response, 400, { error: '保存内容无效。' }); return; }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      json(response, 400, { error: '保存内容无效。' }); return;
+    }
     if (typeof body.description !== 'string' || !body.description.trim() || body.description.length > 5000 || !Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) {
       json(response, 400, { error: '请填写 1–5000 字的功能定义。' }); return;
     }
     if (body.create && (typeof body.context?.title !== 'string' || !body.context.title.trim() || body.context.title.trim().length > 80)) {
       json(response, 400, { error: '请填写 1–80 字的功能名称。' }); return;
     }
+    if (body.title !== undefined && (typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 80)) {
+      json(response, 400, { error: '请填写 1–80 字的功能名称。' }); return;
+    }
+    if (body.groupPath !== undefined && (!Array.isArray(body.groupPath) || body.groupPath.length > 5 || body.groupPath.some(part => typeof part !== 'string' || !part.trim() || part.trim().length > 40 || /[\/／>]/.test(part)))) {
+      json(response, 400, { error: '分组最多 5 层，每层名称为 1–40 字。' }); return;
+    }
     const operation = writeQueue.then(async () => {
       const doc = await readDocument();
       const previous = doc.features[id];
       const revision = previous?.revision ?? 0;
+      const title = body.title?.trim() ?? previous?.title ?? body.context?.title?.trim();
+      const groupPath = body.groupPath?.map(part => part.trim()) ?? previous?.groupPath ?? [];
       if (body.create && previous) {
-        if (previous.isNew && revision === 1 && previous.title === body.context.title.trim() && previous.description === body.description.trim()) {
+        if (previous.isNew && revision === 1 && previous.title === body.context.title.trim() && previous.description === body.description.trim() && JSON.stringify(previous.groupPath || []) === JSON.stringify(groupPath)) {
           json(response, 200, previous);
         } else {
           json(response, 409, { error: '这个功能已存在，请刷新查看。' });
@@ -57,10 +68,13 @@ const server = http.createServer(async (request, response) => {
       if (!previous && (!body.context || typeof body.context.title !== 'string')) {
         json(response, 400, { error: '缺少功能名称。' }); return;
       }
-      if (previous?.description !== description) {
+      const definitionChanged = previous?.description !== description;
+      const groupChanged = JSON.stringify(previous?.groupPath || []) !== JSON.stringify(groupPath);
+      const titleChanged = previous?.title !== title;
+      if (definitionChanged || groupChanged || titleChanged) {
         doc.features[id] = {
           ...(previous || { ...body.context, id, flowRevision: body.context.description?.trim() === description ? revision + 1 : 0, implementedRevision: null }),
-          description, revision: revision + 1, updatedAt: new Date().toISOString(),
+          title, description, groupPath, revision: revision + (definitionChanged ? 1 : 0), updatedAt: new Date().toISOString(),
           ...(!previous && body.create ? { title: body.context.title.trim(), isNew: true, flowRevision: 0 } : {}),
         };
         const tempPath = `${documentPath}.tmp`;

@@ -85,6 +85,10 @@
     .new-feature-nav{border-top:1px solid var(--line);margin-top:9px;padding-top:12px;color:var(--ink)}.new-feature-document{max-width:1060px}.new-feature-intro{font-size:11px;color:var(--muted);line-height:1.8;margin:10px 0 22px}.new-feature-label{display:block;font-size:12px;font-weight:600;margin-bottom:8px}#new-feature-title{display:block;width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:0;background:var(--paper);color:var(--ink);font-size:13px;line-height:1.8}.new-feature-document .document-summary{margin-top:20px;padding-top:0;padding-bottom:17px}
     @media(max-width:650px){#new-feature-title{font-size:16px}}
     .new-feature-document input:focus{outline:1px solid var(--muted);outline-offset:0}
+    .feature-tree{display:block;min-width:0}.feature-group>summary{list-style:none;display:flex;align-items:center;gap:6px;padding:8px 8px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;user-select:none}.feature-group>summary::-webkit-details-marker{display:none}.feature-group>summary:hover{color:var(--ink);background:var(--theme-soft-surface)}.feature-group>summary small{margin-left:auto;font-size:9px;font-weight:400}.group-chevron{display:inline-block;font-size:16px;line-height:1;width:8px;text-align:center;transition:transform .15s}.feature-group[open]>summary>.group-chevron{transform:rotate(90deg)}.feature-group-children{margin-left:10px;padding-left:5px;border-left:1px solid var(--line)}.feature-tree .feature-leaf{padding:8px 8px;font-size:12px;gap:5px}.feature-tree .feature-leaf>span:first-child{min-width:0;overflow-wrap:anywhere}.feature-tree .feature-leaf .nav-end{flex-shrink:0}
+    .document-group-field{display:flex;align-items:center;gap:12px;margin:0 0 12px}.document-group-field>label{font-size:10px;color:var(--muted);white-space:nowrap}.document-group-field input,#new-feature-group{width:100%;min-width:0;border:1px solid var(--line);border-radius:0;padding:6px 8px;background:var(--paper);color:var(--ink);font-size:11px;line-height:1.8}.document-group-field input:focus,#new-feature-group:focus{outline:1px solid var(--muted);outline-offset:0}.new-feature-group-field{margin-top:16px}
+    @media(max-width:790px){#navigation:has(.feature-tree){display:block}.feature-tree .nav-item{width:100%;text-align:left}.feature-tree .nav-end{margin-left:auto}.feature-group-children{margin-left:12px}.document-group-field input,#new-feature-group{font-size:16px}}
+    .feature-name-editor{justify-content:flex-start;flex-wrap:wrap;gap:7px}.feature-name-editor h2{min-width:0;max-width:100%;font-size:14px}.feature-name-field{display:block;width:180px;max-width:100%;font:inherit;font-weight:600;line-height:1.6;border:1px solid transparent;border-bottom-color:var(--line);border-radius:0;padding:3px 5px;background:transparent;color:var(--ink)}.feature-name-field:hover{border-bottom-color:var(--muted)}.feature-name-field:focus{outline:1px solid var(--muted);outline-offset:0;background:var(--paper)}.feature-name-editor>.diagram-count{margin-left:2px}.feature-name-editor>.button{font-size:10px;padding:4px 7px}.feature-name-editor>.document-status{font-size:9px}
   </style>
 </head>
 <body>
@@ -196,29 +200,86 @@
     let productDocument={features:{}};
     let documentAvailable=false;
     const descriptionEdits=new Map();
+    const groupEdits=new Map();
+    const titleEdits=new Map();
+    let savingTitle=false;
+    function updateTitleEditor(){
+      const f=featureById(state.feature),field=$('feature-name');if(!field)return;
+      const changed=field.value.trim()!==f.title.trim(),valid=field.value.trim().length>0&&field.value.trim().length<=80;
+      $('feature-name-save').hidden=!changed&&!savingTitle;
+      $('feature-name-cancel').hidden=!changed&&!savingTitle;
+      $('feature-name-save').disabled=!documentAvailable||savingTitle||!changed||!valid;
+      $('feature-name-cancel').disabled=savingTitle;
+      $('feature-name-save').textContent=savingTitle?'保存中…':'保存名称';
+      $('feature-name-status').textContent=changed&&!valid?'名称为 1–80 字':changed?'名称未保存':'';
+    }
+    function featureContext(f){return {title:f.title,description:f.description,icon:f.icon,rules:f.rules,flow:f.flow,exception:f.exception,actors:f.actors,dependencies:f.dependencies,checks:f.checks,impact:f.impact,overview:f.overview,stepDetails:f.flow.map((_,i)=>stepDetails(f,i))};}
+    async function saveFeatureTitle(){
+      const f=featureById(state.feature),title=$('feature-name').value;
+      if(!title.trim()||title.trim().length>80||savingTitle||!documentAvailable)return;
+      savingTitle=true;updateTitleEditor();
+      try{
+        const r=documentRecord(f),response=await fetch('/document/features/'+encodeURIComponent(f.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description:activeContent(f).description,expectedRevision:r?.revision??0,context:featureContext(f)})});
+        const result=await response.json();if(!response.ok)throw new Error(result.error||'保存名称失败，请重试。');
+        productDocument.features[f.id]=result;applyProductDocument(productDocument);
+        if(titleEdits.get(f.id)===title)titleEdits.delete(f.id);
+        if(state.feature===f.id&&state.mode==='business')render();
+        toast('名称已保存。');
+      }catch(error){toast(error.message||'名称未保存，输入内容仍保留。');}
+      finally{savingTitle=false;updateTitleEditor();}
+    }
+    const expandedGroups=new Map();
+    const defaultFeatureGroups={login:['账户'],submit:['调查表','填写'],results:['调查表','统计'],manage:['调查表','管理']};
+    const parseGroupPath=value=>String(value||'').split(/[\/／>]/).map(part=>part.trim()).filter(Boolean);
+    const validGroupPath=parts=>parts.length<=5&&parts.every(part=>part.length<=40);
+    const featureGroups=f=>Array.isArray(documentRecord(f)?.groupPath)?documentRecord(f).groupPath:defaultFeatureGroups[f.id]||[];
+    const groupPathText=f=>featureGroups(f).join(' / ');
+    function groupOptions(){
+      const paths=new Set();for(const f of documentFeatures()){const parts=featureGroups(f);for(let i=1;i<=parts.length;i++)paths.add(parts.slice(0,i).join(' / '));}
+      return `<datalist id="feature-group-options">${[...paths].map(p=>`<option value="${esc(p)}"></option>`).join('')}</datalist>`;
+    }
+    function openFeatureGroups(f){const parts=[...featureGroups(f)];if(!parts.length)parts.push('未分组');for(let i=1;i<=parts.length;i++)expandedGroups.set(JSON.stringify(parts.slice(0,i)),true);}
+    function renderFeatureTree(){
+      const tree={groups:new Map(),features:[]};
+      for(const f of documentFeatures()){
+        const parts=featureGroups(f).length?featureGroups(f):['未分组'];let node=tree;
+        for(const part of parts){if(!node.groups.has(part))node.groups.set(part,{groups:new Map(),features:[],count:0});node=node.groups.get(part);node.count++;}
+        node.features.push(f);
+      }
+      function branch(node,path=[]){
+        const groups=[...node.groups].map(([title,child])=>{
+          const parts=[...path,title],key=JSON.stringify(parts),active=state.view==='feature'&&JSON.stringify((featureGroups(featureById(state.feature)).length?featureGroups(featureById(state.feature)):['未分组']).slice(0,parts.length))===key;
+          const open=expandedGroups.has(key)?expandedGroups.get(key):path.length===0||active;
+          return `<details class="feature-group" data-feature-group="${esc(key)}" ${open?'open':''}><summary aria-label="分组 ${esc(parts.join(' / '))}"><span class="group-chevron" aria-hidden="true">›</span><span>${esc(title)}</span><small>${child.count}</small></summary><div class="feature-group-children">${branch(child,parts)}</div></details>`;
+        }).join('');
+        const leaves=node.features.map(f=>`<button type="button" class="nav-item feature-leaf ${state.view==='feature'&&state.feature===f.id?'active':''}" data-feature="${esc(f.id)}" ${state.view==='feature'&&state.feature===f.id?'aria-current="page"':''}><span>${esc(documentRecord(f)?.title||f.title)}</span><span class="nav-end nav-feature-status">${featureStatus(f)}</span></button>`).join('');
+        return groups+leaves;
+      }
+      return `<div class="feature-tree">${branch(tree)}</div><button type="button" class="nav-item new-feature-nav" data-new-feature>＋ 新增功能</button>`;
+    }
     let savingDescription=false;
-    let newFeatureDraft={id:'',title:'',description:''};
+    let newFeatureDraft={id:'',title:'',description:'',groupPathText:''};
     let creatingFeature=false;
     function openNewFeature(){state.mode='business';state.view='new-feature';render();$('new-feature-title').focus();window.scrollTo({top:0,behavior:'instant'});}
     function updateNewFeatureForm(){
       const button=$('new-feature-save');if(!button)return;
-      button.disabled=!documentAvailable||creatingFeature||!newFeatureDraft.title.trim()||!newFeatureDraft.description.trim();
+      button.disabled=!documentAvailable||creatingFeature||!newFeatureDraft.title.trim()||!newFeatureDraft.description.trim()||!validGroupPath(parseGroupPath(newFeatureDraft.groupPathText));
       button.textContent=creatingFeature?'保存中…':'保存草稿';
     }
     function renderNewFeature(){
-      $('page').innerHTML=`<article class="journey-canvas new-feature-document"><div class="journey-head"><h2>新增功能</h2><span class="document-status">草稿</span></div><p class="new-feature-intro">先记录功能名称和定义。保存后，交由外部 AI 梳理流程并实现。</p><form id="new-feature-form"><label class="new-feature-label" for="new-feature-title">功能名称</label><input id="new-feature-title" aria-label="功能名称" type="text" required maxlength="80" placeholder="例如：填写进度保存" value="${esc(newFeatureDraft.title)}"><section class="document-summary"><div class="document-editor-heading"><label for="new-feature-definition">功能定义</label></div><p class="definition-hint">用自己的话写清楚：谁来使用、要做什么、遵守哪些规则、异常时怎么办。</p><textarea id="new-feature-definition" aria-label="新功能定义" required maxlength="5000" rows="6" placeholder="写下这个功能应当怎样运转。">${esc(newFeatureDraft.description)}</textarea></section><div class="document-editor-actions"><span>保存前不会加入功能目录。</span><button class="button" type="button" data-cancel-new-feature>取消</button><button class="button" id="new-feature-save" type="submit" disabled>保存草稿</button></div></form></article>`;
+      $('page').innerHTML=`<article class="journey-canvas new-feature-document"><div class="journey-head"><h2>新增功能</h2><span class="document-status">草稿</span></div><p class="new-feature-intro">先记录功能名称和定义。保存后，交由外部 AI 梳理流程并实现。</p><form id="new-feature-form"><label class="new-feature-label" for="new-feature-title">功能名称</label><input id="new-feature-title" aria-label="功能名称" type="text" required maxlength="80" placeholder="例如：填写进度保存" value="${esc(newFeatureDraft.title)}"><div class="new-feature-group-field"><label class="new-feature-label" for="new-feature-group">所属分组</label><input id="new-feature-group" aria-label="所属分组" list="feature-group-options" maxlength="215" placeholder="例如：调查表 / 填写；留空为未分组" value="${esc(newFeatureDraft.groupPathText)}">${groupOptions()}</div><section class="document-summary"><div class="document-editor-heading"><label for="new-feature-definition">功能定义</label></div><p class="definition-hint">用自己的话写清楚：谁来使用、要做什么、遵守哪些规则、异常时怎么办。</p><textarea id="new-feature-definition" aria-label="新功能定义" required maxlength="5000" rows="6" placeholder="写下这个功能应当怎样运转。">${esc(newFeatureDraft.description)}</textarea></section><div class="document-editor-actions"><span>保存前不会加入功能目录。</span><button class="button" type="button" data-cancel-new-feature>取消</button><button class="button" id="new-feature-save" type="submit" disabled>保存草稿</button></div></form></article>`;
       updateNewFeatureForm();
     }
     async function createDocumentFeature(){
-      if(creatingFeature||!documentAvailable||!newFeatureDraft.title.trim()||!newFeatureDraft.description.trim())return;
+      if(creatingFeature||!documentAvailable||!newFeatureDraft.title.trim()||!newFeatureDraft.description.trim()||!validGroupPath(parseGroupPath(newFeatureDraft.groupPathText)))return;
       if(!newFeatureDraft.id)newFeatureDraft.id='new-'+crypto.randomUUID();
       const sent={...newFeatureDraft};creatingFeature=true;updateNewFeatureForm();
       try{
         const context={title:sent.title.trim(),description:'',icon:'file',rules:[],flow:[],stepDetails:[],exception:'',actors:[],dependencies:[],checks:[],impact:[],overview:sent.description.trim(),isNew:true};
-        const response=await fetch('/document/features/'+encodeURIComponent(sent.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({create:true,description:sent.description,expectedRevision:0,context})});
+        const response=await fetch('/document/features/'+encodeURIComponent(sent.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({create:true,description:sent.description,groupPath:parseGroupPath(sent.groupPathText),expectedRevision:0,context})});
         const record=await response.json();if(!response.ok)throw new Error(record.error||'保存失败，请重试。');
         productDocument.features[sent.id]=record;applyProductDocument(productDocument);
-        newFeatureDraft={id:'',title:'',description:''};state.diagramView='flow';setFeature(sent.id);
+        newFeatureDraft={id:'',title:'',description:'',groupPathText:''};state.diagramView='flow';setFeature(sent.id);
         toast('新功能已保存为草稿，等待 AI 梳理流程。');
       }catch(error){toast(error.message||'保存失败，输入内容仍保留。');}
       finally{creatingFeature=false;updateNewFeatureForm();}
@@ -241,23 +302,25 @@
     }
     function updateDescriptionEditor(){
       const f=featureById(state.feature),field=$('feature-description');if(!field)return;
-      const changed=field.value.trim()!==activeContent(f).description.trim(),needsSave=changed||!documentRecord(f);
-      $('document-save').disabled=!documentAvailable||savingDescription||!needsSave||!field.value.trim();
-      $('document-discard').disabled=savingDescription||!changed;
-      $('document-save-status').textContent=savingDescription?'保存中…':changed?'未保存':documentAvailable?(documentRecord(f)?'已保存到项目文档':'尚未保存到项目文档'):'项目文档暂不可保存';
+      const changed=field.value.trim()!==activeContent(f).description.trim(),parts=parseGroupPath($('document-group-path').value),groupChanged=JSON.stringify(parts)!==JSON.stringify(featureGroups(f)),needsSave=changed||groupChanged||!documentRecord(f),valid=validGroupPath(parts);
+      $('document-save').disabled=!documentAvailable||savingDescription||!needsSave||!field.value.trim()||!valid;
+      $('document-discard').disabled=savingDescription||!(changed||groupChanged);
+      $('document-save-status').textContent=!valid?'分组最多 5 层，每层不超过 40 字':savingDescription?'保存中…':changed||groupChanged?'未保存':documentAvailable?(documentRecord(f)?'已保存到项目文档':'尚未保存到项目文档'):'项目文档暂不可保存';
       $('feature-status').textContent=changed?'草稿 · 未保存':featureStatus(f);
     }
     async function saveDescription(){
-      const f=featureById(state.feature),description=$('feature-description').value;
-      if(!description.trim()||savingDescription||!documentAvailable)return;
+      const f=featureById(state.feature),description=$('feature-description').value,groupText=$('document-group-path').value,groupPath=parseGroupPath(groupText),definitionChanged=description.trim()!==activeContent(f).description.trim();
+      if(!description.trim()||savingDescription||!documentAvailable||!validGroupPath(groupPath))return;
       savingDescription=true;updateDescriptionEditor();
       try{
-        const r=documentRecord(f),response=await fetch('/document/features/'+encodeURIComponent(f.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({description,expectedRevision:r?.revision??0,context:{title:f.title,description:f.description,icon:f.icon,rules:f.rules,flow:f.flow,exception:f.exception,actors:f.actors,dependencies:f.dependencies,checks:f.checks,impact:f.impact,overview:f.overview,stepDetails:f.flow.map((_,i)=>stepDetails(f,i))}})});
+        const r=documentRecord(f),response=await fetch('/document/features/'+encodeURIComponent(f.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({description,groupPath,expectedRevision:r?.revision??0,context:featureContext(f)})});
         const result=await response.json();if(!response.ok)throw new Error(result.error||'保存失败，请重试。');
         productDocument.features[f.id]=result;applyProductDocument(productDocument);
         if(descriptionEdits.get(f.id)===description)descriptionEdits.delete(f.id);
+        if(groupEdits.get(f.id)===groupText)groupEdits.delete(f.id);
+        openFeatureGroups(f);
         if(state.feature===f.id&&state.mode==='business')render();
-        toast('定义已保存为草稿，流程等待 AI 梳理。');
+        toast(definitionChanged?'定义已保存为草稿，流程等待 AI 梳理。':'分组已保存。');
       }catch(error){toast(error.message||'保存失败，输入内容仍保留。');}
       finally{savingDescription=false;updateDescriptionEditor();}
     }
@@ -276,7 +339,7 @@
     let toastTimer;
     function toast(message){$('toast').textContent = message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3200);}
     function save(){try{localStorage.setItem(key,JSON.stringify({edits:state.edits}));saved=true;return true;}catch{toast('当前浏览器限制本地保存，请导出说明保留修改。');return false;}}
-    function setFeature(id){if(!featureById(id))return;state.mode='business';state.view='feature';state.feature=id;state.selectedStep=0;render();window.scrollTo({top:0,behavior:'instant'});}
+    function setFeature(id){if(!featureById(id))return;state.mode='business';state.view='feature';state.feature=id;state.selectedStep=0;openFeatureGroups(featureById(id));render();window.scrollTo({top:0,behavior:'instant'});}
     function setDependency(id){if(!depById(id))return;state.mode='dependencies';state.view='dependencies';state.dependency=id;render();window.scrollTo({top:0,behavior:'instant'});}
     function navigate(mode){state.mode=mode;state.view=mode==='business'?'feature':'dependencies';render();}
     function renderNavigation(){
@@ -285,9 +348,9 @@
       $('workspace').setAttribute('aria-labelledby',state.mode==='business'?'business-tab':'dependencies-tab');
       $('overview-button').classList.toggle('active',state.view==='overview');$('overview-button').innerHTML=icon('overview',16)+'产品概览';
       $('nav-label').textContent=state.mode==='business'?'功能目录':'依赖目录';
-      $('navigation').innerHTML=state.mode==='business'?documentFeatures().map((f,i)=>`<button type="button" class="nav-item ${state.view==='feature' && state.feature===f.id?'active':''}" data-feature="${f.id}" ${state.view==='feature' && state.feature===f.id?'aria-current="page"':''}><span class="nav-number">${String(i+1).padStart(2,'0')}</span><span>${esc(f.isNew&&designStore.drafts[f.id]?.title&&!designStore.approved[f.id]?designStore.drafts[f.id].title:f.title)}</span><span class="nav-end nav-feature-status">${featureStatus(f)}</span></button>`).join('')+'<button type="button" class="nav-item new-feature-nav" data-new-feature>＋ 新增功能</button>':dependencies.map(d=>`<button type="button" class="nav-item ${state.dependency===d.id && state.view==='dependencies'?'active':''}" data-dependency="${d.id}"><span>${d.name}</span></button>`).join('');
+      $('navigation').innerHTML=state.mode==='business'?renderFeatureTree():dependencies.map(d=>`<button type="button" class="nav-item ${state.dependency===d.id&&state.view==='dependencies'?'active':''}" data-dependency="${d.id}"><span>${d.name}</span></button>`).join('');
       $('saved-label').textContent='产品行为文档';
-      $('breadcrumb-section').textContent=state.view==='overview'?'产品概览':state.view==='new-feature'?'新增功能':state.mode==='business'?'业务功能 / '+featureById(state.feature).title:'系统依赖';
+      $('breadcrumb-section').textContent=state.view==='overview'?'产品概览':state.view==='new-feature'?'新增功能':state.mode==='business'?'业务功能 / '+[...featureGroups(featureById(state.feature)),featureById(state.feature).title].join(' / '):'系统依赖';
     }
     function pageHead(eyebrow,title,subtitle,iconName,badge=''){return `<div class="page-heading"><div><div class="heading-title"><h1>${title}</h1>${badge}</div><p class="heading-subtitle">${subtitle}</p></div><div class="heading-icon">${icon(iconName,22)}</div></div>`;}
     function footer(){return `<div class="page-footer">${icon('file',11)}<span>产品行为说明书 · 演示数据，不代表真实仓库的实现状态</span></div>`;}
@@ -444,7 +507,7 @@
     function proposalReady(d){return typeof d.generatedFor==='string'&&d.generatedFor===d.goal&&d.steps.length>0&&d.steps.every(step=>step.name.trim()&&step.action.trim());}
     function renderBusinessWorkspace(f){
       const content=activeContent(f),text=descriptionEdits.has(f.id)?descriptionEdits.get(f.id):content.description,r=documentRecord(f);
-      const summary=`<section class="document-summary"><div class="document-editor-heading"><label for="feature-description">功能定义</label><span id="feature-status" class="document-status">${featureStatus(f)}</span></div><p class="definition-hint">用自己的话写清楚：谁来使用、要做什么、遵守哪些规则、异常时怎么办。</p><textarea id="feature-description" aria-label="功能定义" rows="4" maxlength="5000" placeholder="用自然语言写清楚：谁来使用、每一步做什么、遵守哪些规则、异常时怎么办。">${esc(text||'')}</textarea><div class="document-editor-actions"><span id="document-save-status" role="status"></span><button class="button" id="document-discard" data-document-discard type="button" disabled>撤销修改</button><button class="button" id="document-save" data-document-save type="button" disabled>保存定义</button></div></section>`;
+      const summary=`<section class="document-summary"><div class="document-editor-heading"><label for="feature-description">功能定义</label><span id="feature-status" class="document-status">${featureStatus(f)}</span></div><div class="document-group-field"><label for="document-group-path">所属分组</label><input id="document-group-path" aria-label="所属分组" list="feature-group-options" maxlength="215" value="${esc(groupEdits.has(f.id)?groupEdits.get(f.id):groupPathText(f))}" placeholder="例如：调查表 / 填写；留空为未分组">${groupOptions()}</div><p class="definition-hint">用自己的话写清楚：谁来使用、要做什么、遵守哪些规则、异常时怎么办。</p><textarea id="feature-description" aria-label="功能定义" rows="4" maxlength="5000" placeholder="用自然语言写清楚：谁来使用、每一步做什么、遵守哪些规则、异常时怎么办。">${esc(text||'')}</textarea><div class="document-editor-actions"><span id="document-save-status" role="status"></span><button class="button" id="document-discard" data-document-discard type="button" disabled>撤销修改</button><button class="button" id="document-save" data-document-save type="button" disabled>保存定义</button></div></section>`;
       const stale=r&&r.flowRevision!==r.revision;
       const heading=`<div class="flow-version-bar"><h3>业务流程</h3><span class="document-status">${!f.flow.length?'待梳理':stale?'待同步定义':'已记录'}</span><span class="flow-version-hint">点击节点查看规则与依赖</span></div>`;
       const flow=f.flow.length?renderClickableFlow(f):`<div class="empty-state"><p>暂无流程记录。由 AI 结合需求整理后更新到文档。</p></div>`;
@@ -557,7 +620,7 @@
       const kind=diagramKinds.find(k=>k.id===state.diagramView)||diagramKinds[0],unconfirmed=!f.flow.length;
       const tabs=`<div class="diagram-gallery-nav" role="group" aria-label="图表类型">${diagramKinds.map(k=>`<button class="diagram-tab ${state.diagramView===k.id?'active':''}" type="button" data-diagram="${k.id}" aria-pressed="${state.diagramView===k.id}">${k.name}</button>`).join('')}</div>`;
       let body=kind.id==='flow'?renderBusinessWorkspace(f):unconfirmed&&kind.scope==='当前功能'?`<div class="empty-state"><h3>这个新功能还没有确认的流程</h3><p>需求和流程整理后，由 AI 更新对应图表。</p></div>`:kind.id==='sequence'?renderSharedSequence(f):kind.id==='dataflow'&&designStore.approved[f.id]?`<div class="empty-state"><h3>数据流需要进一步确认</h3><p>已生成业务流程与步骤时序。数据对象和读写关系需要结合实际仓库补充。</p></div>`:renderMap(f);
-      return `<section class="journey-canvas" aria-label="产品图表"><div class="journey-head"><h2>${esc(f.title)} <span class="diagram-count">产品行为文档</span></h2></div>${tabs}<div class="diagram-purpose"><span class="badge neutral">${kind.scope}</span><span>${kind.purpose}</span></div><div id="diagram-body" data-diagram-kind="${kind.id}">${body}</div></section>`;
+      return `<section class="journey-canvas" aria-label="产品图表"><div class="journey-head feature-name-editor"><h2 aria-label="${esc(f.title)}"><input id="feature-name" aria-label="功能名称" class="feature-name-field" type="text" maxlength="80" value="${esc(titleEdits.has(f.id)?titleEdits.get(f.id):f.title)}" title="点击修改功能名称"></h2><span class="diagram-count">产品行为文档</span><button class="button" id="feature-name-save" type="button" data-save-feature-title hidden>保存名称</button><button class="button" id="feature-name-cancel" type="button" data-cancel-feature-title hidden>取消</button><span id="feature-name-status" class="document-status" role="status"></span></div>${tabs}<div class="diagram-purpose"><span class="badge neutral">${kind.scope}</span><span>${kind.purpose}</span></div><div id="diagram-body" data-diagram-kind="${kind.id}">${body}</div></section>`;
     }
 
     function pendingMarkup(feature){
@@ -570,6 +633,7 @@
       if(!Number.isInteger(state.selectedStep)||state.selectedStep<0||state.selectedStep>=f.flow.length)state.selectedStep=0;
       $('page').innerHTML=`<div class="journey-layout"><article class="journey-document">${pendingMarkup(f)}${renderJourney(f)}${footer()}</article></div>`;
       updateDescriptionEditor();
+      updateTitleEditor();
     }
 
     function acceptanceFor(f){if(designStore.approved[f.id])return f.checks;const e=state.edits[f.id];if(!e)return f.checks;if(f.id==='submit' && e.rules.some(rule => rule.includes('可以多次修改答案') && !rule.includes('不可以')))return ['截止时间之前，用户可以修改自己提交的答案。','修改成功后，以最新答案参与统计。','截止时间之后，用户可以查看，但不能继续修改。'];return ['正常操作时，系统按照新的功能描述响应。','权限和限制满足修改后的业务规则。','异常情况下，保留必要数据并说明原因。'];}
@@ -603,15 +667,17 @@
     async function copyTask(){const text=taskText();try{if(!navigator.clipboard)throw new Error('clipboard unavailable');await navigator.clipboard.writeText(text);toast('任务描述已复制，可以粘贴到 AI 对话。');}catch{const field=document.createElement('textarea');field.value=text;field.style.position='fixed';field.style.opacity='0';$('task-modal').append(field);field.focus();field.select();const ok=document.execCommand('copy');field.remove();if(ok)toast('任务描述已复制，可以粘贴到 AI 对话。');else{const blob=new Blob([text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='AI开发任务.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('已下载任务描述，可打开后复制。');}}}
     document.addEventListener('click',event=>{
       const button=event.target.closest('button');if(!button)return;
-      if(button.hasAttribute('data-document-save'))saveDescription();
-      else if(button.hasAttribute('data-document-discard')){descriptionEdits.delete(state.feature);renderFeature();}
+      if(button.hasAttribute('data-save-feature-title'))saveFeatureTitle();
+      else if(button.hasAttribute('data-cancel-feature-title')){titleEdits.delete(state.feature);renderFeature();}
+      else if(button.hasAttribute('data-document-save'))saveDescription();
+      else if(button.hasAttribute('data-document-discard')){descriptionEdits.delete(state.feature);groupEdits.delete(state.feature);renderFeature();}
       else if(button.dataset.feature){$('step-modal').close();setFeature(button.dataset.feature);}
       else if(button.dataset.depFeature){state.diagramView='flow';state.flowVersion='current';setFeature(button.dataset.depFeature);}
       else if(button.dataset.dependency){$('step-modal').close();setDependency(button.dataset.dependency);}
       else if(button.dataset.selectDependency){state.dependency=button.dataset.selectDependency;render();}
       else if(button.dataset.mode)navigate(button.dataset.mode);
       else if(button.hasAttribute('data-new-feature'))openNewFeature();
-      else if(button.hasAttribute('data-cancel-new-feature')){if(!creatingFeature){newFeatureDraft={id:'',title:'',description:''};state.view='feature';render();}}
+      else if(button.hasAttribute('data-cancel-new-feature')){if(!creatingFeature){newFeatureDraft={id:'',title:'',description:'',groupPathText:''};state.view='feature';render();}}
       else if(button.hasAttribute('data-design-add')){const d=designDraft(featureById(state.feature));if(d.steps.length<8){d.steps.push(blankDesignStep());invalidateDesign(d);renderFeature();openDraftNode(d.steps.length-1);}}
       else if(button.hasAttribute('data-design-remove')){const d=designDraft(featureById(state.feature));if(d.steps.length>1){d.steps.splice(Number(button.dataset.designRemove),1);invalidateDesign(d);$('draft-node-modal').close();renderFeature();}}
       else if(button.hasAttribute('data-design-move')){const d=designDraft(featureById(state.feature)),a=Number(button.dataset.designMove),b=a+Number(button.dataset.direction);if(b>=0&&b<d.steps.length){[d.steps[a],d.steps[b]]=[d.steps[b],d.steps[a]];invalidateDesign(d);$('draft-node-modal').close();renderFeature();}}
@@ -632,8 +698,10 @@
       else if(button.id==='edit-from-task'){$('task-modal').close();openEdit('submit');}
     });
 
-    document.addEventListener('input',event=>{const el=event.target;if(el.id==='new-feature-title'){newFeatureDraft.title=el.value;updateNewFeatureForm();}else if(el.id==='new-feature-definition'){newFeatureDraft.description=el.value;updateNewFeatureForm();}else if(el.id==='feature-description'){descriptionEdits.set(state.feature,el.value);updateDescriptionEditor();}else if(el.dataset.designField){const d=designDraft(featureById(state.feature)),field=el.dataset.designField;if(el.hasAttribute('data-design-index'))d.steps[Number(el.dataset.designIndex)][field]=el.value;else d[field]=el.value;invalidateDesign(d);}else if(el.dataset.planField&&currentPlan){const field=el.dataset.planField;if(el.hasAttribute('data-plan-index'))currentPlan.steps[Number(el.dataset.planIndex)][field]=el.value;else currentPlan[field]=el.value;validateDesignPlan();}});
+    document.addEventListener('input',event=>{const el=event.target;if(el.id==='feature-name'){titleEdits.set(state.feature,el.value);updateTitleEditor();}else if(el.id==='new-feature-title'){newFeatureDraft.title=el.value;updateNewFeatureForm();}else if(el.id==='new-feature-group'){newFeatureDraft.groupPathText=el.value;updateNewFeatureForm();}else if(el.id==='new-feature-definition'){newFeatureDraft.description=el.value;updateNewFeatureForm();}else if(el.id==='document-group-path'){groupEdits.set(state.feature,el.value);updateDescriptionEditor();}else if(el.id==='feature-description'){descriptionEdits.set(state.feature,el.value);updateDescriptionEditor();}else if(el.dataset.designField){const d=designDraft(featureById(state.feature)),field=el.dataset.designField;if(el.hasAttribute('data-design-index'))d.steps[Number(el.dataset.designIndex)][field]=el.value;else d[field]=el.value;invalidateDesign(d);}else if(el.dataset.planField&&currentPlan){const field=el.dataset.planField;if(el.hasAttribute('data-plan-index'))currentPlan.steps[Number(el.dataset.planIndex)][field]=el.value;else currentPlan[field]=el.value;validateDesignPlan();}});
+    document.addEventListener('keydown',event=>{if(event.target.id==='feature-name'){if(event.key==='Enter'){event.preventDefault();if(!$('feature-name-save').disabled)saveFeatureTitle();}else if(event.key==='Escape'){titleEdits.delete(state.feature);renderFeature();}}});
     document.addEventListener('change',event=>{if(event.target.id==='shared-sequence-case'){state.sequenceCase=event.target.value;renderFeature();}});
+    document.addEventListener('toggle',event=>{if(event.target.classList?.contains('feature-group'))expandedGroups.set(event.target.dataset.featureGroup,event.target.open);},true);
     document.addEventListener('submit',event=>{if(event.target.id==='new-feature-form'){event.preventDefault();createDocumentFeature();}});
     $('edit-form').addEventListener('submit',event=>{event.preventDefault();const description=strip($('edit-description').value),rules=$('edit-rules').value.split('\n').map(strip).filter(Boolean);if(!description||!rules.length){toast('请补充功能描述和至少一条规则。');return;}const f=featureById(editingId);if(description===f.description && JSON.stringify(rules)===JSON.stringify(f.rules))delete state.edits[f.id];else state.edits[f.id]={description,rules};const stored=save();$('edit-modal').close();setFeature(f.id);if(stored)toast('修改已保存。可以查看影响，再交给 AI 实现。');});
     $('example-edit').addEventListener('click',()=>{$('edit-description').value='已登录的用户打开仍在收集中的调查表，填写问题并提交。系统检查必填项是否完整，检查通过后保存答案，并显示提交成功。截止时间之前，用户可以多次修改自己的答案，以最后一次成功保存的内容为准。截止之后只能查看，不能修改。如果保存失败，保留已经填写的内容，方便重试。';$('edit-rules').value='截止时间之前，用户可以多次修改答案，以最后一次成功保存的内容为准。\n所有必填问题填写完整后，才能提交。\n调查表截止之后，只能查看，不能继续填写或修改。\n保存失败时，保留已填内容，允许用户重试。';});
