@@ -1,0 +1,4 @@
+interface:
+  display_name: '按产品蓝图实现'
+  short_description: '依据已确认草稿实现代码，更新源码分析，实际验收后登记对应版本的功能完成'
+  default_prompt: '使用 $product-blueprint-implement 实现我已确认的蓝图功能，并实际验收后登记完成。'

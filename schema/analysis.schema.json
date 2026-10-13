@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://product-blueprint.local/analysis.schema.json",
+  "title": "源码分析记录与流程依据 v1",
+  "description": "analysis record 或 analysis trace 的输入。源码位置为 UTF-16 半开区间 [start,end)，行列从 1 开始；工具生成凭据、内容指纹与 recordHash，调用者不能自行指定。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["records"],
+      "additionalProperties": false,
+      "properties": {
+        "records": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["traces"],
+      "additionalProperties": false,
+      "properties": {
+        "traces": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/trace" } }
+      }
+    }
+  ],
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "texts": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unitId",
+        "receiptIds",
+        "responsibility",
+        "inputs",
+        "outputs",
+        "conditions",
+        "calls",
+        "sideEffects",
+        "exceptions",
+        "unknowns"
+      ],
+      "properties": {
+        "unitId": { "type": "string", "pattern": "^u-[a-f0-9]{24}$" },
+        "receiptIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^r-" }
+        },
+        "responsibility": { "$ref": "#/$defs/text" },
+        "inputs": { "$ref": "#/$defs/texts" },
+        "outputs": { "$ref": "#/$defs/texts" },
+        "conditions": { "$ref": "#/$defs/texts" },
+        "calls": { "$ref": "#/$defs/texts" },
+        "sideEffects": { "$ref": "#/$defs/texts" },
+        "exceptions": { "$ref": "#/$defs/texts" },
+        "unknowns": { "$ref": "#/$defs/texts" }
+      }
+    },
+    "evidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "unitId", "recordHash"],
+          "properties": {
+            "kind": { "const": "code" },
+            "unitId": { "type": "string", "pattern": "^u-[a-f0-9]{24}$" },
+            "recordHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "source", "text"],
+          "properties": {
+            "kind": { "const": "requirement" },
+            "source": { "enum": ["user", "document"] },
+            "text": { "$ref": "#/$defs/text" }
+          }
+        }
+      ]
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "target", "value", "classification", "evidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,100}$" },
+        "target": {
+          "type": "string",
+          "pattern": "^/(features|product|dependencies|diagrams)(/|$)",
+          "description": "最终文档字段的 JSON Pointer。步骤、规则、异常分别关联到对应叶子字段；删除字段使用 value:null。"
+        },
+        "value": {},
+        "classification": {
+          "enum": ["observed", "requested", "inferred", "unknown"],
+          "description": "推断／未知写入文档时仅允许 notes，值以 [推断]／[未知]（或对应英文标签）明确标注；完成登记要求当前字段的 observed 依据。"
+        },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+        "note": { "$ref": "#/$defs/text" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "classification": { "enum": ["inferred", "unknown"] } } },
+          "then": { "required": ["note"] }
+        }
+      ]
+    }
+  }
+}

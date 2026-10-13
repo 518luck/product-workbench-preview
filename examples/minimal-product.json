@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "name": "库存管理",
+    "background": "仓库员登记到货物品，确认数量与批次后保存入库记录。",
+    "actors": ["仓库员"]
+  },
+  "features": {
+    "stock-receipt": {
+      "id": "stock-receipt",
+      "title": "入库登记",
+      "description": "仓库员选择物品，填写到货数量和批次。数量必须大于零，确认后保存入库记录。保存失败时保留输入，不显示入库成功。",
+      "groupPath": ["库存", "入库"],
+      "rules": ["到货数量必须大于零。", "保存成功后才显示入库成功。"],
+      "dependencies": ["storage"],
+      "flow": [
+        ["登记到货", "填写物品、数量与批次"],
+        ["确认入库", "检查并保存入库记录"]
+      ],
+      "stepDetails": [
+        {
+          "actor": "仓库员",
+          "description": "选择物品并填写到货数量与批次。",
+          "rules": ["到货数量必须大于零。"],
+          "dependencies": [],
+          "result": "形成完整的到货信息。",
+          "exception": "输入不完整时指出需要补充的字段。",
+          "interactions": [["仓库员", "登记页面", "填写物品、数量与批次"]],
+          "acceptance": "数量为零时不能确认入库。"
+        },
+        {
+          "actor": "入库服务",
+          "description": "重新检查到货信息并保存入库记录。",
+          "rules": ["保存成功后才显示入库成功。"],
+          "dependencies": ["storage"],
+          "result": "得到可查询的入库记录。",
+          "exception": "保存失败保留输入，允许重试。",
+          "interactions": [
+            ["登记页面", "入库服务", "确认入库"],
+            ["入库服务", "库存存储", "保存入库记录"]
+          ],
+          "acceptance": "保存成功后重新打开仍能查看数量和批次。"
+        }
+      ],
+      "sequence": {
+        "roles": ["仓库员", "登记页面", "入库服务", "库存存储"],
+        "success": "入库成功",
+        "failure": "保存失败",
+        "base": [
+          [0, 1, "填写到货信息", 0],
+          [1, 2, "确认入库", 1],
+          [2, 3, "保存入库记录", 1]
+        ],
+        "normal": [
+          [3, 2, "保存成功", 1, "return"],
+          [2, 1, "展示入库成功", 1, "return"]
+        ],
+        "error": [
+          [3, 2, "保存失败", 1, "error"],
+          [2, 1, "保留输入并提示重试", 1, "error"]
+        ]
+      },
+      "dataflow": {
+        "title": "到货信息成为入库记录",
+        "nodes": [
+          {
+            "id": "input",
+            "title": "到货信息",
+            "type": "数据输入",
+            "fields": ["物品", "数量", "批次"]
+          },
+          {
+            "id": "check",
+            "title": "检查到货信息",
+            "type": "数据处理",
+            "rules": ["数量必须大于零。"]
+          },
+          { "id": "record", "title": "入库记录", "type": "数据存储", "dependencies": ["storage"] }
+        ],
+        "edges": [
+          { "from": "input", "to": "check", "label": "待确认的到货信息" },
+          { "from": "check", "to": "record", "label": "完整且有效的入库信息" }
+        ]
+      },
+      "revision": 1,
+      "flowRevision": 1,
+      "implementedRevision": null
+    }
+  },
+  "dependencies": [
+    {
+      "id": "storage",
+      "name": "库存数据库",
+      "category": "数据存储",
+      "purpose": "保存入库记录",
+      "responsibility": "可靠保存数量与批次",
+      "description": "保存可查询的入库记录。",
+      "failure": "保存失败时不能显示入库成功。",
+      "relations": ["stock-receipt"]
+    }
+  ],
+  "diagrams": {}
+}

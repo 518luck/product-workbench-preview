@@ -1,0 +1,920 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "产品蓝图变更批次 v1",
+  "description": "外部 AI 先预览并取得用户确认，再提交。expectedHash 来自读取结果，工具管理功能版本和实现状态。",
+  "type": "object",
+  "required": ["version", "expectedHash", "operations"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "expectedHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "affectedFeatureIds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "uniqueItems": true
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.create"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "\\S"
+                  },
+                  "groupPath": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40,
+                      "allOf": [
+                        {
+                          "pattern": "\\S"
+                        },
+                        {
+                          "not": {
+                            "pattern": "[/／>]"
+                          }
+                        }
+                      ]
+                    },
+                    "description": "按业务模块分层，通常 2–3 层；不用源代码目录替代业务分组。空数组表示未分组。"
+                  },
+                  "overview": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "具体功能的待确认问题或必要说明。"
+                  },
+                  "actors": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "rules": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "checks": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "impact": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "flow": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "$ref": "#/$defs/nonempty"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "前两个元素为步骤名称与简述；新文档只需这两个元素，不生成图标或坐标。"
+                    }
+                  },
+                  "stepDetails": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/step"
+                    }
+                  },
+                  "dependencies": {
+                    "$ref": "#/$defs/ids"
+                  },
+                  "sequence": {
+                    "$ref": "#/$defs/sequence"
+                  },
+                  "dataflow": {
+                    "$ref": "#/$defs/graph"
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000,
+                    "pattern": "\\S"
+                  }
+                },
+                "required": ["title", "description"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "id", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.update"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "\\S"
+                  },
+                  "groupPath": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40,
+                      "allOf": [
+                        {
+                          "pattern": "\\S"
+                        },
+                        {
+                          "not": {
+                            "pattern": "[/／>]"
+                          }
+                        }
+                      ]
+                    },
+                    "description": "按业务模块分层，通常 2–3 层；不用源代码目录替代业务分组。空数组表示未分组。"
+                  },
+                  "overview": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "具体功能的待确认问题或必要说明。"
+                  },
+                  "actors": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "rules": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "checks": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "impact": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "flow": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "$ref": "#/$defs/nonempty"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "前两个元素为步骤名称与简述；新文档只需这两个元素，不生成图标或坐标。"
+                    }
+                  },
+                  "stepDetails": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/step"
+                    }
+                  },
+                  "dependencies": {
+                    "$ref": "#/$defs/ids"
+                  },
+                  "sequence": {
+                    "$ref": "#/$defs/sequence"
+                  },
+                  "dataflow": {
+                    "$ref": "#/$defs/graph"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              },
+              "unset": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "overview",
+                    "notes",
+                    "actors",
+                    "checks",
+                    "impact",
+                    "sequence",
+                    "dataflow"
+                  ]
+                }
+              }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.define"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 5000,
+                "pattern": "\\S"
+              }
+            },
+            "required": ["op", "id", "description"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.delete"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.sync"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "feature.complete"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "revision": {
+                "$ref": "#/$defs/revision"
+              },
+              "implementation": {
+                "$ref": "#/$defs/implementation"
+              }
+            },
+            "required": ["op", "id", "revision", "implementation"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "product.update"
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/nonempty"
+                  },
+                  "background": {
+                    "type": "string"
+                  },
+                  "actors": {
+                    "$ref": "#/$defs/texts"
+                  },
+                  "repository": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              },
+              "unset": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": ["background", "actors", "repository"]
+                }
+              }
+            },
+            "required": ["op"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "dependency.create"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "name": {
+                    "$ref": "#/$defs/nonempty"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "responsibility": {
+                    "type": "string"
+                  },
+                  "failure": {
+                    "type": "string"
+                  },
+                  "relations": {
+                    "$ref": "#/$defs/ids"
+                  },
+                  "openQuestions": {
+                    "$ref": "#/$defs/texts"
+                  }
+                },
+                "required": ["id", "name"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "dependency.update"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/nonempty"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "responsibility": {
+                    "type": "string"
+                  },
+                  "failure": {
+                    "type": "string"
+                  },
+                  "relations": {
+                    "$ref": "#/$defs/ids"
+                  },
+                  "openQuestions": {
+                    "$ref": "#/$defs/texts"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              },
+              "unset": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "category",
+                    "purpose",
+                    "description",
+                    "responsibility",
+                    "failure",
+                    "relations",
+                    "openQuestions"
+                  ]
+                }
+              }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "dependency.delete"
+              },
+              "id": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "diagram.set"
+              },
+              "kind": {
+                "enum": ["architecture", "entities"]
+              },
+              "data": {
+                "$ref": "#/$defs/graph"
+              }
+            },
+            "required": ["op", "kind", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "diagram.delete"
+              },
+              "kind": {
+                "enum": ["architecture", "entities"]
+              }
+            },
+            "required": ["op", "kind"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "graphId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "feature": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "description",
+        "rules",
+        "flow",
+        "stepDetails",
+        "dependencies",
+        "groupPath",
+        "revision",
+        "flowRevision",
+        "implementedRevision"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "\\S"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000,
+          "pattern": "\\S"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string",
+          "description": "具体功能的待确认问题或必要说明。"
+        },
+        "rules": {
+          "$ref": "#/$defs/texts"
+        },
+        "actors": {
+          "$ref": "#/$defs/texts"
+        },
+        "checks": {
+          "$ref": "#/$defs/texts"
+        },
+        "impact": {
+          "$ref": "#/$defs/texts"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/ids"
+        },
+        "groupPath": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "allOf": [
+              {
+                "pattern": "\\S"
+              },
+              {
+                "not": {
+                  "pattern": "[/／>]"
+                }
+              }
+            ]
+          },
+          "description": "按业务模块分层，通常 2–3 层；不用源代码目录替代业务分组。空数组表示未分组。"
+        },
+        "flow": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/nonempty"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "前两个元素为步骤名称与简述；新文档只需这两个元素，不生成图标或坐标。"
+          }
+        },
+        "stepDetails": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "revision": {
+          "$ref": "#/$defs/revision",
+          "description": "业务定义、规则、步骤、验收或功能依赖等规范内容变更时由工具递增；名称和分组不影响此版本。"
+        },
+        "editRevision": {
+          "$ref": "#/$defs/revision",
+          "description": "每次实际保存递增，用于拒绝旧页面；定义、流程同步和验收登记均计入。"
+        },
+        "flowRevision": {
+          "$ref": "#/$defs/revision",
+          "description": "外部 AI 显式同步业务流程时绑定当前定义版本。当前完成状态要求非空流程已同步。"
+        },
+        "implementedRevision": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "implementation": {
+          "$ref": "#/$defs/implementation"
+        },
+        "sequence": {
+          "$ref": "#/$defs/sequence"
+        },
+        "dataflow": {
+          "$ref": "#/$defs/graph"
+        },
+        "implementationHistory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/implementation"
+          },
+          "description": "工具登记新验收记录时保留上一条记录；不由一般业务编辑操作改写。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "implementedRevision": {
+                "type": "integer"
+              }
+            },
+            "required": ["implementedRevision"]
+          },
+          "then": {
+            "required": ["implementation"]
+          }
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "actor",
+        "description",
+        "rules",
+        "dependencies",
+        "result",
+        "exception",
+        "interactions",
+        "acceptance"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "rules": {
+          "$ref": "#/$defs/texts"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/ids"
+        },
+        "result": {
+          "type": "string"
+        },
+        "exception": {
+          "type": "string"
+        },
+        "acceptance": {
+          "type": "string"
+        },
+        "dependenciesPending": {
+          "type": "boolean"
+        },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "string"
+            },
+            "description": "发送者、接收者、自然语言行为。"
+          }
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "required": ["revision", "verifiedAt", "checks"],
+      "properties": {
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "result"],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "result": {
+                "const": "passed"
+              }
+            }
+          }
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "category": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "responsibility": {
+          "type": "string"
+        },
+        "failure": {
+          "type": "string"
+        },
+        "relations": {
+          "$ref": "#/$defs/ids"
+        },
+        "openQuestions": {
+          "$ref": "#/$defs/texts"
+        }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "required": ["roles", "base", "normal"],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonempty"
+          }
+        },
+        "success": {
+          "type": "string"
+        },
+        "failure": {
+          "type": "string"
+        },
+        "base": {
+          "$ref": "#/$defs/messages"
+        },
+        "normal": {
+          "$ref": "#/$defs/messages"
+        },
+        "error": {
+          "$ref": "#/$defs/messages"
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
+    "message": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 5,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/revision"
+        },
+        {
+          "$ref": "#/$defs/revision"
+        },
+        {
+          "$ref": "#/$defs/nonempty"
+        },
+        {
+          "$ref": "#/$defs/revision"
+        },
+        {
+          "enum": ["return", "error"]
+        }
+      ],
+      "description": "发送者序号、接收者序号、行为、所属步骤序号、可选返回或异常标记。序号从 0 开始。"
+    },
+    "graph": {
+      "type": "object",
+      "required": ["title", "nodes", "edges"],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        }
+      },
+      "description": "只生成节点与语义关系；模板计算排布。"
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/graphId"
+        },
+        "title": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "type": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "rules": {
+          "$ref": "#/$defs/texts"
+        },
+        "fields": {
+          "$ref": "#/$defs/texts"
+        },
+        "dependency": {
+          "$ref": "#/$defs/id"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/ids"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/graphId"
+        },
+        "to": {
+          "$ref": "#/$defs/graphId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "dashed": {
+          "type": "boolean"
+        },
+        "relation": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

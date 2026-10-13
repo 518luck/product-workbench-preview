@@ -1,0 +1,4 @@
+interface:
+  display_name: '维护产品蓝图'
+  short_description: '核验源码与需求差异，保留用户原文和编号，预览确认后更新业务规则与流程'
+  default_prompt: '使用 $product-blueprint-maintain 整理当前需求变更并更新已有产品蓝图。'

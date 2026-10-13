@@ -1,0 +1,36 @@
+{
+  "name": "product-blueprint",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "product-blueprint": "./bin/product-blueprint.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "assets/",
+    "schema/",
+    "examples/",
+    "skills/",
+    "ANALYSIS.md",
+    "README.md",
+    "DOCUMENT.md"
+  ],
+  "scripts": {
+    "blueprint": "node bin/product-blueprint.mjs",
+    "check": "node --test test/*.test.mjs",
+    "package:check": "node --test test/package.test.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=22.14"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
+  },
+  "dependencies": {
+    "typescript": "6.0.2"
+  }
+}

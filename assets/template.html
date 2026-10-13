@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="用自然语言记录产品背景、功能流程、业务规则和系统依赖。" />
+    <title>产品蓝图</title>
+    <script>
+      {{BLUEPRINT_THEME}}
+    </script>
+    <style>
+      {{BLUEPRINT_STYLES}}
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="项目导航">
+        <div class="brand">
+          <div class="brand-name"></div>
+          <div class="brand-subtitle">产品蓝图</div>
+        </div>
+        <div class="sidebar-top">
+          <button class="overview-nav" id="overview-button" type="button"></button>
+          <div class="view-tabs" role="tablist" aria-label="产品视角">
+            <button
+              class="view-tab active"
+              id="business-tab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="workspace"
+              type="button"
+              data-mode="business"
+            >
+              业务功能
+            </button>
+            <button
+              class="view-tab"
+              id="dependencies-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="workspace"
+              type="button"
+              data-mode="dependencies"
+            >
+              系统依赖
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-directory">
+          <div class="nav-heading">
+            <div class="nav-label" id="nav-label">功能目录</div>
+            <div class="tree-actions" id="tree-actions" role="group" aria-label="目录展开控制">
+              <button
+                type="button"
+                id="tree-expand"
+                data-tree-open="true"
+                aria-controls="navigation"
+              >
+                全部展开</button
+              ><button
+                type="button"
+                id="tree-collapse"
+                data-tree-open="false"
+                aria-controls="navigation"
+              >
+                全部折叠
+              </button>
+            </div>
+          </div>
+          <nav id="directory-scroll" aria-label="功能目录" tabindex="0">
+            <div class="nav-items" id="navigation"></div>
+          </nav>
+        </div>
+      </aside>
+      <main class="workspace" id="workspace" role="tabpanel" aria-labelledby="business-tab">
+        <header class="topbar">
+          <div class="breadcrumb">
+            <strong></strong><span>/</span><span id="breadcrumb-section">业务功能</span>
+          </div>
+          <div class="topbar-actions">
+            <button class="button theme-toggle" id="theme-toggle" type="button"></button>
+          </div>
+        </header>
+        <div class="page" id="page"></div>
+      </main>
+    </div>
+    <dialog class="modal step-modal" id="step-modal" aria-labelledby="step-title">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title" id="step-title">步骤详情</h2>
+          <div class="passport-context" id="step-context"></div>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          data-close="step-modal"
+          aria-label="关闭步骤详情"
+        ></button>
+      </div>
+      <div class="modal-body" id="step-content"></div>
+    </dialog>
+    <div class="toast" role="status" aria-live="polite" id="toast"></div>
+    <script id="product-data" type="application/json">
+      {{PRODUCT_DOCUMENT}}
+    </script>
+    <script>
+      {{BLUEPRINT_CLIENT}}
+    </script>
+  </body>
+</html>
