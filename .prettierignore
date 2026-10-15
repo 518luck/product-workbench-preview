@@ -3,3 +3,6 @@ dist/
 product-document.json
 .blueprint-analysis/
 init-preview/
+blueprint/
+.blueprint/
+product-workbench-blueprint/
