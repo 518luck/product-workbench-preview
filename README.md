@@ -1,89 +1,120 @@
 # 产品蓝图
 
-产品蓝图帮助团队把产品背景和行为整理成可持续维护的自然语言文档。已有项目可以从源码梳理实际行为；新项目可以先记录需求，再逐步补全按业务能力划分的功能、规则、步骤、异常、依赖和验收要求。
+产品蓝图面向 AI 辅助开发，为人和 AI 建立一份共享的产品上下文。它通过 Skills 快速初始化一本产品书，让人看懂项目有哪些功能、各自有什么作用、业务如何运转，也让 AI 依据蓝图理解项目、更新已有功能或新增功能。
 
-用户、AI Skills 和 CLI 分工协作：用户在固定 HTML 界面阅读、编辑和确认文档；三个 Skill 分别负责初始化蓝图、维护需求变化、按已确认的蓝图实现功能；CLI 提供文档读写、变更预览、校验、版本与并发保护、JS／TS 源码分析，以及固定模板 HTML 生成。网页不连接 AI，CLI 不调用模型、不执行被扫描项目的代码或测试。AI 在外部理解需求、修改代码并实际验收。
+在 AI 承担大量代码开发的过程中，用户需要从产品层面理解项目，并用自然语言表达变化。蓝图把产品知识从代码中提取出来，按业务能力组织，保存功能定义、规则、流程、异常、依赖和验收要求，作为后续开发可以持续读取和更新的上下文。
 
-已有项目的分析会话记录源码范围、读取凭据和内容指纹，逐项支持 JS／TS 函数及顶层逻辑分析，并报告解析失败、未覆盖源码和无法确定的调用。工具可以核对分析记录和文档依据是否完整，但不能证明 AI 的理解一定正确；未知或推断内容应明确标注，分析有缺口时可以交付草稿，不能据此登记完成。
+核心使用流程是：**初始化产品书 → 人阅读并用自然语言提出修改 → Skill 根据蓝图驱动 AI 开发 → 同步蓝图，让它持续反映产品。**
 
-功能状态只有“草稿”和“完成”。业务定义变化会产生新版本并回到草稿；完成状态要求业务流程同步到当前定义版本，并有针对该版本的外部验收记录。时序图和数据流图是可选图表。
+## 产品目标与分工
 
-需要 Node.js 22.14 或更新版本。工具固定依赖 `typescript@6.0.2`，用于静态解析 JavaScript／TypeScript（含 JSX／TSX），不执行被扫描项目。开发使用 pnpm。
+| 参与者或组成     | 在产品中的职责                                                        |
+| ---------------- | --------------------------------------------------------------------- |
+| 人               | 阅读产品功能和作用，用自然语言提出新增或修改需求，确认产品行为        |
+| 产品蓝图         | 保存人与 AI 共享的产品认知，为项目理解、需求讨论和开发提供上下文      |
+| 三个 Skill       | 引导 AI 初始化产品书、维护需求与业务影响、按确认后的蓝图实现功能      |
+| 固定 HTML 界面   | 面向人的阅读与编辑入口，展示产品内容和业务图表                        |
+| CLI 与分析辅助层 | 为 Skill 提供读取、变更预览、校验、保存、源码分析和固定 HTML 生成能力 |
 
-## 初始化、阅读与生成
+开发这个工具时，优先判断：产品书能否快捷建立、人能否看懂功能和作用、AI 能否据此准确新增或修改功能并同步蓝图。版本、验收和并发保护服务于这条协作流程。
 
-在工具源码目录中使用 `pnpm blueprint`；本机安装后使用 `product-blueprint`：
+用户可以在网页中用自然语言编辑功能定义，也可以在 AI 对话中提出需求。外部 AI 通过 Skill 执行后续整理和开发；网页与 CLI 本身不调用模型，页面保存也不会自动触发 AI。初始化和核验实际行为时，AI 仍需读取源码与配置；蓝图提供产品层面的入口，源码提供实际行为与实现依据。
 
-```sh
-pnpm blueprint --help
-pnpm blueprint --version
-pnpm blueprint init ./my-product --name "我的产品" --json
-pnpm blueprint document get ./my-product --section product --json
-pnpm blueprint feature list ./my-product --status draft --json
-pnpm blueprint validate ./my-product --json
-pnpm blueprint render ./my-product --output ./my-product/index.html --json
-pnpm blueprint serve ./my-product --port 62040
-pnpm blueprint schema
-pnpm blueprint schema --changes
-```
+## 阅读入口
 
-目录参数和 JSON 完整路径都可以使用，也可用 `--document` 指定；省略时读取当前目录的 `product-document.json`。`document get --section` 支持 `all`、`product`、`dependencies`、`diagrams`。功能列表支持分组路径及 `draft` / `complete` 筛选，功能详情的 `--related` 附带相关依赖。
+| 文档                       | 内容                                               | 何时阅读                 |
+| -------------------------- | -------------------------------------------------- | ------------------------ |
+| 本文                       | 产品定位、快速开始、Skill 入口和开发目录           | 第一次了解项目           |
+| [DOCUMENT.md](DOCUMENT.md) | 蓝图数据、读取与修改命令、版本、保存和失败恢复     | 编辑或实现蓝图功能       |
+| [ANALYSIS.md](ANALYSIS.md) | 扫描范围、逐函数读取、分析记录、来源依据和交付检查 | 根据源码初始化或维护蓝图 |
 
-`init` 创建空文档和同目录的 `index.html`，不会覆盖已有文件。`validate` 检查格式、稳定编号、引用和版本记录。`render` 使用固定模板生成独立 HTML，失败时保留已有 HTML。`serve` 仅监听本机，支持阅读及保存定义。命令帮助说明可用参数；`--json` 输出供 AI 或程序读取的结构化结果，失败返回非零退出码。
+机器可读规范由 `product-blueprint schema`、`schema --changes`、`schema --analysis`、`schema --verification` 和 `schema --delivery` 提供。各命令的完整参数通过 `--help` 查询。
 
-`schema` 输出文档 JSON Schema；`schema --changes` 输出整批变更规范。`examples/minimal-product.json` 是通用最小文档，可用于校验和生成。
+## 从产品书开始使用
 
-## 文档维护
+在已安装对应 Skill 的 AI 会话中，按目标选择入口。以下目录和产品名称仅为示例：
 
-读取结果包含 `documentHash`。写入必须携带本次读取的哈希；文档有任何变化就拒绝旧请求，AI 应重新读取和评估。以下命令接受 `--input 文件` 或 `--input -` 从标准输入读取 JSON：
+| 目标             | 给 AI 的指令示例                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 理解已有项目     | `$product-blueprint-init 请为 /我的项目 直接生成产品书，梳理产品背景、功能和作用、业务规则与流程，完成后提供阅读入口。` |
+| 建立新产品       | `$product-blueprint-init 根据以下需求建立产品蓝图草稿：……`                                                              |
+| 修改或新增需求   | `$product-blueprint-maintain 根据已有蓝图，为“调查表”新增定时关闭功能，梳理规则、流程和受影响功能，先展示预览。`        |
+| 落地确认后的功能 | `$product-blueprint-implement 按已确认并保存的定时关闭功能蓝图实现代码，执行验收并同步蓝图。`                           |
 
-```sh
-product-blueprint feature create feature-id --input feature.json --expected-hash HASH --dry-run --json
-product-blueprint feature update feature-id --input changes.json --expected-hash HASH --json
-product-blueprint feature define feature-id --input definition.json --expected-hash HASH --json
-product-blueprint feature sync feature-id --expected-hash HASH --json
-product-blueprint feature complete feature-id --input verification.json --expected-hash HASH --json
-product-blueprint feature delete feature-id --expected-hash HASH --dry-run --json
-product-blueprint apply --input changes.json --dry-run --json
-product-blueprint apply --input changes.json --json
-```
+首次初始化默认直接生成产品 JSON 和 HTML，完成后提供阅读入口、范围与缺口报告，用户先看产品书再提出修改。dry-run 用于内部检查，不要求用户先确认陌生项目的内容；明确要求只预览时才停在预览。已有项目由初始化 Skill 读取源码并归纳产品书；新项目由需求建立草稿。已有目标蓝图时先读取并维护原内容，保留稳定编号、用户定义和历史；其他产品的示例文档保留，新产品书写入独立且未占用的位置。
 
-单功能命令可以在功能编号后指定目录或文档路径；`apply` 也接受目录或文档路径。输入结构及完整操作格式见 [DOCUMENT.md](DOCUMENT.md)。普通 `feature update` 不能改写用户的定义原文；需要明确改写时使用 `feature define`。版本字段由 CLI 管理，不从输入中接受。
+阅读生成的 HTML 后，用户可以新增功能或用自然语言编辑已有定义；需要保存时通过本机服务打开页面。需要梳理需求时使用维护 Skill；需要落地时调用实现 Skill，它会自动查找授权范围内待实现的定义和已保存批注。明确需求直接整理并实现，有歧义时先确认。只要求整理产品书时，维护 Skill 只更新蓝图；实现代码由实现 Skill 承接。
 
-`--dry-run` 展示字段差异、删除影响、版本和状态变化，不保存文档或 HTML。外部 AI 先展示预览，由用户在对话中确认后再执行正式写入；CLI 不弹确认框。整批变更先合并、检查最终引用，再原子保存；任一步校验失败都不保存。没有出现在变更中的功能和字段不会被删除，旧的备注与历史字段保留。
+不熟悉定义时，在功能定义下方的“批注”中描述需要修改的内容，通过本机服务保存即可；已保存的批注可以逐条编辑、保存修改或删除。保存批注不改变定义或完成状态；调用实现 Skill 后，AI 会读取蓝图中的待实现定义和已保存批注，整理需求、修改代码、验收并同步蓝图，成功后删除对应批注，失败或未处理的批注保留。无需逐项复制指令。直接打开 HTML 是只读快照，浏览器暂存的批注尚未写入 JSON，Skill 无法读取；需要通过本机服务保存。页面不自动启动 AI。
 
-成功保存默认更新同目录 `index.html`，可用 `--output 文件.html` 指定输出，或用 `--no-render` 只保存文档。文档是权威来源；如果文档已保存而 HTML 生成失败，结果会分别报告保存和生成状态，重新执行 `render` 即可恢复快照，不要盲目重复提交已经保存的批次。
+三个 Skill 的实际入口分别是初始化产品书、需求维护、代码实现与验收。“需求维护”把修改想法整理为明确的功能定义、业务规则、流程与影响，单独调用时不改代码；“代码实现与验收”会发现已修改的定义和批注，将明确且授权的需求落地。产品书以“Skill 协作”为分组，分别展示“初始化产品书”“维护需求与蓝图”“按蓝图实现与验收”三个独立业务。整体生命周期是概览旅程，不是替代三项业务的合并功能，也不是第四个 Skill。
 
-参数错误、文档校验失败、版本冲突及生成失败使用不同错误类型。CLI 只校验验收记录的结构与版本，不证明其中描述的项目验证真实执行。明确移除可选字段用整批操作的 `unset`，不能靠省略字段删除；新验收替换旧记录时，旧记录保存在 `implementationHistory`。
+初始化还要按实际依据整理图表：功能时序图说明交互顺序，数据流图说明输入、处理、存储和输出，项目架构图说明职责边界，数据关系图说明业务对象之间的包含、引用和版本关系。适用且有依据时默认生成，跳过时说明原因；图表字段可选不代表交付时可以全部省略。
 
-## AI 的工作流
+用户绕过蓝图直接修改代码时，Skill 也会先运行 `document status`，比较当前源码与上次验收的内容指纹。即使没有草稿或批注，也会核对已完成功能受影响的情况；新提交不自动当作新功能，已实现且符合需求的代码只需核验并同步。完成登记通过分析会话自动保存源码基线，旧记录缺少基线时明确提示尚未核验。本机页面打开或点击“重新核验源码”可查看提示；独立 HTML 不检查实时源码。
 
-1. 读取产品信息及目标功能，按需要读取关联依赖；以业务能力划分功能，保留已有编号和用户原文。
-2. 用明确操作整理规则、步骤、异常及验收要求；预览变更，用户确认后保存并同步流程。一次批次内同一功能只递增一次版本。
-3. 根据保存后的定义版本实现项目代码，在项目中执行实际验收；CLI 不替 AI 执行代码或测试。
-4. 重新读取，确认版本仍相同，再登记通过的验收记录。代码验收失败时保留草稿，不登记完成。
+代码变化后应同步蓝图中的实际规则、流程与依据，使下一次人或 AI 进入项目时能够沿用当前产品认知。初始化按实际实现判断状态：源码已实现、与当前定义一致且实际核验通过的功能登记完成；新需求、未实现或无法核验的功能保留草稿并说明原因。创建定义时的草稿是中间状态，生成产品书不应把已有功能一律展示为草稿。
 
-功能只有“草稿”和“完成”。业务内容变化会产生新定义版本并回到草稿；名称和分组变化只增加编辑版本，不改变完成状态。完成登记要求验收对应当前定义版本且业务流程已同步；时序图和数据流图可选。跨功能业务变更必须明确列出受影响功能，CLI 不猜测自然语言的影响范围。
+## CLI 与本机阅读入口
 
-## 固定模板与项目内容
-
-| 层         | 负责的内容                                                   | 项目变化时怎样处理                |
-| ---------- | ------------------------------------------------------------ | --------------------------------- |
-| 固定模板   | 黑白主题、目录、编辑表单、图表布局、节点详情                 | 工具统一升级，AI 不为每个项目重写 |
-| 项目文档   | 产品背景、角色、业务分组、定义、规则、依赖、流程、关系、验收 | AI 使用 CLI 读取并提交明确变更    |
-| 校验与保存 | 字段、引用、版本、文件锁及原子保存                           | CLI 与本机编辑服务共享            |
-| 生成结果   | 可独立阅读的 HTML 快照                                       | 可重新生成，不作为业务数据来源    |
-
-一份 JSON 保存全部业务内容，CLI 可以按功能和分区读取，不要求 AI 处理整份文件。相同模板版本与相同文档生成一致的 HTML。业务 JSON 不包含 CSS、HTML 程序、SVG 路径、坐标或页面事件；暂不提供任意页面组件和业务校验脚本插件。
-
-主要源码：`assets/` 是固定界面，`lib/` 是校验、分析、文档操作、持久化与服务，`bin/` 是命令入口，`schema/` 是机器可读规范，`skills/` 是三个可独立安装的 AI 工作流。`product-document.json` 是当前用户文档，`dist/index.html` 是其生成快照，均不打入工具包。
-
-直接打开 HTML 可以阅读快照。需要修改并保存时使用 `serve`；AI 保存后刷新页面读取新内容。目录可全部展开或折叠，保持独立滚动并隐藏滚动条。文件锁协调 CLI 与页面保存；直接改写 JSON 的外部程序不遵守这把锁，应使用 CLI 提交变更。
-
-## 本机安装与核验
+需要 Node.js 22.14 或更新版本，开发使用 pnpm。在工具源码目录运行：
 
 ```sh
 pnpm install
+pnpm blueprint --help
+pnpm blueprint serve /我的项目/.blueprint --port 62040
+```
+
+`serve` 的路径应指向已生成的蓝图目录或 JSON 文件，打开终端输出的本机网址即可阅读和编辑。直接打开 HTML 可以阅读快照；使用 `render` 可以重新生成 HTML。
+
+如果要手动创建文档容器，可运行：
+
+```sh
+pnpm blueprint init /我的项目/.blueprint --name "我的产品" --json
+pnpm blueprint validate /我的项目/.blueprint --json
+```
+
+CLI 的 `init` 只创建空 JSON 文档和同目录的 `index.html`，不会覆盖已有文件。把源码或需求整理为产品书由初始化 Skill 中的 AI 完成。
+
+本机安装后，以上命令的 `pnpm blueprint` 可替换为 `product-blueprint`。命令接受文档目录或 JSON 路径；具体读写规则见 [DOCUMENT.md](DOCUMENT.md)。
+
+## 三个 Skill 与协作流程
+
+| Skill                                                                      | 负责的工作                                                      |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [product-blueprint-init](skills/product-blueprint-init/SKILL.md)           | 逐项读取源码，核验已有功能并登记完成；新需求保留草稿，生成 HTML |
+| [product-blueprint-maintain](skills/product-blueprint-maintain/SKILL.md)   | 核验需求与代码变化，保留用户原文、稳定编号和历史，确认后更新    |
+| [product-blueprint-implement](skills/product-blueprint-implement/SKILL.md) | 查找待实现定义及批注，实现验收后登记完成并清理已处理批注        |
+
+三个 Skill 的文件夹可独立安装到 `$CODEX_HOME/skills`，未设置时使用 `~/.codex/skills`；安装前保留已有同名 Skill 的本机改动。安装后用 `$product-blueprint-init`、`$product-blueprint-maintain`、`$product-blueprint-implement` 调用。
+
+新增或修改功能时，协作顺序是：AI 读取蓝图与依据 → 根据自然语言需求梳理影响并预览 → 用户确认后保存 → 按保存的版本实现 → 核验实际行为并同步蓝图 → 实际验收并登记完成。功能只有“草稿”和“完成”；业务变化会回到草稿，重命名和调整分组保留完成状态。
+
+源码分析支持 JavaScript／TypeScript，包括 JSX／TSX，使用固定的 `typescript@6.0.2`。工具核验读取覆盖和依据，不能证明 AI 理解正确。有缺口时可明确交付草稿，完成登记要求当前版本的完整依据、同步流程和验收记录。详细规则见 [ANALYSIS.md](ANALYSIS.md)。
+
+初始化严格交付使用 `document check`：完整分析、逐功能状态判断、工具执行验收记录、图表适用性及当前 HTML 都通过后，才报告初始化完成。保存中间 JSON／HTML 可以恢复进度，但不代表交付通过。草稿要具体说明是未来需求、未实现还是无法核验。旧文档仍可阅读及手动维护，不会因新增门槛被重写。
+
+实际验收可用 `verification run ID /文档 --analysis-session SESSION --input 命令.json` 显式执行命令，获取 `executionId`；完成批次带 `--require-verification` 核对文档、功能、定义及源码版本。静态扫描与网页仍不执行项目代码；只有显式验收命令执行调用方提供的检查。退出成功不能证明检查覆盖全部业务，需要实际正常与异常路径。
+
+开发中的真实 AI 初始化评测入口是 `node scripts/evaluate-init.mjs --agent 运行配置.json --trials 3`。配置为 `{ "command": "codex", "args": ["exec", "--ephemeral", "--sandbox", "workspace-write", "--skip-git-repo-check", "--json", "-"] }`，也可传其他支持 stdin 提示的本机 AI 命令；模型使用调用方配置，不自动替换。六个场景覆盖已有功能完成、未实现需求草稿、示例保护、嵌套源码、中断恢复和批注协作闭环，外部 AI 每轮默认时限为 20 分钟，可用 --timeout-ms 调整；每次在新临时目录运行，以实际产物独立评分，保留报告与执行记录。`--case implemented --trials 3` 可单测场景。运行会调用外部 AI 并消耗其额度；普通 `pnpm check` 只测试工具和评分器，不运行模型。小样本结果不能作为任意项目的稳定性保证。
+
+## 项目结构
+
+| 位置        | 用途                                           |
+| ----------- | ---------------------------------------------- |
+| `assets/`   | 固定界面的黑白主题、目录、表单和图表布局       |
+| `lib/`      | 校验、源码分析、文档操作、保存、服务和模板组装 |
+| `bin/`      | CLI 入口                                       |
+| `schema/`   | 文档、整批变更和分析的 JSON Schema             |
+| `skills/`   | 三个 Skill 及其参考流程                        |
+| `examples/` | 通用最小文档                                   |
+| `test/`     | 使用临时项目和随机本机端口的回归测试           |
+
+`product-document.json` 是当前用户的权威业务文档，`dist/index.html` 是生成快照；被分析项目的 `.blueprint-analysis/` 保存分析会话。AI 维护语义数据，HTML 始终由固定模板生成。业务内容与模板的约束见 [DOCUMENT.md](DOCUMENT.md)。
+
+## 本机安装与开发检查
+
+```sh
 pnpm check
 pnpm format:check
 pnpm package:check
@@ -92,35 +123,8 @@ pnpm add --global /你的输出目录/product-blueprint-0.2.1.tgz
 product-blueprint --help
 ```
 
-包使用文件白名单，只包含命令、程序、固定模板、规范和通用示例，不包含用户文档、生成快照、测试或本机预览启动脚本。包保持 `private: true`，仅用于本机安装，不发布到包管理平台，不修改 shell 配置。若当前环境没有全局命令目录，仍可使用绝对路径调用：
+也可通过绝对路径运行入口：`node /工具目录/bin/product-blueprint.mjs --help`。
 
-```sh
-node /你的路径/product-workbench-preview/bin/product-blueprint.mjs init .blueprint --name "我的产品"
-```
+工具包采用文件白名单，包含程序、模板、规范、Skill 和通用示例，排除用户文档、生成快照、分析会话及测试。当前仅本机交付，保留 `private: true`，不发布包、不修改 shell 配置；尚未提供 MCP。
 
-测试使用独立临时目录及随机本机端口，覆盖版本冲突、整批原子保存、字段保留、验收登记、生成失败恢复，以及实际打包安装后在不同项目中运行。格式工具仅是开发依赖，格式化排除用户文档、分析会话和生成结果。不包含 MCP，不调用模型。
-
-## 逐函数分析与三个 Skill
-
-```sh
-product-blueprint analysis scan /项目目录 --json
-product-blueprint analysis list --session /返回的会话目录 --status pending --json
-product-blueprint analysis read 单元编号 --session /会话目录 --json
-product-blueprint analysis record --session /会话目录 --input 记录.json --json
-product-blueprint analysis trace --session /会话目录 --input 依据.json --json
-product-blueprint analysis check --session /会话目录 --json
-product-blueprint schema --analysis
-product-blueprint apply /文档 --input 批次.json --analysis-session /会话目录 --dry-run --json
-```
-
-分析会话独立存放在被扫描项目的 `.blueprint-analysis/`。源码读取凭据、摘要及流程依据绑定当前内容指纹；源码或解析配置变化后旧会话不能继续写入。相同快照可以恢复尚未完成的项。普通手工命令仍可使用，不强制分析模式。
-
-AI 必须逐项阅读并提交独立分析，工具核验范围覆盖和记录字段；业务步骤、规则和异常的依据绑定到最终文档字段。检查失败默认拒绝保存，显式 `--allow-partial-analysis` 可以保存草稿并输出缺口报告，但该批次不能登记任何功能完成。工具不能证明模型理解正确，也不是防止其他程序绕过的权限边界。具体输入、分段、类型上下文、排除项与错误码见 [ANALYSIS.md](ANALYSIS.md)。
-
-三个 Skill 的源文件随工具包交付，可将对应文件夹安装到 `$CODEX_HOME/skills`（未设置时为 `~/.codex/skills`），安装前核对已有同名 Skill，保留需要的本机改动：
-
-- [product-blueprint-init](skills/product-blueprint-init/SKILL.md)：从项目源码归纳业务蓝图；无源码时依据需求创建草稿。
-- [product-blueprint-maintain](skills/product-blueprint-maintain/SKILL.md)：保留原文、编号和历史，核验差异及影响，确认后更新。
-- [product-blueprint-implement](skills/product-blueprint-implement/SKILL.md)：按授权草稿实现，实际验收后登记当前版本完成。
-
-安装后可用 `$product-blueprint-init`、`$product-blueprint-maintain`、`$product-blueprint-implement` 调用。首次扫描不等于已实现及验收，初始化默认交付草稿。固定 HTML 继续由 CLI 生成，Skill 不为不同项目重新设计页面。
+严格交付审阅 v2 从核心用户旅程检查功能与步骤覆盖，并要求规则、步骤依赖、业务验收条件及正常／异常路径的真实执行映射。失败时序须有实际分支，替代图表须存在。旧产品书继续可读，旧审阅重新核对后才能通过新门槛；工具不能自动判断产品含义或测试断言是否充分。

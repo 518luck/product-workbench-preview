@@ -1,10 +1,64 @@
-# 需求与源码差异
+# 维护流程
 
-1. `document get /文档 --json`，再 `feature list` 与目标 `feature get ID --related`。保存 documentHash，读取原始定义、当前 revision、flowRevision、完成与历史验收。先说明本次用户要求和已有代码的差异，不用新描述覆盖原文。
-2. 核验或新建 `analysis scan /项目 --json`。显式扫描范围继续沿用用户确认的配置；列出默认／用户排除项。相同快照可断点继续；新源码、新增／删除文件、解析配置变化使旧会话失效，重新扫描并完整读取当前范围内所有待处理单元。不要只读 diff 就声称全量核验。
-3. 分页读取 contexts 并取得读取凭据；每轮 `analysis list --status pending` 从 offset 0 取剩余单元。逐项 `analysis read`，跟随 nextOffset 读完，记录 schema 要求的八项分析。调用目标依 TypeScript 符号索引，动态或外部关系保留未知；配置读取不计函数分析，测试是验收依据。根据函数间实际调用与业务入口确认需求影响，必要时读取相关蓝图功能与依赖。
-4. 使用最小明确 operations。只改名称／分组用 feature.update；改业务规则、步骤、异常和验收也用 update；用户明确改写原文才用 define；删除只能基于明确授权，用同批清理最终引用。未指定字段、旧历史和未扫描功能保持原状。产品、依赖或图表变化可能影响其他功能，逐项列出真实受影响的 affectedFeatureIds。
-5. `analysis trace` 绑定最终 changed 字段的 value。步骤、规则、异常和依赖分别用叶子 JSON Pointer 关联；清空值或删除用相应空值／null 依据。请求中的未来行为用 requested + 需求原文，不把它记成 observed。需要同步流程时，flow 和 stepDetails 已整理完毕，再附 feature.sync；它仅声明保存后的定义版本已同步，不负责生成流程。
-6. `analysis check`；`apply /文档 --input 批次.json --analysis-session SESSION --dry-run --json`。展示定义保留／改写、规则差异、受影响功能、版本与草稿状态，以及缺口。缺口默认拒绝；用户接受草稿范围后才用 --allow-partial-analysis，该批次不得含 complete。
-7. 用户确认具体预览后提交。若 CONFLICT 或 ANALYSIS_STALE，不自动用新哈希重试：重新读文档／源码，重新评估并预览实际差异。已授权且内容没变可继续提交；内容改变则展示新结果等待确认。记录与流程依据变化时重新检查。
-8. 保存后读回字段、版本及 HTML 状态。生成失败但文档已保存时单独 render。改名和分组不得使已有完成状态失效，业务变化必须回草稿；历史验收保留并且不能给新版本冒用。此流程只维护文档，不运行项目代码或登记完成。
+## 读取当前状态
+
+使用支持 `document status` 和 `implementation.sourceSnapshot` 的 CLI，按 `--help`、`schema --analysis`、`schema --changes` 查询实际协议。全局命令缺失或协议过旧时可使用已知工具源码入口；没有可用工具时保留现有记录，说明需更新，不手填基线。
+
+读取 `document get /文档 --json`、`feature list` 及目标 `feature get ID --related`。保存 documentHash，核对用户原文、当前 revision、flowRevision、批注与验收历史。
+
+运行 `document status /文档 --json`，即使没有草稿或批注也检查外部源码变化：
+
+| 源码状态    | 含义与处理                                     |
+| ----------- | ---------------------------------------------- |
+| current     | 记录范围内指纹一致，仍需按本次需求读取相关材料 |
+| changed     | 核对新增、修改和删除的文件，追踪业务影响       |
+| unverified  | 缺少验收基线，不能声称当前源码已核验           |
+| unavailable | 解决项目路径或读取问题，无法解决时注明范围     |
+
+Git 提交号只作辅助；未提交修改同样需要检查。区分重构、修复、业务变化与未知，不根据提交本身新增需求，也不将源码提示直接变成定义版本变化。
+
+## 分析需求与源码
+
+确认现有会话与当前源码及解析配置一致。相同快照继续 pending；源码或配置改变后重新 `analysis scan /项目 --config 已确认范围.json --json`，保留明确扫描范围并核对排除项。
+
+读取 contexts 和当前范围内所有待处理单元，不能只读 diff 就声称全量核验：
+
+- 每轮 pending 分页从 offset 0 取剩余项，避免处理后集合变化造成跳项。
+- `analysis read` 跟随 `nextOffset` 读完全部分段，提交各单元独立的职责、输入输出、条件、调用、副作用、异常和未知记录；完整嵌套凭据可复用，分析仍独立。
+- 动态及外部关系保留未知；配置说明运行条件，测试是验收依据，二者不冒充产品实现。
+
+对照用户需求、实际入口及调用关系，确认受影响功能、规则、流程与依赖。`observed` 记录已有行为，`requested` 保留需求原文；推断和未知明确标注在备注，不写成已确认事实。
+
+## 构建明确变更
+
+使用最小 operations，并按最终保存内容绑定 `analysis trace`：叶子 JSON Pointer、最终 value、有效源码记录或明确需求原文；清空和删除使用对应空值／null 依据。
+
+| 操作           | 适用情况                                              |
+| -------------- | ----------------------------------------------------- |
+| feature.update | 名称、分组、规则、流程、验收条件等指定字段            |
+| feature.define | 用户明确授权改写 description 原文                     |
+| feature.sync   | 已整理的 flow／stepDetails 与保存后定义一致时声明同步 |
+| feature.delete | 明确授权删除，且同批清理最终引用                      |
+
+产品、依赖和图表变化也可能影响其他功能，按实际业务影响填写 `affectedFeatureIds`。保留未指定字段、备注、原文与历史，扫描未发现不代表可以删除。
+
+业务含义改变时产生新定义版本及草稿；改名和分组只改变编辑版本，不能取消已完成状态。语义未变的源码重构不递增定义版本；待核验提示保持可见，不替换 `implementation.sourceSnapshot`。
+
+## 预览与保存
+
+```sh
+product-blueprint analysis check --session SESSION --json
+product-blueprint apply /文档 --input 批次.json --analysis-session SESSION --dry-run --json
+```
+
+展示业务差异、原文保留／改写、受影响功能、版本与草稿状态，以及具体缺口。用户确认后提交同一批次；已有明确授权覆盖相同内容时继续，用户要求先预览时在此结束。
+
+缺口默认阻止保存。先修复可解决项；只有用户接受明确的草稿范围后才在预检和保存启用 `--allow-partial-analysis`，不携带 complete 操作。尚未分析完属于未完成工作，不称为无法核验。
+
+出现 `CONFLICT` 或 `ANALYSIS_STALE` 后重新读文档／源码，评估实际差异，不能盲目换哈希重试。授权内容未变可继续；发生新的业务选择时先确认。
+
+## 读回并结束
+
+核对保存字段、版本与 HTML。JSON 已保存但渲染失败时单独 `render`，不重复业务变更。交付阅读链接及简短变更说明，缺口写入相应功能。
+
+本流程到文档更新即结束：不执行项目验收、不登记完成、不删除待实现批注、不用当前指纹覆盖旧基线。`document check` 不是要求所有需求草稿变成完成的理由。用户另行授权实现时，再进入实现与验收流程。

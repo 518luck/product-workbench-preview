@@ -1,22 +1,57 @@
-# 分析辅助层 v1
+# 源码分析与依据规范
 
-CLI 0.2.1 使用固定 TypeScript 6.0.2 Compiler API 静态索引，不载入或执行项目代码、构建插件或测试。AI 在外部理解和验收；CLI 核验读取协议、来源绑定和保存规则，不能保证模型理解正确，也不能阻止有文件权限的外部程序直接改写文件。
+本文说明逐函数分析的读取协议、来源绑定和交付检查。项目介绍与 Skill 入口见 [README.md](README.md)，蓝图格式、文档版本和保存规则见 [DOCUMENT.md](DOCUMENT.md)。
 
-## 快照与范围
+源码分析用于把代码中的实际行为提取为人和 AI 都能理解的产品上下文。初始化 Skill 据此建立产品书，维护 Skill 据此核验需求与实际行为的差异，实现 Skill 据此在代码变化后同步蓝图。函数是读取和核验单位，交付内容仍按产品功能、作用、规则和流程组织。
 
-`analysis scan [项目] [--config 范围.json] --json` 返回 session、snapshotHash、完整清单（被排除目录作为一个条目，不枚举其内部）、函数／类型／上下文计数、导入关系和 gaps。配置为 `{"include":["."],"exclude":["明确排除的相对路径或glob"]}`，只接受项目内相对路径，不跟随符号链接。默认扫描整个项目的 authored JS／TS；范围外文件和默认排除都有原因。未匹配的 include 是缺口。
+先通过蓝图理解产品目标和已有功能，再按当前 Skill 协议读取源码与配置、核验实际行为。逐函数记录为业务内容提供依据；面向用户的产品书应说明业务含义，源码范围、凭据和覆盖检查保存在独立分析会话中。快速初始化的能力由 Skill 与 CLI 协作提供，CLI `init` 本身只创建空文档。
 
-默认排除 `.git/.hg/.svn`、`node_modules/vendor/.venv`、`dist/build/coverage/.next/.nuxt`、压缩 JS、source map、tsbuildinfo 和 `.blueprint-analysis`。排除目录不属于声明的分析范围；不能把范围内覆盖称为未扫描语言或整个仓库的全量理解。
+分析协议版本为 v1。CLI 0.2.1 使用固定 TypeScript 6.0.2 Compiler API 静态索引，不载入或执行项目代码、构建插件或测试。AI 在外部理解和验收；CLI 核验读取协议与记录，不能保证模型理解正确，也不能阻止有文件权限的外部程序直接改写文件。
 
-`.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts` 的函数、方法、构造器、访问器、箭头、匿名回调和嵌套函数都有独立编号；顶层执行语句也必须分析。接口、类型别名、声明签名和声明文件中的类型单独统计，作为可读取的类型上下文，不当作可执行函数。测试文件的单元 role 为 verification；其他可执行源码为 product。
+## 命令与处理顺序
 
-package.json、tsconfig/jsconfig（含项目内 extends）、工作区及常见构建配置是 context。配置不执行，不计函数分析，但交付需完整读取。项目的 compilerOptions 用于静态符号解析，未纳入清单的外部解析配置、包或库不会被偷偷读取。损坏的 JSON／JSONC、JS／TS 配置、源码语法、非 UTF-8 读取以及识别出的其他语言源码会生成 gaps；本版不进行其他语言的语义分析。YAML／TOML 配置作为文字上下文读取，不承诺语法校验。
+```sh
+product-blueprint analysis scan /项目目录 --json
+product-blueprint analysis list --session /返回的会话目录 --status pending --json
+product-blueprint analysis read 单元编号 --session /会话目录 --json
+product-blueprint analysis record --session /会话目录 --input 记录.json --json
+product-blueprint analysis trace --session /会话目录 --input 依据.json --json
+product-blueprint analysis check --session /会话目录 --json
+product-blueprint schema --analysis
+```
 
-快照哈希绑定规范化项目路径、声明范围、解析器及索引算法版本、源码／类型／上下文／非支持语言清单及实际内容。Git HEAD 只是补充。非源码文档或图片变化不使源码凭据失效；新源码、删除源码、内容及解析配置变化都会使旧会话失效。相同快照复用同一会话，无需重新处理已完成记录；索引算法升级也要求重新扫描，避免恢复旧的符号关系。新快照有独立目录和记录。
+先扫描，再逐项读取和分析，最后把业务文档字段关联到分析记录或需求依据。所有单元及上下文处理后执行检查，再用 dry-run 校验文档变更。首次初始化通过后直接保存定义，核验已有实现并登记完成，再生成 HTML 供用户阅读；已有蓝图的维护按相应 Skill 预览确认后保存。新项目没有源码时按需求创建草稿，不伪造源码引用。
 
-会话位置为 `项目/.blueprint-analysis/s-哈希/state.json`。创建时原子发布，读凭据、record 和 trace 通过文件锁及原子替换保存；已有他人锁不自动清理。分析模式保存文档时保持会话锁，提交前再次核验源码。外部编辑器不获取工具锁；出现冲突应重新读取而不是改哈希强行重试。
+## 扫描范围
 
-## 分页与读取
+`analysis scan [项目] [--config 范围.json] --json` 返回 session、snapshotHash、完整清单、函数／类型／上下文计数、导入关系和 gaps。被排除目录作为一个条目，不枚举其内部。范围配置为：
+
+```json
+{
+  "include": ["."],
+  "exclude": ["明确排除的相对路径或glob"]
+}
+```
+
+配置只接受项目内相对路径，不跟随符号链接。默认扫描整个项目的 JS／TS 源码；范围外文件和默认排除都有原因。未匹配的 include 是缺口。
+
+默认排除 `.git/.hg/.svn`、`node_modules/vendor/.venv`、`dist/build/coverage/.next/.nuxt`、压缩 JS、source map、tsbuildinfo 和 `.blueprint-analysis`。排除目录不属于声明的分析范围；范围内覆盖不能宣称已理解其他语言或整个仓库。
+
+`.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts` 的函数、方法、构造器、访问器、箭头、匿名回调和嵌套函数都有独立编号；顶层执行语句也必须分析。接口、类型别名、声明签名和声明文件中的类型单独统计，作为可读取的类型上下文，不当作可执行函数。测试文件的单元 role 为 `verification`；其他可执行源码为 `product`。
+
+package.json、tsconfig/jsconfig（含项目内 extends）、工作区及常见构建配置属于 context。配置不执行，不计函数分析，但交付需完整读取。项目的 compilerOptions 用于静态符号解析，未纳入清单的外部解析配置、包或库不会被额外读取。
+
+损坏的 JSON／JSONC、JS／TS 配置、源码语法、非 UTF-8 读取以及识别出的其他语言源码会生成 gaps；本版不进行其他语言的语义分析。YAML／TOML 配置作为文字上下文读取，不承诺语法校验。
+
+## 快照与会话
+
+快照哈希绑定规范化项目路径、声明范围、解析器及索引算法版本、源码／类型／上下文／非支持语言清单及实际内容。Git HEAD 只是补充。非源码文档或图片变化不使源码凭据失效；新源码、删除源码、内容及解析配置变化都会使旧会话失效。
+
+相同快照复用同一会话，无需重新处理已完成记录；索引算法升级也要求重新扫描，避免恢复旧的符号关系。新快照有独立目录和记录。
+
+会话位置为 `项目/.blueprint-analysis/s-哈希/state.json`。创建时原子发布，读取凭据、record 和 trace 通过文件锁及原子替换保存；已有他人锁不自动清理。分析模式保存文档时保持会话锁，提交前再次核验源码。外部编辑器不获取工具锁；出现冲突应重新读取，不能改哈希强行重试。
+
+## 分页与分段读取
 
 `analysis list --session SESSION --kind units|contexts|files|types|traces --status all|pending|recorded --offset 0 --limit 50`。默认 units，limit 为 1–200，返回 nextOffset。status 只过滤 units。units 包含作用域、文件、范围、内容指纹、role 和静态 calls；contexts 包含配置和类型的读取编号。类型不是 record 单元。
 
@@ -26,7 +61,7 @@ package.json、tsconfig/jsconfig（含项目内 extends）、工作区及常见�
 
 receipt.id 由工具生成，含快照、文件、源码和片段内容指纹。record 的 receiptIds 可以来自多个分段，也可来自包含该嵌套单元完整主体的父函数／顶层单元。覆盖必须没有缺口；每个嵌套函数仍需独立 record。配置／类型上下文读取不计函数记录。
 
-## 分析与依据
+## 函数分析记录
 
 输入规范由 `schema --analysis` 输出。record 输入示例：
 
@@ -47,7 +82,11 @@ receipt.id 由工具生成，含快照、文件、源码和片段内容指纹。
 }
 ```
 
-八项分析必须明确；无相应行为时用 []，不能自动为所有函数填写通用文字。工具返回 recordHash，用于 trace 引用。摘要更改会使引用旧 recordHash 的依据失效。unresolvedCalls 另外保留索引中未知的外部／动态调用；未知不是自动解析成功，函数名称不构成调用证据。直接函数、不可变别名、静态命名／命名空间导入及显式构造器可报告 resolved；参数回调、可变或重新赋值的绑定、接收者方法分派、框架注册关系保留 unknown。candidateTargets 仅表示类型声明提供的候选，不能当作已确认执行目标；本版对方法调用采用保守处理。
+八项分析必须明确：responsibility 为非空职责说明，其余七项使用文字数组，无相应行为时用 `[]`。不能自动为所有函数填写通用文字。工具返回 recordHash，用于 trace 引用。摘要更改会使引用旧 recordHash 的依据失效。
+
+unresolvedCalls 另外保留索引中未知的外部／动态调用；函数名称不构成调用证据。直接函数、不可变别名、静态命名／命名空间导入及显式构造器可报告 `resolved`；参数回调、可变或重新赋值的绑定、接收者方法分派、框架注册关系保留 `unknown`。candidateTargets 仅表示类型声明提供的候选，不能当作已确认执行目标；本版对方法调用采用保守处理。
+
+## 业务字段依据
 
 trace 输入示例：
 
@@ -63,20 +102,53 @@ trace 输入示例：
 }
 ```
 
-每个业务步骤、规则、异常及其他 changed 字段分别用最终叶子字段 JSON Pointer 和值绑定。相同 id 替换现存依据，不保存该依据的旧版本；需要保留独立来源时使用不同 id。数组索引是当前最终文档的位置；重排后重新绑定，不用旧位置猜测对应。删除用 value:null，清空数组或文字用实际空值绑定。
+每个业务步骤、规则、异常及其他变更字段分别用最终叶子字段 JSON Pointer 和值绑定。相同 id 替换现存依据，不保存该依据的旧版本；需要保留独立来源时使用不同 id。数组索引是当前最终文档的位置；重排后重新绑定。删除用 `value: null`，清空数组或文字用实际空值绑定。
 
-分类为 observed（代码已有，需 code）、requested（用户期望，需 requirement）、inferred（推断）、unknown（未知）。需求依据为 `{"kind":"requirement","source":"user"或"document","text":"原文"}`；不是伪造源码凭据。推断／未知需 note 解释，只能写到功能 notes，原文以 `[推断]`／`[未知]`（也支持 `[inferred]`／`[unknown]`、`[待确认]`）明确标注；不能支持已确认规则、步骤或完成。工具核验来源结构，不证明需求确实由用户说过，AI 必须遵循实际对话授权。
+| classification | 含义与要求                                     |
+| -------------- | ---------------------------------------------- |
+| `observed`     | 代码已有行为，必须提供 code 依据               |
+| `requested`    | 用户期望行为，必须提供 requirement 依据        |
+| `inferred`     | 分析推断，必须用 note 解释并在文档中标注       |
+| `unknown`      | 无法确认的内容，必须用 note 解释并在文档中标注 |
 
-## 检查与保存
+需求依据为 `{"kind":"requirement","source":"user"或"document","text":"原文"}`。推断／未知只能写到功能 notes，原文以 `[推断]`／`[未知]`（也支持 `[inferred]`／`[unknown]`、`[待确认]`）明确标注；不能支持已确认规则、步骤或完成。功能 notes 的推断／未知可带 `completionImpact: blocking|informational`，省略为 blocking；只有不影响当前已核验业务定义的边界说明可标 informational，note 说明理由，原未知标记保留。它不能用于其他业务字段或替代 observed 完成依据；影响业务或验收的未知继续阻止完成。工具核验来源结构，不证明需求确实由用户说过，AI 必须遵循实际对话授权。
 
-`analysis check --session SESSION --json` 核验快照、每个单元的记录／完整读取、配置／类型上下文读取，以及已有 trace 来源。缺项返回 valid:false、gaps 和非零退出码；不扫描业务文档猜测功能边界。分析未缺记录不等于模型理解正确；未解析动态关系留在报告及记录中。
+## 检查与草稿交付
 
-`apply` 和所有现有 feature 写命令可以加 `--analysis-session SESSION`。工具在当前文档哈希保护下合并整批变更，核对最终 changed 字段与有效 trace 的内容指纹。sync／complete 还核验当前定义、步骤、规则、异常、验收和依赖依据。先 `--dry-run`，用户确认后提交同一批次。
+`analysis check --session SESSION --json` 核验快照、每个单元的记录／完整读取、配置／类型上下文读取，以及已有 trace 来源。缺项返回 `valid: false`、gaps 和非零退出码。检查不根据业务文档猜测功能边界；记录完整也不等于理解正确，未解析动态关系留在报告及记录中。
 
-检查失败默认不保存。`--allow-partial-analysis` 只能和 --analysis-session 一起使用，允许草稿缺口交付，返回 analysis.gaps；源码过期不能豁免，未知不得写成事实。该模式不允许任何 complete 操作，也不能更新仍为完成状态的功能。未参与批次的既有完成功能保持原状。
+`apply` 和所有现有 feature 写命令可以加 `--analysis-session SESSION`。工具在当前文档哈希保护下合并整批变更，核对最终变更字段与有效 trace 的内容指纹。sync／complete 还核验当前定义、步骤、规则、异常、验收和依赖依据：
 
-完成登记还需要此功能的当前 product 源码已有行为依据，定义、步骤、规则、异常等当前字段的 observed 依据，以及完整分析、同步流程和对应当前版本的有效外部验收记录。requested 只说明期望，不能直接支持完成。纯需求新项目、测试源码本身或未知／推断不能登记完成。测试与实际执行的通过结果在外部验收，CLI 不运行它们。
+```sh
+product-blueprint apply /文档 --input 批次.json --analysis-session /会话目录 --dry-run --json
+product-blueprint apply /文档 --input 批次.json --analysis-session /会话目录 --json
+```
 
-不带 --analysis-session 的手工维护命令保留原规则。分析进度留在会话报告；蓝图仍只有草稿／完成，不添加固定 HTML 页脚或 AI 控件。文档保存成功但 HTML 更新失败返回不同状态，单独 render 恢复；不要重复提交已保存操作。
+先 dry-run 校验，再提交同一批次。首次初始化不等待内容确认，默认直接交付产品书与 HTML，按实际核验结果区分完成和草稿；已有蓝图的维护按相应 Skill 预览确认后保存。用户明确只要预览时不提交。检查失败默认不保存，先补齐可解决的读取、记录和依据缺项。
 
-主要错误码：INVALID_ARGUMENT（参数／输入错误，退出 2）、VALIDATION_FAILED（结构／依据错误，退出 1）、CONFLICT（文件锁或文档哈希冲突，退出 3）、ANALYSIS_STALE（源码／配置过期，退出 3）、ANALYSIS_INCOMPLETE（读取、记录、依据或交付缺口，退出 1）、RENDER_FAILED（文档已保存但 HTML 失败，退出 4）。
+`--allow-partial-analysis` 只能和 `--analysis-session` 一起使用，允许草稿缺口交付，返回 analysis.gaps。首次初始化仍有无法消除的分析缺口时，可以直接交付明确标注缺口的草稿，并报告范围；已有蓝图的维护依维护 Skill 确认草稿范围。源码过期不能豁免，未知不得写成事实。该模式不允许任何 complete 操作，也不能更新仍为完成状态的功能。未参与批次的既有完成功能保持原状。
+
+## 完成登记
+
+分析模式完成登记需要此功能的当前 `product` 源码已有行为依据，定义、步骤、规则、异常等当前字段的 observed 依据，以及完整分析、同步流程和对应当前版本的有效验收记录。requested 只说明期望，不能直接支持完成。纯需求新项目、测试源码本身或未知／推断不能登记完成。静态分析不执行测试；显式 `verification run` 执行调用方提供的验收命令并保留结果。严格完成带 `--require-verification`，完整交付再用 `document check` 检查；协议及兼容说明见 [DOCUMENT.md](DOCUMENT.md)。
+
+不带 `--analysis-session` 的手工维护命令遵循 [DOCUMENT.md](DOCUMENT.md) 的版本与验收规则。初始化既有项目可以在保存定义后，实际核验已有实现，并通过独立后续批次同步流程与登记完成；纯需求新项目保留草稿。宿主／动态调用的未解析项保留在分析报告，有效 observed 依据与实际核验仍须对应当前功能，不自动将全部功能降为草稿。分析进度留在会话报告，蓝图仍只有草稿／完成；不添加固定 HTML 页脚或 AI 控件。
+
+## 错误与恢复
+
+| 错误码                | 原因                                 | 退出码 |
+| --------------------- | ------------------------------------ | ------ |
+| `INVALID_ARGUMENT`    | 参数或输入错误                       | 2      |
+| `VALIDATION_FAILED`   | 结构或依据错误                       | 1      |
+| `CONFLICT`            | 文件锁或文档哈希冲突                 | 3      |
+| `ANALYSIS_STALE`      | 源码、配置或索引版本过期，需重新扫描 | 3      |
+| `ANALYSIS_INCOMPLETE` | 读取、记录、依据或交付缺口           | 1      |
+| `RENDER_FAILED`       | 文档已保存但 HTML 生成失败           | 4      |
+
+文档已保存但 HTML 更新失败时，单独运行 `render` 恢复，不要重复提交已保存操作。详细保存与恢复规则见 [DOCUMENT.md](DOCUMENT.md)。
+
+## 蓝图验收源码基线
+
+在分析会话下执行 `feature.complete`／完成批次时，工具自动将该快照及范围、文件清单保存到 `implementation.sourceSnapshot`，提交前仍比较源码指纹。`document status` 只读比较当前清单与各功能基线，既有已完成功能没有草稿或批注也可能有源码变化。它只识别文件和索引配置变化，不判断业务影响或实际运行验收；AI 需读取当前范围并对照定义、流程、异常和验收。新 Git 提交仅作辅助，未提交修改同样检查；仅 Git 元数据变化且内容一致不判为源码变化。
+
+旧验收记录缺少基线时不能证明当前源码一致，路径不可访问或有读取缺口时报告未核验。基线覆盖现有扫描清单中的源码、类型、上下文及已识别的非支持语言文件；排除项与清单外资源保持明确范围限制。源码变化不会自行改定义版本或清空完成历史。业务不变时实际核验后可刷新同版本基线，业务变化时先保存新定义再验证，不把旧依据用于新源码。
