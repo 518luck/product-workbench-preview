@@ -63,6 +63,9 @@ test('CLI 版本、逐命令帮助和两份 Schema 均可结构化读取', () =>
     ['schema'],
     ['document'],
     ['document', 'get'],
+    ['document', 'status'],
+    ['document', 'check'],
+    ['verification', 'run'],
     ['feature'],
     ...['list', 'get', 'create', 'update', 'define', 'delete', 'sync', 'complete'].map((action) => [
       'feature',
@@ -79,6 +82,8 @@ test('CLI 版本、逐命令帮助和两份 Schema 均可结构化读取', () =>
   const changes = success(['schema', '--changes']);
   assert.equal(changes.properties.version.const, 1);
   assert.ok(changes.required.includes('expectedHash'));
+  assert.ok(success(['schema', '--delivery']).required.includes('documentHash'));
+  assert.ok(success(['schema', '--verification']).required.includes('command'));
 });
 
 test('CLI 分区、功能筛选与关联依赖读取不改写文件', (t) => {
@@ -504,4 +509,30 @@ test('CLI serve JSON 输出可解析，页面及 CLI 交叉保存会拒绝对方
     success(['feature', 'get', 'stock-receipt', directory]).feature.description,
     'CLI 保存的明确新定义。',
   );
+});
+
+test('CLI 完成输入支持按编号清理已验收批注，读取摘要可发现批注', (t) => {
+  const directory = temporary(t);
+  const filename = path.join(directory, 'product-document.json');
+  const document = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  document.features['stock-receipt'].annotations = [
+    {
+      id: 'annotation-cli',
+      text: '核验数量与批次保存。',
+      createdAt: '2026-10-14T00:00:00Z',
+      definitionRevision: 1,
+    },
+  ];
+  fs.writeFileSync(filename, JSON.stringify(document));
+  assert.equal(success(['feature', 'list', filename]).features[0].annotationCount, 1);
+  const result = mutation('complete', 'stock-receipt', filename, snapshot(filename).documentHash, {
+    revision: 1,
+    implementation: record(1),
+    resolvedAnnotationIds: ['annotation-cli'],
+  });
+  assert.equal(result.status, 0, JSON.stringify(result.data));
+  const current = success(['feature', 'get', 'stock-receipt', filename]).feature;
+  assert.equal(current.implementedRevision, current.revision);
+  assert.deepEqual(current.annotations, []);
+  assert.equal(success(['feature', 'list', filename]).features[0].annotationCount, 0);
 });

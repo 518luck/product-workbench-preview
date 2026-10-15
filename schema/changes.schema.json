@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "产品蓝图变更批次 v1",
-  "description": "外部 AI 先预览并取得用户确认，再提交。expectedHash 来自读取结果，工具管理功能版本和实现状态。",
+  "description": "外部 AI 先预览；明确需求且已获实现授权时继续提交，有歧义或超出授权范围时先确认。expectedHash 来自读取结果，工具管理功能版本和实现状态。",
   "type": "object",
   "required": ["version", "expectedHash", "operations"],
   "additionalProperties": false,
@@ -297,6 +297,15 @@
               },
               "implementation": {
                 "$ref": "#/$defs/implementation"
+              },
+              "resolvedAnnotationIds": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/id"
+                },
+                "description": "本次已实现并通过验收的批注编号；与完成登记一起删除，仅删除指定记录。"
               }
             },
             "required": ["op", "id", "revision", "implementation"],
@@ -741,6 +750,11 @@
               },
               "result": {
                 "const": "passed"
+              },
+              "executionId": {
+                "type": "string",
+                "pattern": "^v-[a-f0-9-]{36}$",
+                "description": "verification run 生成的执行编号；严格完成和交付检查会核对真实记录与日志。"
               }
             }
           }

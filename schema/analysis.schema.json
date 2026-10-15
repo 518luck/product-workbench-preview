@@ -9,7 +9,13 @@
       "required": ["records"],
       "additionalProperties": false,
       "properties": {
-        "records": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } }
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/record"
+          }
+        }
       }
     },
     {
@@ -17,13 +23,28 @@
       "required": ["traces"],
       "additionalProperties": false,
       "properties": {
-        "traces": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/trace" } }
+        "traces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/trace"
+          }
+        }
       }
     }
   ],
   "$defs": {
-    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
-    "texts": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
     "record": {
       "type": "object",
       "additionalProperties": false,
@@ -40,20 +61,42 @@
         "unknowns"
       ],
       "properties": {
-        "unitId": { "type": "string", "pattern": "^u-[a-f0-9]{24}$" },
+        "unitId": {
+          "type": "string",
+          "pattern": "^u-[a-f0-9]{24}$"
+        },
         "receiptIds": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^r-" }
+          "items": {
+            "type": "string",
+            "pattern": "^r-"
+          }
         },
-        "responsibility": { "$ref": "#/$defs/text" },
-        "inputs": { "$ref": "#/$defs/texts" },
-        "outputs": { "$ref": "#/$defs/texts" },
-        "conditions": { "$ref": "#/$defs/texts" },
-        "calls": { "$ref": "#/$defs/texts" },
-        "sideEffects": { "$ref": "#/$defs/texts" },
-        "exceptions": { "$ref": "#/$defs/texts" },
-        "unknowns": { "$ref": "#/$defs/texts" }
+        "responsibility": {
+          "$ref": "#/$defs/text"
+        },
+        "inputs": {
+          "$ref": "#/$defs/texts"
+        },
+        "outputs": {
+          "$ref": "#/$defs/texts"
+        },
+        "conditions": {
+          "$ref": "#/$defs/texts"
+        },
+        "calls": {
+          "$ref": "#/$defs/texts"
+        },
+        "sideEffects": {
+          "$ref": "#/$defs/texts"
+        },
+        "exceptions": {
+          "$ref": "#/$defs/texts"
+        },
+        "unknowns": {
+          "$ref": "#/$defs/texts"
+        }
       }
     },
     "evidence": {
@@ -63,9 +106,17 @@
           "additionalProperties": false,
           "required": ["kind", "unitId", "recordHash"],
           "properties": {
-            "kind": { "const": "code" },
-            "unitId": { "type": "string", "pattern": "^u-[a-f0-9]{24}$" },
-            "recordHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            "kind": {
+              "const": "code"
+            },
+            "unitId": {
+              "type": "string",
+              "pattern": "^u-[a-f0-9]{24}$"
+            },
+            "recordHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
           }
         },
         {
@@ -73,9 +124,15 @@
           "additionalProperties": false,
           "required": ["kind", "source", "text"],
           "properties": {
-            "kind": { "const": "requirement" },
-            "source": { "enum": ["user", "document"] },
-            "text": { "$ref": "#/$defs/text" }
+            "kind": {
+              "const": "requirement"
+            },
+            "source": {
+              "enum": ["user", "document"]
+            },
+            "text": {
+              "$ref": "#/$defs/text"
+            }
           }
         }
       ]
@@ -85,7 +142,10 @@
       "additionalProperties": false,
       "required": ["id", "target", "value", "classification", "evidence"],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,100}$" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+        },
         "target": {
           "type": "string",
           "pattern": "^/(features|product|dependencies|diagrams)(/|$)",
@@ -96,13 +156,33 @@
           "enum": ["observed", "requested", "inferred", "unknown"],
           "description": "推断／未知写入文档时仅允许 notes，值以 [推断]／[未知]（或对应英文标签）明确标注；完成登记要求当前字段的 observed 依据。"
         },
-        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
-        "note": { "$ref": "#/$defs/text" }
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        },
+        "completionImpact": {
+          "enum": ["blocking", "informational"],
+          "description": "仅用于 inferred/unknown 的功能 notes。省略等同 blocking；informational 表示只作边界说明，不支持业务完成证据，note 须说明为何不影响当前验收。影响业务或验收的未知保持 blocking。"
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "classification": { "enum": ["inferred", "unknown"] } } },
-          "then": { "required": ["note"] }
+          "if": {
+            "properties": {
+              "classification": {
+                "enum": ["inferred", "unknown"]
+              }
+            }
+          },
+          "then": {
+            "required": ["note"]
+          }
         }
       ]
     }

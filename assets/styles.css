@@ -459,7 +459,8 @@ svg {
   background: var(--paper);
   font-size: 11px;
 }
-.document-summary textarea {
+.document-summary textarea,
+.feature-annotations textarea {
   display: block;
   width: 100%;
   min-height: 125px;
@@ -469,6 +470,65 @@ svg {
   font-size: 13px;
   line-height: 1.95;
   resize: vertical;
+}
+.feature-annotations {
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--theme-soft-surface);
+}
+.feature-annotations p,
+.document-access p {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.feature-annotations textarea {
+  min-height: 90px;
+}
+.annotation-help {
+  font-size: 11px !important;
+}
+.annotation-history {
+  margin-top: 14px;
+  font-size: 12px;
+}
+.annotation-record-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.annotation-history article {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.annotation-history p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.annotation-history small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.document-access {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.document-access[hidden] {
+  display: none;
+}
+.document-access summary {
+  cursor: pointer;
+}
+.document-access code {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .document-editor-actions {
   display: flex;
@@ -1200,5 +1260,33 @@ svg {
   max-width: none;
 }
 .map-node .map-fields span {
+  overflow-wrap: anywhere;
+}
+
+.source-status {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.source-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-status p,
+.source-status li {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.source-status p {
+  margin: 8px 0;
+}
+.source-status summary {
+  cursor: pointer;
+}
+.source-status li {
   overflow-wrap: anywhere;
 }

@@ -479,7 +479,8 @@ svg {
   background: var(--paper);
   font-size: 11px;
 }
-.document-summary textarea {
+.document-summary textarea,
+.feature-annotations textarea {
   display: block;
   width: 100%;
   min-height: 125px;
@@ -489,6 +490,65 @@ svg {
   font-size: 13px;
   line-height: 1.95;
   resize: vertical;
+}
+.feature-annotations {
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--theme-soft-surface);
+}
+.feature-annotations p,
+.document-access p {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.feature-annotations textarea {
+  min-height: 90px;
+}
+.annotation-help {
+  font-size: 11px !important;
+}
+.annotation-history {
+  margin-top: 14px;
+  font-size: 12px;
+}
+.annotation-record-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.annotation-history article {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.annotation-history p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.annotation-history small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.document-access {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.document-access[hidden] {
+  display: none;
+}
+.document-access summary {
+  cursor: pointer;
+}
+.document-access code {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .document-editor-actions {
   display: flex;
@@ -1223,6 +1283,34 @@ svg {
   overflow-wrap: anywhere;
 }
 
+.source-status {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.source-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-status p,
+.source-status li {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.source-status p {
+  margin: 8px 0;
+}
+.source-status summary {
+  cursor: pointer;
+}
+.source-status li {
+  overflow-wrap: anywhere;
+}
+
     </style>
   </head>
   <body>
@@ -1294,6 +1382,13 @@ svg {
             <button class="button theme-toggle" id="theme-toggle" type="button"></button>
           </div>
         </header>
+        <div id="document-access" class="document-access" role="status"></div>
+        <section
+          id="source-status"
+          class="source-status"
+          aria-label="源码核验"
+          role="status"
+        ></section>
         <div class="page" id="page"></div>
       </main>
     </div>
@@ -1349,6 +1444,13 @@ svg {
   let state = { ...initial };
   let productDocument = { features: {} };
   let documentAvailable = false;
+  let documentLoading = true;
+  let sourceStatus = null;
+  let checkingSource = false;
+  let sourceCheckError = '';
+  const annotationDrafts = new Map();
+  let savingAnnotation = false;
+  let annotationRemoval = null;
   const descriptionEdits = new Map();
   const groupEdits = new Map();
   const titleEdits = new Map();
@@ -1590,18 +1692,268 @@ svg {
       '用自然语言记录产品背景、功能流程、业务规则和系统依赖。';
   }
   async function loadProductDocument() {
+    if (location.protocol === 'file:') {
+      documentLoading = false;
+      render();
+      return;
+    }
     try {
       const response = await fetch('/product-document.json', { cache: 'no-store' });
       if (!response.ok) throw new Error();
       const doc = await response.json();
       if (!doc.features || typeof doc.features !== 'object') throw new Error();
       applyProductDocument(doc);
-      documentAvailable = true;
+      const responseAccess = await fetch('/document/capabilities', { cache: 'no-store' });
+      const access = responseAccess.ok ? await responseAccess.json() : null;
+      documentAvailable = access?.canSave === true;
     } catch {
       documentAvailable = false;
-      toast('当前文档只能阅读，保存需要本机文档服务。');
     }
+    documentLoading = false;
     render();
+    if (documentAvailable) await refreshSourceStatus();
+  }
+  function renderDocumentAccess() {
+    const panel = $('document-access');
+    panel.hidden = documentAvailable;
+    if (documentAvailable) return;
+    panel.innerHTML = documentLoading
+      ? '正在连接本机文档服务…'
+      : `<strong>只读快照，无法写回项目</strong><p>${location.protocol === 'file:' ? '您正在直接打开 HTML 文件。保存定义和批注需要通过本机文档服务打开页面。' : '当前地址没有可用的本机保存服务。已显示的内容仍可阅读。'} 批注需要保存到产品文档，实现 Skill 才能读取。</p><details><summary>如何启用保存</summary><p>在终端运行以下命令，将“产品文档目录”替换为产品 JSON 所在目录，再打开命令输出的网址。</p><code>product-blueprint serve "产品文档目录" --port 0</code></details>`;
+  }
+  async function refreshSourceStatus() {
+    if (!documentAvailable || checkingSource) return;
+    checkingSource = true;
+    sourceCheckError = '';
+    renderSourceStatus();
+    try {
+      const response = await fetch('/document/source-status', { cache: 'no-store' });
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (!result.features || typeof result.features !== 'object') throw new Error();
+      sourceStatus = result;
+    } catch {
+      sourceStatus = null;
+      sourceCheckError = '无法核验当前源码，请稍后重试。';
+    } finally {
+      checkingSource = false;
+      renderSourceStatus();
+    }
+  }
+  function renderSourceStatus() {
+    const panel = $('source-status');
+    if (!panel) return;
+    if (!documentAvailable) {
+      panel.innerHTML = `<strong>源码状态尚未实时核验</strong><p>${documentLoading ? '正在连接本机文档服务…' : '独立 HTML 仅展示保存时的记录；通过本机服务打开后可比较当前源码。'}功能“完成”表示已保存定义对应的验收记录。</p>`;
+      return;
+    }
+    const checks =
+      state.view === 'feature'
+        ? [sourceStatus?.features?.[state.feature]].filter(Boolean)
+        : Object.values(sourceStatus?.features || {});
+    const statuses = checks.map((item) => item.status);
+    const changed = statuses.includes('changed'),
+      unavailable = statuses.includes('unavailable'),
+      unverified = statuses.includes('unverified');
+    const title = checkingSource
+      ? '正在核验当前源码…'
+      : sourceCheckError
+        ? '源码状态尚未核验'
+        : changed
+          ? '源码已变化，蓝图待核验'
+          : unavailable
+            ? '当前源码无法核验'
+            : unverified || !checks.length
+              ? '尚未建立源码核验基线'
+              : '源码与上次验收快照一致';
+    const message =
+      sourceCheckError ||
+      (changed
+        ? '项目源码发生了变化，受影响功能需要 AI 判断；不会自动改写定义或重置完成状态。'
+        : unavailable
+          ? '项目目录无法访问或扫描有读取缺口，请核对路径与扫描范围。'
+          : unverified || !checks.length
+            ? '当前记录没有源码基线。使用实现 Skill 核对已有代码并实际验收后，工具会记录基线。'
+            : '仅比较记录的扫描范围；源码指纹一致不代替实际业务验收。');
+    const files = new Map(
+      checks.flatMap((item) => item.changes || []).map((item) => [item.file, item]),
+    );
+    const changes = [...files.values()];
+    panel.innerHTML = `<div class="source-status-heading"><strong>${esc(title)}</strong><button class="button" type="button" data-source-check ${checkingSource ? 'disabled' : ''}>重新核验源码</button></div><p>${esc(message)}</p>${
+      changes.length
+        ? `<details><summary>变更文件（${changes.length}）</summary><ul>${changes
+            .slice(0, 12)
+            .map(
+              (item) =>
+                `<li>${esc({ added: '新增', deleted: '删除', modified: '修改' }[item.change] || '变化')} · ${esc(item.file)}</li>`,
+            )
+            .join(
+              '',
+            )}</ul>${changes.length > 12 ? '<p>完整清单可通过 CLI document status 读取。</p>' : ''}</details>`
+        : ''
+    }`;
+  }
+  const annotationKey = (id) =>
+    'product-blueprint-annotation:' + location.origin + location.pathname + ':' + id;
+  function annotationDraft(id) {
+    if (!annotationDrafts.has(id)) {
+      let text = '',
+        editingId = '';
+      try {
+        text = localStorage.getItem(annotationKey(id)) || '';
+        editingId = localStorage.getItem(annotationKey(id) + ':editing') || '';
+      } catch {}
+      annotationDrafts.set(id, { id: '', text, editingId, stored: Boolean(text) });
+    }
+    return annotationDrafts.get(id);
+  }
+  function rememberAnnotation(id, text) {
+    const draft = annotationDraft(id);
+    draft.text = text;
+    draft.id = '';
+    try {
+      if (text) {
+        localStorage.setItem(annotationKey(id), text);
+        if (draft.editingId) localStorage.setItem(annotationKey(id) + ':editing', draft.editingId);
+        else localStorage.removeItem(annotationKey(id) + ':editing');
+      } else {
+        localStorage.removeItem(annotationKey(id));
+        if (draft.editingId) localStorage.setItem(annotationKey(id) + ':editing', draft.editingId);
+        else localStorage.removeItem(annotationKey(id) + ':editing');
+      }
+      draft.stored = true;
+    } catch {
+      draft.stored = false;
+    }
+  }
+  function annotationMarkup(f) {
+    const draft = annotationDraft(f.id),
+      records = documentRecord(f)?.annotations || [];
+    const disabled = !documentAvailable || savingAnnotation;
+    const recordsMarkup = records
+      .map((record) => {
+        const removing =
+          annotationRemoval?.featureId === f.id && annotationRemoval?.annotationId === record.id;
+        return `<article><p>${esc(record.text)}</p><small>定义版本 ${record.definitionRevision} · ${esc(record.updatedAt ? '修改于 ' + record.updatedAt : record.createdAt)}</small><div class="annotation-record-actions">${removing ? `<span>删除这条批注？</span><button class="button" type="button" data-annotation-remove-confirm="${esc(record.id)}" ${disabled ? 'disabled' : ''}>确认删除</button><button class="button" type="button" data-annotation-remove-cancel ${savingAnnotation ? 'disabled' : ''}>取消删除</button>` : `<button class="button" type="button" data-annotation-edit="${esc(record.id)}" ${disabled ? 'disabled' : ''}>编辑批注</button><button class="button" type="button" data-annotation-remove="${esc(record.id)}" ${disabled ? 'disabled' : ''}>删除批注</button>`}</div></article>`;
+      })
+      .join('');
+    return `<section class="feature-annotations" aria-label="批注"><div class="document-editor-heading"><label for="feature-annotation">批注</label></div><p>${draft.editingId ? '正在修改已保存批注，保存修改后会更新原记录。' : '写下希望修改的内容，点击保存批注即可新增。'}批注不会改变功能定义或完成状态。</p><textarea id="feature-annotation" aria-label="批注" rows="3" maxlength="5000" placeholder="写下需要补充或修改的内容。" ${savingAnnotation ? 'disabled' : ''}>${esc(draft.text)}</textarea><div class="document-editor-actions"><span id="annotation-status" role="status"></span>${draft.editingId ? `<button class="button" type="button" data-annotation-edit-cancel ${savingAnnotation ? 'disabled' : ''}>取消编辑</button>` : ''}<button class="button" type="button" id="annotation-save" data-annotation-save>${draft.editingId ? '保存修改' : '保存批注'}</button></div><p class="annotation-help">使用实现 Skill 时，AI 会查找已修改的定义和已保存批注，整理需求并实现、验收和同步蓝图；有歧义时先确认，成功处理后删除对应批注。</p>${records.length ? `<details class="annotation-history" ${draft.editingId || annotationRemoval?.featureId === f.id ? 'open' : ''}><summary>待处理批注（${records.length}）</summary>${recordsMarkup}</details>` : ''}</section>`;
+  }
+  function updateAnnotationEditor() {
+    const field = $('feature-annotation');
+    if (!field) return;
+    const draft = annotationDraft(state.feature),
+      valid = Boolean(field.value.trim()) && field.value.length <= 5000;
+    $('annotation-save').disabled = !documentAvailable || savingAnnotation || !valid;
+    const saved = documentRecord(featureById(state.feature))?.annotations || [];
+    $('annotation-status').textContent = savingAnnotation
+      ? '保存中…'
+      : draft.text
+        ? draft.stored
+          ? draft.editingId
+            ? '修改未保存，点击保存修改'
+            : '已暂存到此浏览器，点击保存批注写回项目'
+          : '未保存，请保留输入并通过本机服务保存'
+        : documentAvailable
+          ? saved.length
+            ? '批注已保存，等待实现 Skill 处理'
+            : '保存后可由 AI 读取批注'
+          : '只读模式：批注暂存于浏览器，需通过本机服务保存';
+  }
+  async function saveAnnotation() {
+    const f = featureById(state.feature),
+      draft = annotationDraft(f.id);
+    if (!documentAvailable || savingAnnotation || !draft.text.trim()) return;
+    if (!draft.id) draft.id = 'annotation-' + crypto.randomUUID();
+    const sent = { ...draft },
+      r = documentRecord(f);
+    savingAnnotation = true;
+    renderFeature();
+    try {
+      const response = await fetch(
+        '/document/features/' +
+          encodeURIComponent(f.id) +
+          '/annotations' +
+          (sent.editingId ? '/' + encodeURIComponent(sent.editingId) : ''),
+        {
+          method: sent.editingId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            annotationId: sent.id,
+            text: sent.text,
+            expectedRevision: r.revision,
+            expectedEditRevision: r.editRevision ?? 0,
+          }),
+        },
+      );
+      const record = await response.json();
+      if (!response.ok) throw new Error(record.error || '批注保存失败，输入仍保留。');
+      productDocument.features[f.id] = record;
+      applyProductDocument(productDocument);
+      draft.editingId = '';
+      rememberAnnotation(f.id, '');
+      toast('批注已保存，功能定义和完成状态保持原样。');
+    } catch (error) {
+      toast(error.message || '批注未保存，输入仍保留。');
+    } finally {
+      savingAnnotation = false;
+      if (state.view === 'feature') renderFeature();
+    }
+  }
+  function editAnnotation(annotationId) {
+    if (!documentAvailable || savingAnnotation) return;
+    const f = featureById(state.feature),
+      record = documentRecord(f)?.annotations?.find((item) => item.id === annotationId);
+    if (!record) return;
+    annotationDraft(f.id).editingId = annotationId;
+    rememberAnnotation(f.id, record.text);
+    annotationRemoval = null;
+    renderFeature();
+    $('feature-annotation').focus();
+  }
+  function cancelAnnotationEdit() {
+    if (savingAnnotation) return;
+    annotationDraft(state.feature).editingId = '';
+    rememberAnnotation(state.feature, '');
+    renderFeature();
+  }
+  async function removeAnnotation(annotationId) {
+    if (!documentAvailable || savingAnnotation) return;
+    const f = featureById(state.feature),
+      r = documentRecord(f);
+    savingAnnotation = true;
+    renderFeature();
+    try {
+      const response = await fetch(
+        '/document/features/' +
+          encodeURIComponent(f.id) +
+          '/annotations/' +
+          encodeURIComponent(annotationId),
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            expectedRevision: r.revision,
+            expectedEditRevision: r.editRevision ?? 0,
+          }),
+        },
+      );
+      const record = await response.json();
+      if (!response.ok) throw new Error(record.error || '批注删除失败。');
+      productDocument.features[f.id] = record;
+      applyProductDocument(productDocument);
+      if (annotationDraft(f.id).editingId === annotationId) {
+        annotationDraft(f.id).editingId = '';
+        rememberAnnotation(f.id, '');
+      }
+      annotationRemoval = null;
+      toast('批注已删除。');
+    } catch (error) {
+      toast(error.message || '批注未删除，请重试。');
+    } finally {
+      savingAnnotation = false;
+      if (state.view === 'feature') renderFeature();
+    }
   }
   function updateDescriptionEditor() {
     const f = featureById(state.feature),
@@ -1615,17 +1967,21 @@ svg {
     $('document-save').disabled =
       !documentAvailable || savingDescription || !needsSave || !field.value.trim() || !valid;
     $('document-discard').disabled = savingDescription || !(changed || groupChanged);
-    $('document-save-status').textContent = !valid
-      ? '分组最多 5 层，每层不超过 40 字'
-      : savingDescription
-        ? '保存中…'
-        : changed || groupChanged
-          ? '未保存'
-          : documentAvailable
-            ? documentRecord(f)
-              ? '已保存到项目文档'
-              : '尚未保存到项目文档'
-            : '项目文档暂不可保存';
+    $('document-save-status').textContent = !documentAvailable
+      ? documentLoading
+        ? '正在连接保存服务…'
+        : '只读快照：需通过本机服务保存定义和批注'
+      : !valid
+        ? '分组最多 5 层，每层不超过 40 字'
+        : savingDescription
+          ? '保存中…'
+          : changed || groupChanged
+            ? '未保存'
+            : documentAvailable
+              ? documentRecord(f)
+                ? '已保存到项目文档'
+                : '尚未保存到项目文档'
+              : '项目文档暂不可保存';
     $('feature-status').textContent = changed ? '草稿 · 未保存' : featureStatus(f);
   }
   async function saveDescription() {
@@ -2029,7 +2385,11 @@ svg {
       ? renderClickableFlow(f)
       : `<div class="empty-state"><p>尚未记录业务流程。</p></div>`;
     return (
-      summary + (f.notes ? `<p class="document-note">${esc(f.notes)}</p>` : '') + heading + flow
+      summary +
+      annotationMarkup(f) +
+      (f.notes ? `<p class="document-note">${esc(f.notes)}</p>` : '') +
+      heading +
+      flow
     );
   }
 
@@ -2125,6 +2485,7 @@ svg {
       `<div class="journey-layout"><article class="journey-document">${pendingMarkup(f)}${renderJourney(f)}</article></div>`;
     updateDescriptionEditor();
     updateTitleEditor();
+    updateAnnotationEditor();
   }
 
   function renderDependencies() {
@@ -2164,6 +2525,8 @@ svg {
       (state.projectDiagram === 'summary' ? summary : renderMap());
   }
   function render() {
+    renderDocumentAccess();
+    renderSourceStatus();
     $('page').classList.toggle(
       'dependency-page',
       state.mode === 'dependencies' && state.view === 'dependencies',
@@ -2183,7 +2546,22 @@ svg {
     if (!button) return;
     if (button.hasAttribute('data-tree-open'))
       setAllFeatureGroups(button.dataset.treeOpen === 'true');
-    else if (button.hasAttribute('data-save-feature-title')) saveFeatureTitle();
+    else if (button.hasAttribute('data-source-check')) refreshSourceStatus();
+    else if (button.hasAttribute('data-annotation-save')) saveAnnotation();
+    else if (button.dataset.annotationEdit) editAnnotation(button.dataset.annotationEdit);
+    else if (button.hasAttribute('data-annotation-edit-cancel')) cancelAnnotationEdit();
+    else if (button.dataset.annotationRemove) {
+      annotationRemoval = {
+        featureId: state.feature,
+        annotationId: button.dataset.annotationRemove,
+      };
+      renderFeature();
+    } else if (button.dataset.annotationRemoveConfirm)
+      removeAnnotation(button.dataset.annotationRemoveConfirm);
+    else if (button.hasAttribute('data-annotation-remove-cancel')) {
+      annotationRemoval = null;
+      renderFeature();
+    } else if (button.hasAttribute('data-save-feature-title')) saveFeatureTitle();
     else if (button.hasAttribute('data-cancel-feature-title')) {
       titleEdits.delete(state.feature);
       renderFeature();
@@ -2224,7 +2602,10 @@ svg {
   });
   document.addEventListener('input', (event) => {
     const el = event.target;
-    if (el.id === 'feature-name') {
+    if (el.id === 'feature-annotation') {
+      rememberAnnotation(state.feature, el.value);
+      updateAnnotationEditor();
+    } else if (el.id === 'feature-name') {
       titleEdits.set(state.feature, el.value);
       updateTitleEditor();
     } else if (el.id === 'new-feature-title') {

@@ -14,6 +14,9 @@ import {
   checkAnalysis,
 } from '../lib/analysis-session.mjs';
 import { applyChanges, readSnapshot } from '../lib/document-operations.mjs';
+import { updateDocument } from '../lib/document-store.mjs';
+import { savePageAnnotation } from '../lib/feature-operations.mjs';
+import { checkSourceStatus } from '../lib/source-status.mjs';
 
 const cli = fileURLToPath(new URL('../bin/product-blueprint.mjs', import.meta.url));
 const skills = fileURLToPath(new URL('../skills/', import.meta.url));
@@ -172,14 +175,24 @@ test('三个 Skill 独立引用有效；初始化、需求维护、实际实现�
   assert.match(current.stepDetails[0].exception, /重复发布/);
   assert.equal(current.implementedRevision, null);
 
+  await updateDocument(
+    filename,
+    savePageAnnotation({
+      id: 'publish',
+      annotationId: 'annotation-editor',
+      text: '让编辑也可以发布，普通成员仍不可发布。',
+      expectedRevision: current.revision,
+      expectedEditRevision: current.editRevision,
+    }),
+  );
+  const annotation = readSnapshot(filename).document.features.publish.annotations[0];
+
   // Maintenance: this is a desired future rule, not evidence that the old code already implements it.
   const changes = {
     rules: ['管理员或编辑可以发布。', '只有 draft 可以发布。', '标题不能为空。'],
     stepDetails: [detail(['管理员或编辑可以发布。'])],
   };
-  const requested = [
-    { kind: 'requirement', source: 'user', text: '让编辑也可以发布，普通成员仍不可发布。' },
-  ];
+  const requested = [{ kind: 'requirement', source: 'user', text: annotation.text }];
   await traces(
     first.session,
     {
@@ -252,7 +265,13 @@ for (const [role,doc] of [['member',{title:'x',status:'draft'}],['admin',{title:
     expectedHash: readSnapshot(filename).documentHash,
     operations: [
       { op: 'feature.sync', id: 'publish' },
-      { op: 'feature.complete', id: 'publish', revision: 2, implementation: verification },
+      {
+        op: 'feature.complete',
+        id: 'publish',
+        revision: 2,
+        implementation: verification,
+        resolvedAnnotationIds: [annotation.id],
+      },
     ],
   };
   await applyChanges(filename, completion, { analysisSession: implemented.session, dryRun: true });
@@ -260,8 +279,47 @@ for (const [role,doc] of [['member',{title:'x',status:'draft'}],['admin',{title:
   current = readSnapshot(filename).document.features.publish;
   assert.equal(current.revision, 2);
   assert.equal(current.implementedRevision, 2);
+  assert.deepEqual(current.annotations, []);
+  assert.equal(current.implementation.sourceSnapshot.snapshotHash, implemented.snapshotHash);
+  assert.equal(
+    (await checkSourceStatus(readSnapshot(filename).document)).features.publish.status,
+    'current',
+  );
+  const repeated = await applyChanges(
+    filename,
+    {
+      ...completion,
+      expectedHash: readSnapshot(filename).documentHash,
+      operations: [
+        { op: 'feature.complete', id: 'publish', revision: 2, implementation: verification },
+      ],
+    },
+    { analysisSession: implemented.session },
+  );
+  assert.equal(repeated.changed, false);
   assert.equal(current.flowRevision, 2);
   assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /管理员或编辑/);
+  const beforeExternalChange = fs.readFileSync(filename, 'utf8');
+  fs.writeFileSync(path.join(root, 'publish.mjs'), program(false));
+  const stale = (await checkSourceStatus(readSnapshot(filename).document)).features.publish;
+  assert.equal(stale.status, 'changed');
+  assert.ok(stale.changes.some((change) => change.file === 'publish.mjs'));
+  assert.equal(current.revision, current.implementedRevision);
+  await assert.rejects(
+    applyChanges(
+      filename,
+      {
+        ...completion,
+        expectedHash: readSnapshot(filename).documentHash,
+        operations: [
+          { op: 'feature.complete', id: 'publish', revision: 2, implementation: verification },
+        ],
+      },
+      { analysisSession: implemented.session },
+    ),
+    { code: 'ANALYSIS_STALE' },
+  );
+  assert.equal(fs.readFileSync(filename, 'utf8'), beforeExternalChange);
 });
 
 test('无源码项目根据需求创建草稿，不产生伪造源码引用，不能登记完成', async (t) => {

@@ -42,6 +42,72 @@ const save = (feature, extras = {}) => ({
   expectedEditRevision: feature.editRevision ?? 0,
   ...extras,
 });
+
+test('批注独立保存，保留定义与完成状态，重试幂等并保护并发版本', async (t) => {
+  const { filename } = temporary(t);
+  const document = readDocument(filename),
+    feature = document.features[id];
+  feature.flowRevision = feature.revision;
+  feature.implementedRevision = feature.revision;
+  feature.implementation = {
+    revision: feature.revision,
+    verifiedAt: '2026-10-14T00:00:00Z',
+    checks: [{ name: '临时验收样例', result: 'passed' }],
+  };
+  feature.notes = '保留原备注';
+  feature.legacyContent = { author: '用户' };
+  fs.writeFileSync(filename, JSON.stringify(document));
+  const { origin } = await start(t, filename);
+  const capability = await (await fetch(origin + '/document/capabilities')).json();
+  assert.equal(capability.canSave, true);
+  assert.equal(capability.documentPath, filename);
+  const post = (body, requestOrigin = origin) =>
+    fetch(`${origin}/document/features/${id}/annotations`, {
+      method: 'POST',
+      headers: { Origin: requestOrigin, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const input = {
+    annotationId: 'annotation-first',
+    text: '增加多语言支持。',
+    expectedRevision: feature.revision,
+    expectedEditRevision: feature.editRevision ?? 0,
+    implementedRevision: null,
+  };
+  assert.equal((await post(input)).status, 200);
+  const saved = readDocument(filename).features[id];
+  assert.equal(saved.annotations.length, 1);
+  assert.equal(saved.annotations[0].text, input.text);
+  assert.equal(saved.annotations[0].definitionRevision, feature.revision);
+  assert.equal(saved.revision, feature.revision);
+  assert.equal(saved.flowRevision, feature.flowRevision);
+  assert.equal(saved.implementedRevision, feature.implementedRevision);
+  assert.equal(saved.description, feature.description);
+  assert.equal(saved.notes, feature.notes);
+  assert.deepEqual(saved.implementation, feature.implementation);
+  assert.deepEqual(saved.legacyContent, feature.legacyContent);
+  assert.equal(saved.editRevision, (feature.editRevision ?? 0) + 1);
+  const beforeRetry = fs.readFileSync(filename, 'utf8');
+  assert.equal((await post(input)).status, 200);
+  assert.equal(fs.readFileSync(filename, 'utf8'), beforeRetry);
+  assert.equal((await post({ ...input, text: '冲突内容' })).status, 409);
+  assert.equal((await post({ ...input, annotationId: 'annotation-second' })).status, 409);
+  assert.equal(
+    (
+      await post({
+        ...input,
+        annotationId: 'annotation-second',
+        expectedEditRevision: saved.editRevision,
+      })
+    ).status,
+    200,
+  );
+  const stable = fs.readFileSync(filename, 'utf8');
+  assert.equal((await post({ ...input, text: 'x'.repeat(5001) })).status, 400);
+  assert.equal((await post(input, 'http://example.invalid')).status, 403);
+  assert.equal(fs.readFileSync(filename, 'utf8'), stable);
+  assert.equal(readDocument(filename).features[id].annotations.length, 2);
+});
 function requestRaw(origin, requestPath, headers = {}) {
   return new Promise((resolve, reject) => {
     const request = http.request(origin, { path: requestPath, headers }, (response) => {
@@ -54,6 +120,83 @@ function requestRaw(origin, requestPath, headers = {}) {
     request.end();
   });
 }
+
+test('页面编辑及删除批注保留编号和完成记录，冲突或无效输入不落盘', async (t) => {
+  const { filename } = temporary(t);
+  const document = readDocument(filename),
+    original = document.features[id];
+  original.implementedRevision = original.revision;
+  original.implementation = {
+    revision: original.revision,
+    verifiedAt: '2026-10-14T00:00:00Z',
+    checks: [{ name: '临时完成记录', result: 'passed' }],
+  };
+  original.annotations = ['first', 'second'].map((suffix) => ({
+    id: `annotation-${suffix}`,
+    text: `原批注 ${suffix}`,
+    createdAt: '2026-10-14T00:00:00Z',
+    definitionRevision: original.revision,
+    custom: '保留批注附加内容',
+  }));
+  original.notes = '用户备注';
+  fs.writeFileSync(filename, JSON.stringify(document));
+  const { origin } = await start(t, filename);
+  const request = (method, annotationId, body, requestOrigin = origin) =>
+    fetch(`${origin}/document/features/${id}/annotations/${annotationId}`, {
+      method,
+      headers: { Origin: requestOrigin, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const edit = await request('PUT', 'annotation-first', {
+    ...save(original),
+    text: '新的批注内容',
+  });
+  assert.equal(edit.status, 200);
+  const updated = await edit.json();
+  assert.equal(updated.annotations.length, 2);
+  assert.equal(updated.annotations[0].id, original.annotations[0].id);
+  assert.equal(updated.annotations[0].createdAt, original.annotations[0].createdAt);
+  assert.equal(updated.annotations[0].custom, original.annotations[0].custom);
+  assert.equal(updated.annotations[0].text, '新的批注内容');
+  assert.ok(updated.annotations[0].updatedAt);
+  assert.equal(updated.revision, original.revision);
+  assert.equal(updated.flowRevision, original.flowRevision);
+  assert.equal(updated.implementedRevision, original.implementedRevision);
+  assert.deepEqual(updated.implementation, original.implementation);
+  assert.equal(updated.notes, original.notes);
+  const stable = fs.readFileSync(filename, 'utf8');
+  assert.equal(
+    (await request('PUT', 'annotation-first', { ...save(updated), text: '新的批注内容' })).status,
+    200,
+  );
+  assert.equal(
+    (await request('PUT', 'annotation-first', { ...save(original), text: '过时内容' })).status,
+    409,
+  );
+  assert.equal((await request('DELETE', 'annotation-first', save(original))).status, 409);
+  assert.equal(
+    (await request('DELETE', 'annotation-first', save(updated), 'http://example.invalid')).status,
+    403,
+  );
+  assert.equal(
+    (await request('PUT', 'annotation-first', { ...save(updated), text: '' })).status,
+    400,
+  );
+  assert.equal(
+    (await request('PUT', 'annotation-first', { ...save(updated), text: 'x'.repeat(5001) })).status,
+    400,
+  );
+  assert.equal((await request('DELETE', 'annotation-missing', save(updated))).status, 404);
+  assert.equal(fs.readFileSync(filename, 'utf8'), stable);
+  assert.equal((await request('DELETE', 'annotation-first', save(updated))).status, 200);
+  const removed = readDocument(filename).features[id];
+  assert.deepEqual(removed.annotations, [original.annotations[1]]);
+  assert.equal(removed.editRevision, (original.editRevision ?? 0) + 2);
+  assert.equal(removed.revision, original.revision);
+  assert.equal(removed.description, original.description);
+  assert.equal(removed.implementedRevision, original.implementedRevision);
+  assert.deepEqual(removed.implementation, original.implementation);
+});
 
 test('名称和分组独立保存版本拒绝旧页面覆盖，定义版本保持业务语义', async (t) => {
   const { filename } = temporary(t),

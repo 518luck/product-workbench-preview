@@ -36,6 +36,64 @@ const complete = (revision, implementation = record(revision)) => ({
 const apply = (filename, operations, extras) =>
   applyChanges(filename, request(filename, operations, extras), { render: false });
 
+test('已处理批注随完成登记原子删除，未处理内容和历史保留，失败或冲突不删除', async (t) => {
+  const filename = temporary(t);
+  const source = readSnapshot(filename).document;
+  source.features[id].annotations = ['first', 'later'].map((suffix) => ({
+    id: `annotation-${suffix}`,
+    text: suffix === 'first' ? '确认批次和数量后保存。' : '后续需求尚待确认。',
+    createdAt: '2026-10-14T00:00:00Z',
+    definitionRevision: 1,
+  }));
+  source.features[id].notes = '保留用户备注。';
+  source.features[id].legacy = { text: '历史原文' };
+  fs.writeFileSync(filename, JSON.stringify(source));
+  await apply(filename, [{ op: 'feature.define', id, description: '确认批次和数量后记录到货。' }]);
+  const before = fs.readFileSync(filename, 'utf8');
+  const done = { ...complete(2), resolvedAnnotationIds: ['annotation-first'] };
+  for (const operations of [
+    [done], // 流程尚未同步。
+    [
+      { op: 'feature.sync', id },
+      { ...done, revision: 1 },
+    ],
+    [
+      { op: 'feature.sync', id },
+      { ...done, implementation: record(2, { checks: [] }) },
+    ],
+    [
+      { op: 'feature.sync', id },
+      { ...done, resolvedAnnotationIds: ['annotation-missing'] },
+    ],
+    [
+      { op: 'feature.sync', id },
+      { ...done, resolvedAnnotationIds: ['annotation-first', 'annotation-first'] },
+    ],
+  ]) {
+    await assert.rejects(apply(filename, operations));
+    assert.equal(fs.readFileSync(filename, 'utf8'), before);
+  }
+  const final = request(filename, [{ op: 'feature.sync', id }, done]);
+  const preview = await applyChanges(filename, final, { dryRun: true, render: false });
+  assert.equal(preview.features[0].after.status, 'complete');
+  assert.equal(fs.readFileSync(filename, 'utf8'), before);
+  await applyChanges(filename, final, { render: false });
+  const current = readSnapshot(filename).document.features[id];
+  assert.equal(current.revision, 2);
+  assert.equal(current.editRevision, 2);
+  assert.equal(current.implementedRevision, 2);
+  assert.deepEqual(current.annotations, [source.features[id].annotations[1]]);
+  assert.equal(current.notes, source.features[id].notes);
+  assert.deepEqual(current.legacy, source.features[id].legacy);
+  assert.equal(listFeatures(readSnapshot(filename)).features[0].annotationCount, 1);
+  const saved = fs.readFileSync(filename, 'utf8');
+  await assert.rejects(applyChanges(filename, final, { render: false }), { code: 'CONFLICT' });
+  assert.equal(fs.readFileSync(filename, 'utf8'), saved);
+  await apply(filename, [complete(2, record(2, { commit: 'another-check' }))]);
+  assert.deepEqual(readSnapshot(filename).document.features[id].annotations, current.annotations);
+  assert.deepEqual(readSnapshot(filename).document.features[id].implementationHistory, [record(2)]);
+});
+
 test('完成登记绑定当前版本，名称和分组变化不会失效，业务变化保留旧验收', async (t) => {
   const filename = temporary(t);
   await apply(filename, [complete(1)]);

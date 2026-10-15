@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "产品书交付审阅 v2",
+  "type": "object",
+  "required": ["version", "documentHash", "features", "diagrams", "journeys"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "documentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "revision", "outcome", "diagrams", "content", "acceptance"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "outcome": {
+            "enum": ["implemented", "requested", "unimplemented", "unverified"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "diagrams": {
+            "type": "object",
+            "required": ["sequence", "dataflow"],
+            "additionalProperties": false,
+            "properties": {
+              "sequence": {
+                "$ref": "#/$defs/decision"
+              },
+              "dataflow": {
+                "$ref": "#/$defs/decision"
+              }
+            }
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rules", "dependencies"],
+            "properties": {
+              "rules": {
+                "$ref": "#/$defs/decision"
+              },
+              "dependencies": {
+                "$ref": "#/$defs/decision"
+              }
+            }
+          },
+          "acceptance": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["criterion", "scenario", "steps", "executionId", "evidence"],
+              "properties": {
+                "criterion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "scenario": {
+                  "enum": ["normal", "exception"]
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "executionId": {
+                  "type": "string",
+                  "pattern": "^v-[a-f0-9-]{36}$"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "enum": ["requested", "unimplemented", "unverified"]
+                }
+              }
+            },
+            "then": {
+              "required": ["reason", "evidence"]
+            }
+          }
+        ]
+      }
+    },
+    "diagrams": {
+      "type": "object",
+      "required": ["architecture", "entities"],
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "$ref": "#/$defs/decision"
+        },
+        "entities": {
+          "$ref": "#/$defs/decision"
+        }
+      }
+    },
+    "journeys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "outcome", "evidence", "steps"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["featureId", "step"],
+              "properties": {
+                "featureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "step": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "required": ["decision"],
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": ["included", "skipped"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alternative": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["diagram"],
+          "properties": {
+            "featureId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "diagram": {
+              "enum": ["sequence", "dataflow", "architecture", "entities"]
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "skipped"
+              }
+            }
+          },
+          "then": {
+            "required": ["reason"]
+          }
+        }
+      ]
+    }
+  }
+}

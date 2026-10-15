@@ -122,6 +122,36 @@
           "type": "string",
           "description": "具体功能的待确认问题或必要说明。"
         },
+        "annotations": {
+          "type": "array",
+          "description": "用户批注与修改想法，独立于已确认的定义，不改变定义版本或完成状态。",
+          "items": {
+            "type": "object",
+            "required": ["id", "text", "createdAt", "definitionRevision"],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 5000,
+                "pattern": "\\S"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "definitionRevision": {
+                "$ref": "#/$defs/revision"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
         "rules": {
           "$ref": "#/$defs/texts"
         },
@@ -307,9 +337,19 @@
               },
               "result": {
                 "const": "passed"
+              },
+              "executionId": {
+                "type": "string",
+                "pattern": "^v-[a-f0-9-]{36}$",
+                "description": "verification run 生成的执行编号；严格完成和交付检查会核对真实记录与日志。"
               }
             }
           }
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/sourceSnapshot",
+          "readOnly": true,
+          "description": "工具在分析会话下完成登记时自动绑定；旧记录可缺省，不代表源码已核验。"
         }
       }
     },
@@ -479,6 +519,83 @@
         },
         "relation": {
           "type": "boolean"
+        }
+      }
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "required": [
+        "version",
+        "root",
+        "snapshotHash",
+        "parserVersion",
+        "indexVersion",
+        "scope",
+        "manifest"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshotHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parserVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "indexVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": {
+          "type": "object",
+          "required": ["include", "exclude"],
+          "properties": {
+            "include": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "manifest": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "kind"],
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": ["source", "types", "context", "unsupported", "unreadable"]
+              },
+              "hash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     }

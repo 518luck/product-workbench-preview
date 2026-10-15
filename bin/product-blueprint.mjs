@@ -51,9 +51,27 @@ const commands = {
     description: '启动仅监听本机的阅读与编辑服务；默认端口为 62039。',
   },
   schema: {
-    options: ['changes', 'analysis'],
-    usage: 'schema [--changes | --analysis]',
+    options: ['changes', 'analysis', 'delivery', 'verification'],
+    usage: 'schema [--changes | --analysis | --delivery | --verification]',
     description: '输出文档、整批变更或分析记录与流程依据规范。',
+  },
+  'document status': {
+    options: ['document'],
+    usage: 'document status [目录或文档.json]',
+    description: '比较当前源码与功能验收快照，列出新增、修改、删除文件；不修改蓝图或执行代码。',
+  },
+  'document check': {
+    options: ['document', 'analysis-session', 'input'],
+    usage: 'document check [目录或文档.json] --analysis-session 会话 --input 交付审阅.json|-',
+    description:
+      '只读检查分析覆盖、核心旅程、规则与步骤依赖、真实验收覆盖、图表及最新 HTML；审阅使用 delivery v2，未达交付条件退出非零。',
+  },
+  'verification run': {
+    options: ['document', 'analysis-session', 'input'],
+    usage:
+      'verification run <功能编号> [目录或文档.json] --analysis-session 会话 --input 命令.json|-',
+    description:
+      '显式执行 {command,args,timeoutMs?} 验收命令并记录结果；不经过 shell，不修改产品文档。',
   },
   'document get': {
     options: ['document', 'section'],
@@ -99,7 +117,7 @@ const commands = {
     options: ['input', 'expected-hash'],
     usage: 'feature complete <功能编号> [目录或文档.json] --input 文件|- --expected-hash 哈希',
     description:
-      '输入 {"revision":版本,"implementation":验收记录}，登记当前功能完成；CLI 不执行验证命令。',
+      '输入 {"revision":版本,"implementation":验收记录}；--require-verification 核对 verification run 执行编号，可带 resolvedAnnotationIds 清理已处理批注。',
   },
   apply: {
     options: ['input'],
@@ -149,6 +167,7 @@ const mutationOptions = [
   'output',
   'analysis-session',
   'allow-partial-analysis',
+  'require-verification',
 ];
 const booleanOptions = new Set([
   'json',
@@ -159,7 +178,10 @@ const booleanOptions = new Set([
   'dry-run',
   'no-render',
   'analysis',
+  'delivery',
+  'verification',
   'allow-partial-analysis',
+  'require-verification',
 ]);
 const valueOptions = new Set([
   'name',
@@ -284,10 +306,10 @@ function parseArguments() {
     return [];
   }
   const top = positional.shift();
-  command = ['feature', 'document', 'analysis'].includes(top)
+  command = ['feature', 'document', 'analysis', 'verification'].includes(top)
     ? `${top}${positional[0] ? ` ${positional.shift()}` : ''}`
     : top;
-  if (['feature', 'document', 'analysis'].includes(command) && options.help) {
+  if (['feature', 'document', 'analysis', 'verification'].includes(command) && options.help) {
     for (const key of Object.keys(options))
       if (!['help', 'json'].includes(key)) invalid(`${command} 帮助不支持选项：--${key}`);
     return positional;
@@ -304,7 +326,8 @@ function parseArguments() {
   if (options['no-render'] && options.output) invalid('--no-render 不能与 --output 同时使用。');
   if (options['allow-partial-analysis'] && !options['analysis-session'])
     invalid('--allow-partial-analysis 需要 --analysis-session。');
-  if (options.changes && options.analysis) invalid('--changes 不能与 --analysis 同时使用。');
+  if (['changes', 'analysis', 'delivery', 'verification'].filter((key) => options[key]).length > 1)
+    invalid('schema 格式选项不能同时使用。');
   return positional;
 }
 function isMutation() {
@@ -313,12 +336,14 @@ function isMutation() {
   );
 }
 function checkPositionals(positional) {
-  const hasId = command.startsWith('feature ') && command !== 'feature list';
+  const hasId =
+    (command.startsWith('feature ') && command !== 'feature list') ||
+    command === 'verification run';
   const maximum = hasId
     ? 2
     : (command.startsWith('analysis ') && !['analysis scan', 'analysis read'].includes(command)) ||
         command === 'schema' ||
-        ['feature', 'document', 'analysis', 'help'].includes(command)
+        ['feature', 'document', 'analysis', 'verification', 'help'].includes(command)
       ? 0
       : 1;
   if (positional.length > maximum) invalid('包含多余的位置参数，请查看当前命令的 --help。');
@@ -333,7 +358,8 @@ function helpText() {
   }
   const entries = Object.entries(commands).filter(
     ([key]) =>
-      !['feature', 'document', 'analysis'].includes(command) || key.startsWith(`${command} `),
+      !['feature', 'document', 'analysis', 'verification'].includes(command) ||
+      key.startsWith(`${command} `),
   );
   return `产品蓝图 CLI ${version}\n\n${entries.map(([, detail]) => `  ${detail.usage}`).join('\n')}\n\n默认文档为当前目录的 product-document.json，默认 HTML 为同目录的 index.html。\nAI 在外部梳理业务、实现及验证；CLI 负责文档维护，不调用 AI。\n${global}\n  --version  查看版本\n`;
 }
@@ -439,7 +465,7 @@ try {
   checkPositionals(positional);
   if (command === 'version') emit({ command, version }, version);
   else if (command === 'help' || options.help) {
-    if (['feature', 'document', 'analysis'].includes(command) && positional.length)
+    if (['feature', 'document', 'analysis', 'verification'].includes(command) && positional.length)
       invalid('帮助命令包含多余的位置参数。');
     const help = helpText();
     emit({ command, help }, help);
@@ -448,13 +474,34 @@ try {
     console.log(
       fs
         .readFileSync(
-          options.analysis ? analysisSchemaPath : options.changes ? changesSchemaPath : schemaPath,
+          options.delivery
+            ? new URL('../schema/delivery.schema.json', import.meta.url)
+            : options.verification
+              ? new URL('../schema/verification.schema.json', import.meta.url)
+              : options.analysis
+                ? analysisSchemaPath
+                : options.changes
+                  ? changesSchemaPath
+                  : schemaPath,
           'utf8',
         )
         .trim(),
     );
   } else if (command === 'init') await initialize(positional);
-  else if (command.startsWith('analysis ')) {
+  else if (command === 'verification run') {
+    if (!options['analysis-session']) invalid('验收需要 --analysis-session。');
+    const id = positional.shift();
+    if (!id || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) invalid('请提供有效功能编号。');
+    const { runVerification } = await import('../lib/verification.mjs');
+    const result = await runVerification(
+      documentFile(positional),
+      id,
+      options['analysis-session'],
+      inputObject(),
+    );
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+    if (!result.valid) process.exitCode = 1;
+  } else if (command.startsWith('analysis ')) {
     const analysis = await import('../lib/analysis-session.mjs');
     const action = command.split(' ')[1];
     const integer = (name, fallback) => {
@@ -498,7 +545,11 @@ try {
     }
     emit({ command, ...result }, JSON.stringify(result, null, 2));
     if (result.valid === false) process.exitCode = 1;
-  } else if (command.startsWith('feature ') || command === 'document get' || command === 'apply') {
+  } else if (
+    command.startsWith('feature ') ||
+    command.startsWith('document ') ||
+    command === 'apply'
+  ) {
     const action = command.split(' ')[1];
     const needsId = command.startsWith('feature ') && action !== 'list';
     const id = needsId ? positional.shift() : undefined;
@@ -520,7 +571,7 @@ try {
             operation.description = payload.description;
           }
           if (action === 'complete') {
-            inputFields(payload, ['revision', 'implementation']);
+            inputFields(payload, ['revision', 'implementation', 'resolvedAnnotationIds']);
             operation = { ...operation, ...payload };
           }
         }
@@ -531,13 +582,27 @@ try {
         render: !options['no-render'],
         analysisSession: options['analysis-session'],
         allowPartialAnalysis: Boolean(options['allow-partial-analysis']),
+        requireVerification: Boolean(options['require-verification']),
         ...(options.output ? { output: path.resolve(options.output) } : {}),
       });
       emit({ command, document: filename, ...result }, mutationMessage(result));
     } else {
       const snapshot = readSnapshot(filename);
       let result, message;
-      if (command === 'document get') {
+      if (command === 'document check') {
+        if (!options['analysis-session']) invalid('交付检查需要 --analysis-session。');
+        const { checkDelivery } = await import('../lib/delivery.mjs');
+        result = await checkDelivery(filename, options['analysis-session'], inputObject());
+        message = JSON.stringify(result, null, 2);
+        if (!result.valid) process.exitCode = 1;
+      } else if (command === 'document status') {
+        const { checkSourceStatus } = await import('../lib/source-status.mjs');
+        result = {
+          documentHash: snapshot.documentHash,
+          sourceStatus: await checkSourceStatus(snapshot.document),
+        };
+        message = JSON.stringify(result.sourceStatus, null, 2);
+      } else if (command === 'document get') {
         const section = options.section || 'all';
         if (!['all', 'product', 'dependencies', 'diagrams'].includes(section))
           invalid('--section 应为 all、product、dependencies 或 diagrams。');
