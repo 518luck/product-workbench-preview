@@ -16,7 +16,7 @@ import {
 import { createDocumentServer } from '../lib/document-server.mjs';
 
 const cli = fileURLToPath(new URL('../bin/product-blueprint.mjs', import.meta.url));
-const currentDocument = fileURLToPath(new URL('../product-document.json', import.meta.url));
+const sampleDocument = fileURLToPath(new URL('../examples/minimal-product.json', import.meta.url));
 function fixture() {
   return {
     schemaVersion: 1,
@@ -73,9 +73,9 @@ function temporary(t) {
   return dir;
 }
 
-test('当前文档通过校验，两个不同项目共用模板且重复生成一致', () => {
-  const current = readDocument(currentDocument);
-  assert.equal(validateDocument(current).valid, true);
+test('通用示例通过校验，模板重复生成一致且不修改输入', () => {
+  const sample = readDocument(sampleDocument);
+  assert.equal(validateDocument(sample).valid, true);
   const document = fixture();
   const before = structuredClone(document);
   const first = renderDocument(document),
@@ -153,9 +153,7 @@ test('CLI 输出完整的数据规范，通用最小示例可直接校验和渲�
   assert.equal(schema.properties.schemaVersion.const, 1);
   assert.ok(schema.$defs.feature.required.includes('stepDetails'));
   assert.ok(schema.$defs.feature.required.includes('implementedRevision'));
-  const sample = readDocument(
-    fileURLToPath(new URL('../examples/minimal-product.json', import.meta.url)),
-  );
+  const sample = readDocument(sampleDocument);
   assert.equal(validateDocument(sample).valid, true);
   const output = renderDocument(sample);
   assert.ok(output.includes('库存管理'));

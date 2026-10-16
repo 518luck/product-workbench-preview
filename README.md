@@ -110,7 +110,7 @@ CLI 的 `init` 只创建空 JSON 文档和同目录的 `index.html`，不会覆�
 | `examples/` | 通用最小文档                                   |
 | `test/`     | 使用临时项目和随机本机端口的回归测试           |
 
-`product-document.json` 是当前用户的权威业务文档，`dist/index.html` 是生成快照；被分析项目的 `.blueprint-analysis/` 保存分析会话。AI 维护语义数据，HTML 始终由固定模板生成。业务内容与模板的约束见 [DOCUMENT.md](DOCUMENT.md)。
+各项目的 `product-document.json` 是权威业务文档，同目录的 `index.html` 是生成快照，项目内的 `.blueprint-analysis/` 保存分析会话。本仓库的通用格式示例位于 `examples/`。AI 维护语义数据，HTML 始终由固定模板生成。业务内容与模板的约束见 [DOCUMENT.md](DOCUMENT.md)。
 
 ## 本机安装与开发检查
 
