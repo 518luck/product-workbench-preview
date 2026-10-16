@@ -1290,3 +1290,18 @@ svg {
 .source-status li {
   overflow-wrap: anywhere;
 }
+
+.flow-verification {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line, #888);
+}
+.flow-verification p,
+.flow-verification li {
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.flow-verification summary {
+  cursor: pointer;
+}

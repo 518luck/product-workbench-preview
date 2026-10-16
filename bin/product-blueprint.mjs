@@ -51,8 +51,8 @@ const commands = {
     description: '启动仅监听本机的阅读与编辑服务；默认端口为 62039。',
   },
   schema: {
-    options: ['changes', 'analysis', 'delivery', 'verification'],
-    usage: 'schema [--changes | --analysis | --delivery | --verification]',
+    options: ['changes', 'analysis', 'delivery', 'verification', 'flow'],
+    usage: 'schema [--changes | --analysis | --delivery | --verification | --flow]',
     description: '输出文档、整批变更或分析记录与流程依据规范。',
   },
   'document status': {
@@ -64,7 +64,7 @@ const commands = {
     options: ['document', 'analysis-session', 'input'],
     usage: 'document check [目录或文档.json] --analysis-session 会话 --input 交付审阅.json|-',
     description:
-      '只读检查分析覆盖、核心旅程、规则与步骤依赖、真实验收覆盖、图表及最新 HTML；审阅使用 delivery v2，未达交付条件退出非零。',
+      '只读检查分析覆盖、核心旅程、业务流程证据、真实验收、图表及最新 HTML；使用 delivery v3，严格 valid 与可部分交付分别报告。',
   },
   'verification run': {
     options: ['document', 'analysis-session', 'input'],
@@ -125,6 +125,37 @@ const commands = {
     description:
       '提交 {"version":1,"expectedHash":"读取时的哈希","operations":[...]}，全部校验通过后一起保存。',
   },
+  'flow record': {
+    options: ['document', 'session', 'input'],
+    usage: 'flow record [产品书] --session 会话 --input 映射.json|-',
+    description: '按当前源码事实绑定业务步骤、调用、数据及正常／异常场景。',
+  },
+  'flow list': {
+    options: ['document', 'session'],
+    usage: 'flow list [产品书] --session 会话',
+    description: '读取当前产品书保存的流程映射与证据绑定。',
+  },
+  'flow sync': {
+    options: ['document', 'session'],
+    usage: 'flow sync [产品书] --session 会话',
+    description: '保存工具计算的流程状态及缺口并更新 HTML；保留定义、批注和完成历史。',
+  },
+  'flow check': {
+    options: ['document', 'session', 'id'],
+    usage: 'flow check [产品书] --session 会话 [--id 流程编号]',
+    description: '检查入口覆盖、步骤衔接、数据来源和真实运行观测；不执行项目代码。',
+  },
+  'analysis prepare': {
+    options: ['language'],
+    usage: 'analysis prepare --language go|cpp',
+    description:
+      '由 AI 显式准备可选 Go packages/SSA 或 Clang LibTooling 分析工具；固定依赖，失败保留能力缺口。',
+  },
+  'analysis capabilities': {
+    options: [],
+    usage: 'analysis capabilities',
+    description: '读取语言解析、语义工具和探针的实际能力边界。',
+  },
   'analysis scan': {
     options: ['config'],
     usage: 'analysis scan [项目目录] [--config 范围.json]',
@@ -134,7 +165,7 @@ const commands = {
   'analysis list': {
     options: ['session', 'offset', 'limit', 'status', 'kind'],
     usage:
-      'analysis list --session 会话 [--kind units|contexts|files|types|traces] [--status all|pending|recorded] [--offset 0] [--limit 50]',
+      'analysis list --session 会话 [--kind units|contexts|files|types|traces|entries|values|edges] [--status all|pending|recorded] [--offset 0] [--limit 50]',
     description: '分页读取分析清单；默认每页 50 项，最大 200 项。',
   },
   'analysis read': {
@@ -181,6 +212,7 @@ const booleanOptions = new Set([
   'analysis',
   'delivery',
   'verification',
+  'flow',
   'allow-partial-analysis',
   'require-verification',
 ]);
@@ -201,6 +233,8 @@ const valueOptions = new Set([
   'limit',
   'length',
   'kind',
+  'id',
+  'language',
 ]);
 const mutations = new Set(['create', 'update', 'define', 'delete', 'sync', 'complete']);
 
@@ -215,7 +249,8 @@ function errorCode(error) {
     error.code === 'INVALID_ARGUMENT' ||
     error.code === 'CONFLICT' ||
     error.code === 'RENDER_FAILED' ||
-    error.code === 'VALIDATION_FAILED'
+    error.code === 'VALIDATION_FAILED' ||
+    error.code === 'ENVIRONMENT_UNAVAILABLE'
   )
     return error.code;
   if (error.status === 409) return 'CONFLICT';
@@ -307,10 +342,13 @@ function parseArguments() {
     return [];
   }
   const top = positional.shift();
-  command = ['feature', 'document', 'analysis', 'verification'].includes(top)
+  command = ['feature', 'document', 'analysis', 'verification', 'flow'].includes(top)
     ? `${top}${positional[0] ? ` ${positional.shift()}` : ''}`
     : top;
-  if (['feature', 'document', 'analysis', 'verification'].includes(command) && options.help) {
+  if (
+    ['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) &&
+    options.help
+  ) {
     for (const key of Object.keys(options))
       if (!['help', 'json'].includes(key)) invalid(`${command} 帮助不支持选项：--${key}`);
     return positional;
@@ -327,7 +365,10 @@ function parseArguments() {
   if (options['no-render'] && options.output) invalid('--no-render 不能与 --output 同时使用。');
   if (options['allow-partial-analysis'] && !options['analysis-session'])
     invalid('--allow-partial-analysis 需要 --analysis-session。');
-  if (['changes', 'analysis', 'delivery', 'verification'].filter((key) => options[key]).length > 1)
+  if (
+    ['changes', 'analysis', 'delivery', 'verification', 'flow'].filter((key) => options[key])
+      .length > 1
+  )
     invalid('schema 格式选项不能同时使用。');
   return positional;
 }
@@ -359,7 +400,7 @@ function helpText() {
   }
   const entries = Object.entries(commands).filter(
     ([key]) =>
-      !['feature', 'document', 'analysis', 'verification'].includes(command) ||
+      !['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) ||
       key.startsWith(`${command} `),
   );
   return `产品蓝图 CLI ${version}\n\n${entries.map(([, detail]) => `  ${detail.usage}`).join('\n')}\n\n默认文档为当前目录的 product-document.json，默认 HTML 为同目录的 index.html。\nAI 在外部梳理业务、实现及验证；CLI 负责文档维护，不调用 AI。\n${global}\n  --version  查看版本\n`;
@@ -411,7 +452,11 @@ function mutationMessage(result) {
   if (result.htmlUpdated) lines.push(`HTML：${result.html}`);
   if (result.analysis) {
     lines.push(
-      result.analysis.partial ? '分析未完整，仅保存草稿；具体缺口：' : '分析与字段依据检查通过。',
+      result.analysis.independentCompletion
+        ? '本次功能依据与真实验收成立；其他源码能力缺口保留：'
+        : result.analysis.partial
+          ? '分析未完整，仅保存草稿；具体缺口：'
+          : '分析与字段依据检查通过。',
     );
     for (const gap of result.analysis.gaps)
       lines.push(`${gap.path || gap.file || gap.kind}：${gap.message}`);
@@ -466,7 +511,10 @@ try {
   checkPositionals(positional);
   if (command === 'version') emit({ command, version }, version);
   else if (command === 'help' || options.help) {
-    if (['feature', 'document', 'analysis', 'verification'].includes(command) && positional.length)
+    if (
+      ['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) &&
+      positional.length
+    )
       invalid('帮助命令包含多余的位置参数。');
     const help = helpText();
     emit({ command, help }, help);
@@ -475,21 +523,60 @@ try {
     console.log(
       fs
         .readFileSync(
-          options.delivery
-            ? new URL('../schema/delivery.schema.json', import.meta.url)
-            : options.verification
-              ? new URL('../schema/verification.schema.json', import.meta.url)
-              : options.analysis
-                ? analysisSchemaPath
-                : options.changes
-                  ? changesSchemaPath
-                  : schemaPath,
+          options.flow
+            ? new URL('../schema/flow.schema.json', import.meta.url)
+            : options.delivery
+              ? new URL('../schema/delivery.schema.json', import.meta.url)
+              : options.verification
+                ? new URL('../schema/verification.schema.json', import.meta.url)
+                : options.analysis
+                  ? analysisSchemaPath
+                  : options.changes
+                    ? changesSchemaPath
+                    : schemaPath,
           'utf8',
         )
         .trim(),
     );
   } else if (command === 'init') await initialize(positional);
-  else if (command === 'verification run') {
+  else if (command.startsWith('flow ')) {
+    if (!options.session) invalid('流程命令需要 --session。');
+    const flow = await import('../lib/flow.mjs');
+    const filename = documentFile(positional);
+    let result;
+    if (command === 'flow record')
+      result = await flow.recordFlows(filename, options.session, inputObject());
+    if (command === 'flow sync') {
+      const { syncFlowStatus } = await import('../lib/flow-status.mjs');
+      result = await syncFlowStatus(filename, options.session);
+    }
+    if (command === 'flow check')
+      result = flow.checkFlows(filename, options.session, { id: options.id });
+    if (command === 'flow list') {
+      const { loadSession } = await import('../lib/analysis-session.mjs');
+      const { state } = loadSession(options.session);
+      result = {
+        flows: Object.values(state.flows || {}).filter(
+          (record) => record.documentPath === fs.realpathSync(filename),
+        ),
+        dispositions: state.entryDispositions || {},
+      };
+    }
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+    if (result.valid === false) process.exitCode = 1;
+  } else if (command === 'analysis prepare') {
+    const { prepareLanguage } = await import('../lib/analysis-native.mjs');
+    const result = prepareLanguage(options.language);
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+  } else if (command === 'analysis capabilities') {
+    const { adapterProfiles } = await import('../lib/analysis-adapters.mjs');
+    const result = {
+      protocol: 2,
+      languages: adapterProfiles(),
+      scope: '已识别入口、声明场景及所列能力范围；未知关系必须保留缺口。',
+    };
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+  } else if (command === 'verification run') {
     if (!options['analysis-session']) invalid('验收需要 --analysis-session。');
     const id = positional.shift();
     if (!id || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) invalid('请提供有效功能编号。');

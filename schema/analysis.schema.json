@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://product-blueprint.local/analysis.schema.json",
-  "title": "源码分析记录与流程依据 v1",
+  "title": "源码分析记录与流程依据 v2",
   "description": "analysis record 或 analysis trace 的输入。源码位置为 UTF-16 半开区间 [start,end)，行列从 1 开始；工具生成凭据、内容指纹与 recordHash，调用者不能自行指定。",
   "oneOf": [
     {

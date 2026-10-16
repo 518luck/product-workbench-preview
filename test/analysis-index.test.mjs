@@ -131,7 +131,7 @@ test('清单记录排除原因、解析失败、非支持语言与显式范围�
   const root = fixture(t, {
     'src/good.js': "throw new Error('must not execute'); function good() {}",
     'src/bad.ts': 'function broken( {',
-    'src/service.py': 'def work(): pass',
+    'src/service.rb': 'def work(): pass',
     'src/generated.js': 'function generated() {}',
     'other.js': 'function other() {}',
     'node_modules/pkg/index.js': 'function library() {}',
@@ -141,7 +141,7 @@ test('清单记录排除原因、解析失败、非支持语言与显式范围�
   });
   const scan = await scanAnalysis(root, { include: ['src'], exclude: ['src/generated.js'] });
   assert.ok(scan.gaps.some((gap) => gap.file === 'src/bad.ts' && gap.kind === 'parse'));
-  assert.ok(scan.gaps.some((gap) => gap.file === 'src/service.py' && gap.kind === 'language'));
+  assert.ok(scan.gaps.some((gap) => gap.file === 'src/service.rb' && gap.kind === 'language'));
   for (const [file, reason] of [
     ['node_modules', '依赖库'],
     ['dist', '生成目录'],

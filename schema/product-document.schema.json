@@ -51,6 +51,27 @@
           "$ref": "#/$defs/graph"
         }
       }
+    },
+    "flowVerification": {
+      "type": "object",
+      "description": "flow sync 生成的流程核验展示记录，独立于功能完成历史；严格检查仍读取分析会话和真实执行。",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "snapshotHash": {
+          "type": "string"
+        },
+        "features": {
+          "type": "object"
+        },
+        "globalGaps": {
+          "type": "array"
+        },
+        "scope": {
+          "type": "string"
+        }
+      }
     }
   },
   "$defs": {
@@ -535,7 +556,11 @@
       ],
       "properties": {
         "version": {
-          "const": 1
+          "enum": [1, 2]
+        },
+        "analyzers": {
+          "type": "object",
+          "description": "v2 源码基线绑定的各语言解析器版本、语法指纹及能力。"
         },
         "root": {
           "type": "string",
@@ -571,6 +596,13 @@
                 "type": "string",
                 "minLength": 1
               }
+            },
+            "contexts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
@@ -597,7 +629,21 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "version": {
+                "const": 2
+              }
+            }
+          },
+          "then": {
+            "required": ["analyzers"]
+          }
+        }
+      ]
     }
   }
 }

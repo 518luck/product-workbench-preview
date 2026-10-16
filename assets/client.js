@@ -32,6 +32,17 @@
   let documentAvailable = false;
   let documentLoading = true;
   let sourceStatus = null;
+  let savedWarning = '';
+  async function readSaveResponse(response, fallback) {
+    const result = await response.json();
+    if (response.ok) return result;
+    if (result.documentSaved && result.feature) {
+      savedWarning = result.error || '内容已保存，阅读快照待恢复。';
+      return result.feature;
+    }
+    throw new Error(result.error || fallback);
+  }
+  let flowStatus = embeddedDocument.flowVerification || null;
   let checkingSource = false;
   let sourceCheckError = '';
   const annotationDrafts = new Map();
@@ -73,8 +84,7 @@
             expectedEditRevision: r?.editRevision ?? 0,
           }),
         });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '保存名称失败，请重试。');
+      const result = await readSaveResponse(response, '保存名称失败，请重试。');
       productDocument.features[f.id] = result;
       applyProductDocument(productDocument);
       if (titleEdits.get(f.id) === title) titleEdits.delete(f.id);
@@ -219,8 +229,7 @@
           context,
         }),
       });
-      const record = await response.json();
-      if (!response.ok) throw new Error(record.error || '保存失败，请重试。');
+      const record = await readSaveResponse(response, '保存失败，请重试。');
       productDocument.features[sent.id] = record;
       applyProductDocument(productDocument);
       newFeatureDraft = { id: '', title: '', description: '', groupPathText: '' };
@@ -299,13 +308,46 @@
     render();
     if (documentAvailable) await refreshSourceStatus();
   }
+  async function refreshFlowStatus() {
+    try {
+      const response = await fetch('/document/flow-status', { cache: 'no-store' });
+      if (response.ok) flowStatus = await response.json();
+    } catch {
+      flowStatus = null;
+    }
+    if (state.view === 'feature') renderFeature();
+  }
+  function flowStatusMarkup(f) {
+    const record = flowStatus?.features?.[f.id];
+    const changed =
+      record && (record.revision !== documentRecord(f)?.revision || descriptionEdits.has(f.id));
+    const status = changed ? 'stale' : record?.status || 'unverified';
+    const labels = {
+      passed: '已核验',
+      partial: '部分核验',
+      unverified: '未核验',
+      failed: '失败',
+      stale: '已过期',
+    };
+    const gaps = changed
+      ? [{ message: '功能定义已变化，需要重新核验流程。' }]
+      : record?.gaps || [{ message: '尚无此功能的业务流程与运行证据。' }];
+    const globalGaps = flowStatus?.globalGaps || [];
+    const flows = (record?.flows || [])
+      .map((flow) => {
+        const scenarios = flow.scenarios || [];
+        return `<p>${esc(flow.title)}：${esc(labels[flow.status] || labels.unverified)}</p>${scenarios.length ? `<details><summary>执行证据（${scenarios.length} 个场景）</summary>${flow.scope ? `<p>入口：<code>${esc(flow.scope.entryId)}</code> · ${esc(flow.scope.sourceUnits)} 个源码单元 · ${esc(flow.scope.edges)} 项连接</p>` : ''}<ul>${scenarios.map((scenario) => `<li>${esc(scenario.id)}（${scenario.kind === 'exception' ? '异常' : '正常'}）：${scenario.valid ? '观测成立' : '未通过'}${scenario.executionId ? ` · <code>${esc(scenario.executionId)}</code>` : ' · 尚无执行记录'}</li>`).join('')}</ul></details>` : ''}`;
+      })
+      .join('');
+    return `<section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 功能完成历史单独保留。</p><details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>声明场景中的连接、数据关系及结果均有对应执行证据。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目入口与范围缺口（${globalGaps.length}）</summary><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section>`;
+  }
   function renderDocumentAccess() {
     const panel = $('document-access');
     panel.hidden = documentAvailable;
     if (documentAvailable) return;
     panel.innerHTML = documentLoading
       ? '正在连接本机文档服务…'
-      : `<strong>只读快照，无法写回项目</strong><p>${location.protocol === 'file:' ? '您正在直接打开 HTML 文件。保存定义和批注需要通过本机文档服务打开页面。' : '当前地址没有可用的本机保存服务。已显示的内容仍可阅读。'} 批注需要保存到产品文档，实现 Skill 才能读取。</p><details><summary>如何启用保存</summary><p>在终端运行以下命令，将“产品文档目录”替换为产品 JSON 所在目录，再打开命令输出的网址。</p><code>product-blueprint serve "产品文档目录" --port 0</code></details>`;
+      : `<strong>只读快照，无法写回项目</strong><p>${location.protocol === 'file:' ? '您正在直接打开 HTML 文件。保存定义和批注需要通过本机文档服务打开页面。' : '当前地址没有可用的本机保存服务。已显示的内容仍可阅读。'} 批注需要保存到产品文档，实现 Skill 才能读取。</p><details><summary>如何启用保存</summary><p>请让当前 AI 为这份产品书启动本机编辑服务并打开可保存的链接，无需手动输入命令。</p></details>`;
   }
   async function refreshSourceStatus() {
     if (!documentAvailable || checkingSource) return;
@@ -324,6 +366,7 @@
     } finally {
       checkingSource = false;
       renderSourceStatus();
+      await refreshFlowStatus();
     }
   }
   function renderSourceStatus() {
@@ -472,8 +515,7 @@
           }),
         },
       );
-      const record = await response.json();
-      if (!response.ok) throw new Error(record.error || '批注保存失败，输入仍保留。');
+      const record = await readSaveResponse(response, '批注保存失败，输入仍保留。');
       productDocument.features[f.id] = record;
       applyProductDocument(productDocument);
       draft.editingId = '';
@@ -524,8 +566,7 @@
           }),
         },
       );
-      const record = await response.json();
-      if (!response.ok) throw new Error(record.error || '批注删除失败。');
+      const record = await readSaveResponse(response, '批注删除失败。');
       productDocument.features[f.id] = record;
       applyProductDocument(productDocument);
       if (annotationDraft(f.id).editingId === annotationId) {
@@ -597,8 +638,7 @@
             expectedEditRevision: r?.editRevision ?? 0,
           }),
         });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '保存失败，请重试。');
+      const result = await readSaveResponse(response, '保存失败，请重试。');
       productDocument.features[f.id] = result;
       applyProductDocument(productDocument);
       if (descriptionEdits.get(f.id) === description) descriptionEdits.delete(f.id);
@@ -618,6 +658,10 @@
   const activeContent = (feature) => documentRecord(feature) || feature;
   let toastTimer;
   function toast(message) {
+    if (savedWarning) {
+      message = savedWarning;
+      savedWarning = '';
+    }
     $('toast').textContent = message;
     $('toast').classList.add('show');
     clearTimeout(toastTimer);
@@ -975,6 +1019,7 @@
       annotationMarkup(f) +
       (f.notes ? `<p class="document-note">${esc(f.notes)}</p>` : '') +
       heading +
+      flowStatusMarkup(f) +
       flow
     );
   }

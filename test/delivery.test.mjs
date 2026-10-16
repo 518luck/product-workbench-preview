@@ -16,19 +16,23 @@ import { readSnapshot, applyChanges } from '../lib/document-operations.mjs';
 import { renderDocument } from '../lib/document.mjs';
 import { runVerification } from '../lib/verification.mjs';
 import { checkDelivery } from '../lib/delivery.mjs';
+import { recordFlows } from '../lib/flow.mjs';
+import { syncFlowStatus } from '../lib/flow-status.mjs';
 
 const cli = new URL('../bin/product-blueprint.mjs', import.meta.url).pathname;
 const skip = {
   decision: 'skipped',
   reason: '此权限判断只有一个输入输出，无跨参与者交互或存储关系。',
 };
-async function fixture(t, { analyzed = true } = {}) {
+async function fixture(t, { analyzed = true, unrelatedLanguage = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-delivery-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(
     path.join(root, 'access.mjs'),
     "export function allowed(role) { return role === 'admin'; }\n",
   );
+  if (unrelatedLanguage)
+    fs.writeFileSync(path.join(root, 'legacy.rb'), 'def legacy; :unknown; end\n');
   const f = createFeature('access', {
     title: '管理员访问',
     description: '仅管理员允许访问。',
@@ -103,6 +107,39 @@ async function fixture(t, { analyzed = true } = {}) {
       visit(f[field], '/features/access/' + field);
     await traceAnalysis(scan.session, { traces });
   }
+  const unit = loadSession(scan.session).state.units[0];
+  await recordFlows(filename, scan.session, {
+    expectedHash: readSnapshot(filename).documentHash,
+    flows: [
+      {
+        id: 'access-flow',
+        title: '按角色检查权限',
+        entryId: `entry-${unit.id}`,
+        nodes: [
+          {
+            id: 'check',
+            featureId: 'access',
+            step: 0,
+            unitId: unit.id,
+            inputs: unit.parameters,
+            outputs: unit.returns,
+          },
+        ],
+        edges: [],
+        scenarios: ['normal', 'exception'].map((kind) => ({
+          id: kind,
+          title: kind === 'normal' ? '管理员允许' : '普通成员拒绝',
+          kind,
+          entryNode: 'check',
+          terminalNodes: ['check'],
+          edges: [],
+          assertions: [
+            { nodeId: 'check', event: 'return', operator: 'equals', expected: kind === 'normal' },
+          ],
+        })),
+      },
+    ],
+  });
   return { root, filename, session: scan.session };
 }
 const command = {
@@ -116,7 +153,9 @@ const command = {
 function review(filename, outcome = 'implemented') {
   const s = readSnapshot(filename);
   return structuredClone({
-    version: 2,
+    version: 3,
+    flows: ['access-flow'],
+    acknowledgedGaps: [],
     documentHash: s.documentHash,
     journeys: [
       {
@@ -150,7 +189,7 @@ function review(filename, outcome = 'implemented') {
 }
 async function complete(f, receipt, { strict = true } = {}) {
   const s = readSnapshot(f.filename);
-  return applyChanges(
+  const result = await applyChanges(
     f.filename,
     {
       version: 1,
@@ -176,6 +215,25 @@ async function complete(f, receipt, { strict = true } = {}) {
     },
     { analysisSession: f.session, requireVerification: strict },
   );
+  {
+    const stored = Object.values(loadSession(f.session).state.flows)[0];
+    const { id, title, entryId, nodes, edges, scenarios } = stored;
+    await recordFlows(f.filename, f.session, {
+      expectedHash: readSnapshot(f.filename).documentHash,
+      flows: [{ id, title, entryId, nodes, edges, scenarios }],
+    });
+  }
+  for (const scenarioId of ['normal', 'exception'])
+    await runVerification(f.filename, 'access', f.session, {
+      command: process.execPath,
+      args: [
+        '--input-type=module',
+        '-e',
+        `import {allowed} from './access.mjs';allowed('${scenarioId === 'normal' ? 'admin' : 'member'}');`,
+      ],
+      flow: { id: 'access-flow', scenarioId },
+    });
+  return result;
 }
 
 test('交付检查拒绝只保存草稿及未完成分析；具体新需求可交付，旧哈希和无理由图表跳过拒绝', async (t) => {
@@ -187,7 +245,21 @@ test('交付检查拒绝只保存草稿及未完成分析；具体新需求可�
   const current = review(other.filename, 'requested');
   current.features[0].reason = '未来需要增加编辑权限。';
   current.features[0].evidence = '用户原文：请允许编辑角色访问。';
-  assert.equal((await checkDelivery(other.filename, other.session, current)).valid, true);
+  const partial = await checkDelivery(other.filename, other.session, current);
+  assert.equal(partial.valid, false);
+  current.acknowledgedGaps = partial.gaps.map((gap) => ({
+    kind: gap.kind,
+    path: gap.path || gap.flowId || gap.entryId || '/',
+    reason: '未来需求尚未实现；保留具体业务连接和执行缺口。',
+  }));
+  assert.equal(
+    (await checkDelivery(other.filename, other.session, current)).deliverable,
+    false,
+    '只在审阅 JSON 写缺口不等于产品书可见',
+  );
+  await syncFlowStatus(other.filename, other.session);
+  current.documentHash = readSnapshot(other.filename).documentHash;
+  assert.equal((await checkDelivery(other.filename, other.session, current)).deliverable, true);
   current.documentHash = '0'.repeat(64);
   delete current.diagrams.entities.reason;
   const rejected = await checkDelivery(other.filename, other.session, current);
@@ -367,4 +439,32 @@ test('影响业务的未知默认阻止完成；独立边界说明保留备注�
   const result = await checkDelivery(f.filename, f.session, review(f.filename));
   assert.equal(result.valid, true, JSON.stringify(result.gaps));
   assert.equal(readSnapshot(f.filename).document.features.access.notes, value);
+});
+
+test('无关语言能力缺口不把独立验收功能降成草稿；全书严格检查仍失败且缺口可见', async (t) => {
+  const f = await fixture(t, { unrelatedLanguage: true });
+  const run = await runVerification(f.filename, 'access', f.session, command);
+  const result = await complete(f, run);
+  assert.equal(result.analysis.independentCompletion, true);
+  assert.ok(result.analysis.gaps.some((gap) => gap.kind === 'language'));
+  const feature = readSnapshot(f.filename).document.features.access;
+  assert.equal(feature.implementedRevision, feature.revision);
+  await syncFlowStatus(f.filename, f.session);
+  const input = review(f.filename),
+    first = await checkDelivery(f.filename, f.session, input);
+  assert.equal(first.valid, false);
+  assert.ok(first.gaps.some((gap) => gap.kind === 'language'));
+  input.acknowledgedGaps = first.gaps.map((gap) => ({
+    kind: gap.kind,
+    path: gap.path || gap.flowId || gap.entryId || '/',
+    reason:
+      'legacy.rb 尚无语言适配器；权限函数的当前正常与拒绝行为已有独立真实验收，保留其他范围缺口。',
+  }));
+  const final = await checkDelivery(f.filename, f.session, input);
+  assert.equal(final.deliverable, true, JSON.stringify(final.gaps));
+  assert.equal(final.stage, 'partial');
+  assert.equal(
+    readSnapshot(f.filename).document.features.access.implementedRevision,
+    feature.revision,
+  );
 });

@@ -1,12 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "产品书交付审阅 v2",
+  "title": "产品书交付审阅 v3",
   "type": "object",
-  "required": ["version", "documentHash", "features", "diagrams", "journeys"],
+  "required": [
+    "version",
+    "documentHash",
+    "features",
+    "diagrams",
+    "journeys",
+    "flows",
+    "acknowledgedGaps"
+  ],
   "additionalProperties": false,
   "properties": {
     "version": {
-      "const": 2
+      "const": 3
     },
     "documentHash": {
       "type": "string",
@@ -170,6 +178,36 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "acknowledgedGaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "reason"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

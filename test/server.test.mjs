@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createDocumentServer } from '../lib/document-server.mjs';
 import { updateDocument, DocumentConflictError } from '../lib/document-store.mjs';
-import { templatePath, readDocument } from '../lib/document.mjs';
+import { templatePath, readDocument, renderDocument } from '../lib/document.mjs';
 
 const example = fileURLToPath(new URL('../examples/minimal-product.json', import.meta.url));
 const store = new URL('../lib/document-store.mjs', import.meta.url).href;
@@ -41,6 +41,35 @@ const save = (feature, extras = {}) => ({
   expectedRevision: feature.revision,
   expectedEditRevision: feature.editRevision ?? 0,
   ...extras,
+});
+
+test('页面保存同步独立快照，HTML 失败仍返回已保存版本，可恢复而不重做业务保存', async (t) => {
+  const { directory, filename } = temporary(t),
+    { origin, put } = await start(t, filename);
+  const feature = readDocument(filename).features[id];
+  assert.equal((await put(id, save(feature, { description: '本次修改已保存。' }))).status, 200);
+  assert.equal(
+    fs.readFileSync(path.join(directory, 'index.html'), 'utf8'),
+    renderDocument(readDocument(filename)),
+  );
+  fs.unlinkSync(path.join(directory, 'index.html'));
+  fs.mkdirSync(path.join(directory, 'index.html'));
+  const current = readDocument(filename).features[id];
+  const response = await put(id, save(current, { description: 'JSON 成功，HTML 暂时失败。' }));
+  assert.equal(response.status, 500);
+  const result = await response.json();
+  assert.equal(result.documentSaved, true);
+  assert.equal(result.feature.description, 'JSON 成功，HTML 暂时失败。');
+  assert.equal(result.feature.revision, current.revision + 1);
+  const live = await (await fetch(origin + '/document/flow-status')).json();
+  assert.equal(live.features[id].status, 'unverified');
+  fs.rmdirSync(path.join(directory, 'index.html'));
+  assert.equal((await put(id, save(result.feature))).status, 200);
+  assert.equal(readDocument(filename).features[id].revision, result.feature.revision);
+  assert.equal(
+    fs.readFileSync(path.join(directory, 'index.html'), 'utf8'),
+    renderDocument(readDocument(filename)),
+  );
 });
 
 test('批注独立保存，保留定义与完成状态，重试幂等并保护并发版本', async (t) => {

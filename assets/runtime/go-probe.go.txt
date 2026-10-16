@@ -1,0 +1,58 @@
+package __PACKAGE__
+
+import (
+  "encoding/json"
+  "fmt"
+  "os"
+  "reflect"
+  "runtime"
+  "strconv"
+  "strings"
+  "sync"
+)
+type __pbFrame struct { id, trace, unit, call, returned string; parent *__pbFrame }
+type __pbPending struct { id, target string; sources []string; entered *__pbFrame }
+var __pbMutex sync.Mutex
+var __pbSequence, __pbSpan uint64
+var __pbStacks = map[uint64][]*__pbFrame{}
+var __pbPendingCalls = map[uint64]*__pbPending{}
+var __pbOutput = os.NewFile(3,"probe")
+var __pbRunID = func() string { data, _ := os.ReadFile(os.Getenv("PRODUCT_BLUEPRINT_PROBE_CONFIG")); var config struct { RunID string `json:"runId"` }; json.Unmarshal(data,&config); return config.RunID }()
+func __pbGoroutine() uint64 { var data [64]byte; n:=runtime.Stack(data[:],false); fields:=strings.Fields(string(data[:n])); id,_:=strconv.ParseUint(fields[1],10,64); return id }
+func __pbEmit(kind string, frame *__pbFrame, extra map[string]any) {
+  __pbMutex.Lock(); defer __pbMutex.Unlock(); __pbSequence++
+  event:=map[string]any{"runId":__pbRunID,"seq":__pbSequence,"kind":kind,"traceId":frame.trace,"spanId":frame.id,"unitId":frame.unit,"parentSpanId":nil,"parentUnitId":nil}
+  if frame.parent!=nil { event["parentSpanId"]=frame.parent.id;event["parentUnitId"]=frame.parent.unit }
+  for key,value:=range extra { event[key]=value }; data,err:=json.Marshal(event);if err==nil { data=append(data,'\n');__pbOutput.Write(data) }
+}
+func __pbScalar(value any) map[string]any {
+  kind:="object";if value==nil {kind="null"} else { switch reflect.TypeOf(value).Kind() {case reflect.String:kind="string";case reflect.Bool:kind="boolean";case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64,reflect.Uint,reflect.Uint8,reflect.Uint16,reflect.Uint32,reflect.Float32,reflect.Float64:kind="number"} }
+  if kind=="object" {return map[string]any{"valueType":kind}}
+  return map[string]any{"valueType":kind,"rawScalar":value}
+}
+func __pbValue(kind string, frame *__pbFrame, fact string, value any) { item:=__pbScalar(value);item["factId"]=fact;__pbEmit(kind,frame,item) }
+func __pbEnter(unit string, ids []string, args []any) *__pbFrame {
+  goroutine:=__pbGoroutine();__pbMutex.Lock();__pbSpan++;name:=fmt.Sprint(__pbSpan);pending:=__pbPendingCalls[goroutine];stack:=__pbStacks[goroutine]
+  frame:=&__pbFrame{id:name,trace:name,unit:unit}
+  if pending!=nil && pending.target==unit && len(stack)>0 {frame.parent=stack[len(stack)-1];frame.trace=frame.parent.trace;frame.call=pending.id;pending.entered=frame}
+  __pbStacks[goroutine]=append(stack,frame);__pbPendingCalls[goroutine]=nil;__pbMutex.Unlock()
+  __pbEmit("enter",frame,map[string]any{"callId":frame.call})
+  for index,id:=range ids {if index<len(args){if frame.parent!=nil && index<len(pending.sources){__pbEmit("binding",frame,map[string]any{"sourceId":pending.sources[index],"targetId":id,"sourceSpanId":frame.parent.id,"targetSpanId":frame.id,"callId":frame.call})};__pbValue("value",frame,id,args[index])}}
+  return frame
+}
+func __pbExit(frame *__pbFrame) {
+  failure:=recover();if failure!=nil {__pbEmit("throw",frame,map[string]any{"errorName":"panic"})}else{__pbEmit("exit",frame,nil)}
+  goroutine:=__pbGoroutine();__pbMutex.Lock();stack:=__pbStacks[goroutine];if len(stack)>0{__pbStacks[goroutine]=stack[:len(stack)-1]};__pbMutex.Unlock()
+  if failure!=nil {panic(failure)}
+}
+func __pbReturn[T any](frame *__pbFrame,fact string,value T) T { frame.returned=fact;__pbValue("return",frame,fact,value);return value }
+func __pbBranch(frame *__pbFrame,point string,value bool) bool { __pbEmit("branch",frame,map[string]any{"pointId":point,"decision":value,"rawScalar":value});return value }
+func __pbPoint[T any](frame *__pbFrame,point string,value T) T {__pbEmit("point",frame,map[string]any{"pointId":point});return value}
+func __pbCall[T any](frame *__pbFrame,id,target,result string,sources []string,fn any,expectedName string,callback func()T) T {
+  // Only the actual declared free function is accepted. Function variables and interface dispatch are not inferred.
+  info:=runtime.FuncForPC(reflect.ValueOf(fn).Pointer());actual:="";if info!=nil{actual=info.Name()};if actual!=expectedName && !strings.HasSuffix(actual,"."+expectedName){target=""}
+  pending:=&__pbPending{id:id,target:target,sources:sources};goroutine:=__pbGoroutine();__pbMutex.Lock();previous:=__pbPendingCalls[goroutine];__pbPendingCalls[goroutine]=pending;__pbMutex.Unlock()
+  defer func(){__pbMutex.Lock();__pbPendingCalls[goroutine]=previous;__pbMutex.Unlock()}()
+  __pbEmit("call",frame,map[string]any{"callId":id,"targetUnitId":target});value:=callback()
+  if pending.entered!=nil && pending.entered.returned!=""{__pbEmit("binding",frame,map[string]any{"sourceId":pending.entered.returned,"targetId":result,"sourceSpanId":pending.entered.id,"targetSpanId":frame.id,"callId":id})};__pbValue("value",frame,result,value);return value
+}

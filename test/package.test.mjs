@@ -41,7 +41,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     assert.ok(!member.split('/').includes('..'), `包成员不应跨目录：${member}`);
     assert.match(
       member,
-      /^package\/(?:bin\/|lib\/|assets\/|schema\/|examples\/|skills\/|package\.json$|README\.md$|DOCUMENT\.md$|ANALYSIS\.md$)/,
+      /^package\/(?:bin\/|lib\/|assets\/|schema\/|examples\/|skills\/|package\.json$|README\.md$|DOCUMENT\.md$|ANALYSIS\.md$|FLOW\.md$)/,
       `白名单之外的文件不得进入工具包：${member}`,
     );
   }
@@ -64,6 +64,14 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'assets/client.js',
     'assets/styles.css',
     'assets/theme.js',
+    'assets/grammars/python.wasm',
+    'assets/grammars/go.wasm',
+    'assets/grammars/cpp.wasm',
+    'assets/runtime/node-probe.mjs',
+    'assets/runtime/python-probe.py',
+    'assets/runtime/go-probe.go.txt',
+    'assets/runtime/cpp-probe.hpp',
+    'schema/flow.schema.json',
     'schema/product-document.schema.json',
     'schema/changes.schema.json',
     'schema/analysis.schema.json',
@@ -102,7 +110,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   const packageRoot = fs.realpathSync(path.join(install, 'node_modules', 'product-blueprint'));
   const manifest = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
-  assert.equal(manifest.version, '0.2.1');
+  assert.equal(manifest.version, '0.3.0');
   assert.equal(manifest.dependencies.typescript, '6.0.2');
   const installedRequire = createRequire(path.join(packageRoot, 'package.json'));
   assert.equal(installedRequire('typescript/package.json').version, '6.0.2');

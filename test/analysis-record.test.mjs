@@ -228,7 +228,7 @@ test('严格分析写入需要逐字段依据；预览不写文件，值变化�
 });
 
 test('显式部分分析交付报告及草稿，任何完成操作都被拒绝，源码过期不可豁免', async (t) => {
-  const { root, filename } = fixture(t, { 'legacy.py': 'def legacy(): pass' }),
+  const { root, filename } = fixture(t, { 'legacy.rb': 'def legacy(): pass' }),
     scan = await scanAnalysis(root);
   const saved = await applyChanges(filename, create(readSnapshot(filename).documentHash), {
     analysisSession: scan.session,
