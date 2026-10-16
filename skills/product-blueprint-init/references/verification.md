@@ -12,7 +12,7 @@
 
 首次整理不表示尚未实现；未核验也不等于未实现。不用同一段分析进度备注代替逐功能判断。
 
-完成必须有当前分析快照的有效 `observed` 产品源码依据；需求和测试源码不能单独证明产品已实现。有分析缺口时不得登记完成。与已核验业务无关的宿主未知项按 [内容审阅](content-review.md) 保留并说明，不自动判定所有功能未实现。
+完成必须有当前分析快照的有效 `observed` 产品源码依据；需求和测试源码不能单独证明产品已实现。本功能漏读、漏记录、缺少字段或流程证据时不得登记完成。若工具确认剩余语言／语义／适配能力缺口全部位于本功能核验范围外，可根据独立真实执行登记完成；保留整体缺口，不声称全书严格通过，也不使用 `--allow-partial-analysis` 绕过门禁。与已核验业务无关的宿主未知项按 [内容审阅](content-review.md) 保留并说明，不自动判定所有功能未实现。
 
 ## 执行验收并登记完成
 
@@ -31,14 +31,16 @@
 
 失败、超时或被修改的执行结果不能支持完成；旧手动记录保留但不冒充真实执行。命令通过只证明执行结果，仍须审阅断言是否覆盖业务。文件存在和协议夹具不能替代真实 AI 协作验收。
 
+先按 [业务流程核验](flow-verification.md) 建立调用与数据映射，运行声明场景并 flow check、flow sync。命令成功不代表流程通过；保留独立功能完成历史。
+
 ## 最终交付检查
 
 先确认当前 `analysis check` 的读取、逐函数位置说明和业务依据均有效；有存储记录或旧的 valid 报告不能代替本次检查。再从各功能规则及异常反查实现函数，确认条件、调用后果和失败顺序与分析、图表一致，不能仅凭位置计数宣称理解完整。
 
 1. 运行 `document status /文档 --json`，确认本次已核验功能为 `current`。旧记录缺少基线时是 `unverified`；路径或读取问题需如实保留。
 2. 用浏览器核验实际 HTML 的流程、图表、正常／异常情景及详情入口。结构与来源检查不能代替业务审阅。
-3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v2 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
-4. 运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`；只有 `valid:true` 才宣称初始化完成。失败继续补齐，无法消除时只交付明确的部分进度。
+3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v3 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
+4. 运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`；只有 `valid:true` 才称严格通过。漏读、漏记录、漏映射继续补齐；真实能力限制可在缺口完整可见、deliverable:true 时部分交付，不将其称为严格通过。
 5. 按下节启动并核对本机编辑服务，打开页面。以上步骤均由 AI 内部执行，结果保存到相应记录，不要求用户验收或决定如何交付；最终回复按 SKILL.md 模板，只展示可编辑链接、产品定位与核心旅程。
 
 若 JSON 已保存而 HTML 生成失败，仅运行 `render` 恢复，不重复新增或完成登记。源码在交付期间变化时重新核验，不用新指纹替换旧基线来消除提示。

@@ -168,7 +168,7 @@ product-blueprint apply ./my-product --input changes.json --json
 
 工具在分析会话的 `verifications/` 保存命令、退出码、起止时间、输出及指纹、文档路径、功能编号、定义版本和业务内容指纹、源码指纹。使用返回的 `executionId` 填写 `implementation.checks`：`{ "name": "正常与异常路径验收", "result": "passed", "executionId": "v-工具返回编号" }`，verifiedAt 不早于执行结束。完成批次同时带 `--require-verification --analysis-session SESSION`；缺记录、失败、超时、被修改日志、跨文档／功能／定义／源码复用都拒绝落盘。保留旧兼容入口不表示旧记录有这些证据；任何传入 executionId 的登记都检查其有效性。记录文件不构成针对有文件权限程序的防伪安全边界，退出码通过也不证明测试充分。
 
-初始化最终运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`，读取交付审阅协议 `schema --delivery`。review v2 绑定最新 documentHash，逐项记录功能 id、revision、outcome（implemented/requested/unimplemented/unverified）及图表判断；草稿填写具体 reason 与 evidence。图表存在填 `included`，未生成填 `skipped` 及具体原因。检查分析缺项、逐功能状态、完成源码依据和真实执行记录、源码基线以及同目录最新 index.html，成功返回 `valid:true, stage:ready`；失败退出 1，不修改文档。语义正确性仍由真实业务验收与评测判断，不能用高读取率替代。
+初始化最终运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`，读取交付审阅协议 `schema --delivery`。review v3 绑定最新 documentHash，逐项记录功能 id、revision、outcome（implemented/requested/unimplemented/unverified）及图表判断；草稿填写具体 reason 与 evidence。图表存在填 `included`，未生成填 `skipped` 及具体原因。检查分析缺项、逐功能状态、完成源码依据和真实执行记录、源码基线以及同目录最新 index.html，成功返回 `valid:true, stage:ready`；失败退出 1，不修改文档。语义正确性仍由真实业务验收与评测判断，不能用高读取率替代。
 
 业务文档先保存，再基于保存后的版本实现代码并实际验收；验收后重新读取并登记完成。不用旧定义的测试结果为新定义登记完成。初始化既有项目时，先保存从源码归纳的定义，再核验已有实现并登记完成，无需重复开发。新建功能或产生新定义版本的批次不能同时登记该功能完成；已有已保存版本可以在不修改业务内容的批次中同步并登记验收。
 
@@ -196,4 +196,6 @@ JSON 错误结果的 `code` 区分 `INVALID_ARGUMENT`（参数或输入操作错
 
 用户可在页面新增功能、改写定义、修改名称及分组；页面不生成分析结果、不调用 AI 或执行代码。现有用户文档与备注是用户内容，开发、格式化、测试和打包都不得覆盖。所有测试使用临时文档，工具包只包含程序和通用资源。
 
-严格交付审阅 v2 还记录核心 `journeys`（业务结果、材料依据及有序 featureId／step 映射）、逐功能 `content.rules`／`content.dependencies` 的 included 或带理由的 skipped，以及 `acceptance`。完成功能的 checks 是业务条件；acceptance 用从 0 开始的 criterion、steps，normal／exception 情景、本功能真实 executionId 和具体用例／断言依据建立覆盖。所有条件及正常步骤要有覆盖，已定义异常步骤另有异常检查；仅在时序 error 分支出现的步骤只要求异常覆盖；同一执行可支持多项条件。功能依赖须关联实际使用步骤，规则不能全部埋在描述中。时序图 failure 名称须有 error 分支；跳过理由的 alternative 图表引用须真实存在。旧 v1 审阅需重新核对才能通过严格交付，现有产品 JSON 的读取与保存格式保持兼容。检查器核验结构和执行关联，业务旅程是否完整、规则是否正确、断言是否充分仍需人工或 AI 审阅及实际验收。
+严格交付审阅 v3 还记录核心 `journeys`（业务结果、材料依据及有序 featureId／step 映射）、逐功能 `content.rules`／`content.dependencies` 的 included 或带理由的 skipped，以及 `acceptance`。完成功能的 checks 是业务条件；acceptance 用从 0 开始的 criterion、steps，normal／exception 情景、本功能真实 executionId 和具体用例／断言依据建立覆盖。所有条件及正常步骤要有覆盖，已定义异常步骤另有异常检查；仅在时序 error 分支出现的步骤只要求异常覆盖；同一执行可支持多项条件。功能依赖须关联实际使用步骤，规则不能全部埋在描述中。时序图 failure 名称须有 error 分支；跳过理由的 alternative 图表引用须真实存在。旧 v1 审阅需重新核对才能通过严格交付，现有产品 JSON 的读取与保存格式保持兼容。检查器核验结构和执行关联，业务旅程是否完整、规则是否正确、断言是否充分仍需人工或 AI 审阅及实际验收。
+
+业务流程机器核验、分析协议 v2、多语言能力边界、临时副本探针与部分交付详见 [FLOW.md](FLOW.md)。旧执行记录仍可阅读，缺少流程证据时不得称为新协议严格通过；功能完成历史不被自动改写。

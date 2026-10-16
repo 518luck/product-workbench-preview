@@ -1,0 +1,41 @@
+# 业务流程核验
+
+使用分析协议 v2 和交付审阅 v3。先查询 `analysis capabilities`、`schema --flow`、`schema --verification`，不要从版本号猜协议。CLI 操作由 AI 执行。
+
+## 扫描、恢复与语言环境
+
+扫描范围覆盖目标内自有源码。用 `contexts` 显式列出相关 Skill、工作流、HTML/CSS 与配置；它们有独立读取范围及内容哈希，不计入函数数量。核对默认排除项，生成的产品书和分析产物不加入上下文。
+
+`recordedCount` 只表示已保存；`reviewedCount`、完整读取凭据及逐位置 coverage 通过才表示分析合格。长函数读完所有分段；嵌套函数独立记录。恢复先执行当前 `analysis check`。源码、解析器、分析规则或上下文变化后重新扫描，旧记录只作历史，不搬旧摘要、凭据或旧 valid 报告。
+
+JS/TS 使用 TypeScript Compiler API；Python、Go、C++ 先用随包的 Tree-sitter WASM 解析，再按 capabilities 使用本机 Python ast、可选 Go packages/SSA、Clang 编译数据库。Go 工具需要时由 AI 执行 `analysis prepare --language go`，C++ 深度工具使用 `analysis prepare --language cpp`；缺少 LLVM 开发库时先准备环境。缺依赖时先在授权范围准备，不能只因尚未安装就结束；无法准备时保留具体环境缺口。动态调用、装饰器、接口、反射、宏、虚调用和指针不由名称确认。当前运行探针的支持范围以工具返回的 unsupported 为准；语法覆盖不等于深度核验可用。
+
+## 建立业务映射
+
+定义保存后读取 `analysis list --kind entries|values|edges --session SESSION`，以及相关 units。对每个候选入口关联业务旅程，或通过 dispositions 说明其非业务职责；核心旅程仍需从项目材料独立核对，入口清单不是全部业务的证明。
+
+用 `flow record /产品书 --session SESSION --input 映射.json` 保存：
+
+- 每个流程绑定真实 entryId，步骤绑定 featureId、从 0 开始的 step 与 unitId／contextId；输入输出引用机器生成的 data fact ID，规则、异常及持久化位置放在 pointIds 或相关单元中。
+- 连接引用实际 callId、sourceId、targetId。转换是明确的处理步骤；同名字段、相同常量、看似相同的值都不是数据衔接依据。不要省略参数映射或返回结果。
+- 场景从实际入口到结果，覆盖正常与适用失败路径，声明连接和可观测断言。不能仅声明“命令成功”。
+
+执行 `flow check`，按具体 gap 修正映射或补充证据。文字解释、手写日志、随意清空 unknown 或改变入口排除说明不能将未知连接升级为通过。
+
+## 真实运行
+
+`verification run` 输入携带 `flow:{id,scenarioId}` 才收集流程证据。CLI 在临时副本校验业务源码后注入自己的探针；`fixtures` 只新增夹具，不能覆盖原文件；`setup` 用于准备，`build` 在注入后编译。编译、执行不改变原项目；准备或运行修改副本业务源码时证据失效。普通验收命令仍可用，但退出成功不证明业务连接。
+
+探针通过独立通道采集真实函数进入、参数传递、返回、异常及结果。同一次调用与请求分别关联，不能拼接不同运行。先执行适用场景，再运行 `flow check`；`verification run valid:true` 本身不是流程已核验。
+
+浏览器场景使用 `browser:true`，命令在副本启动本机服务并输出一行 `{"url":"http://127.0.0.1:实际端口/"}`。运行工具保持进行时，读取 browserReady 返回的代理网址，用宿主浏览器实际交互，结束时点击“结束本次流程采集”。页面探针向本机采集器提交事件；无法执行宿主交互则保留缺口。跨浏览器／服务器、网络、消息和 Skill 宿主连接没有专门传输证据时仍为未核验，不把两端日志拼接。
+
+## 同步与交付
+
+`flow sync /产品书 --session SESSION` 保存工具计算的状态并重新生成 HTML。流程“已核验／部分核验／未核验／失败／已过期”与功能“草稿／完成”分开；保留已有完成历史，不因其他流程缺口一律改草稿。源码、定义、步骤内容、探针或核验器变化会使相应绑定失效。
+
+初始化或实现流程可对已独立验收的功能登记完成，前提是工具确认剩余语言／语义／适配缺口全部在该功能核验范围外；本功能漏读、漏记录、缺少字段或流程证据不能豁免。无需用户手动裁剪范围或补造基线。需求维护仍不登记新的完成；整体缺口继续保留。
+
+交付审阅 v3 的 flows 引用真实映射；acknowledgedGaps 按检查结果的 kind、path（无 path 时用 flowId、entryId 或 `/`）说明具体影响。先修复漏读、漏记录、漏映射等可解决问题；只有真实语言／环境／宿主能力限制才允许部分交付。`document check` 的 valid 是严格结论；deliverable 为 true、stage 为 partial 仅表示产品书可读且缺口完整可见，不能称严格通过。结论限定为已识别入口、声明场景及当前支持范围。
+
+部分交付也自动启动 serve、核对保存能力并打开页面，最终仍以链接、产品定位和核心旅程交付；必要时仅加一句未核验范围说明。技术凭据和缺口留在产品书与记录中，不转交用户执行命令。

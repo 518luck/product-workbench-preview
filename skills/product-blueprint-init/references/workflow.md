@@ -2,7 +2,7 @@
 
 ## 选择工具与目标
 
-使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收和 delivery v2；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
+使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收和 delivery v3；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
 
 全局命令缺失或协议过旧时，可使用已知工具源码的绝对入口 `node /工具目录/bin/product-blueprint.mjs`；在工具仓库内也可用 `pnpm blueprint`。无法找到可用工具时说明需更新工具，保留现有文件，不自行改模板或手填基线。
 
@@ -15,9 +15,11 @@
 
 只有目标无法确定或需要覆盖现有内容时澄清，不要求用户先解释尚不了解的产品功能。
 
+先按 [业务流程核验](flow-verification.md) 查询语言能力、声明文本上下文、恢复当前分析与建立实际连接；以该参考的 v2／v3 协议为准。
+
 ## 扫描与完整读取
 
-默认处理项目内全部自有 JS／TS 源码；用户明确限定范围时按该范围处理，不擅自缩小到入口文件。JS、JSX、TS、TSX 及相关配置的实际支持范围以扫描清单为准；不支持的语言、解析失败和读取失败记录为缺口。
+默认处理项目内全部自有源码；用户明确限定范围时按该范围处理，不擅自缩小到入口文件。JS、JSX、TS、TSX 及相关配置的实际支持范围以扫描清单为准；不支持的语言、解析失败和读取失败记录为缺口。
 
 ```sh
 product-blueprint analysis scan /项目 --config 范围.json --json
