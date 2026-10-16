@@ -169,10 +169,11 @@ const commands = {
     description: '分页读取分析清单；默认每页 50 项，最大 200 项。',
   },
   'analysis read': {
-    options: ['session', 'offset', 'length'],
-    usage: 'analysis read <单元编号> --session 会话 [--offset 0] [--length 16000]',
+    options: ['session', 'offset', 'length', 'input'],
+    usage:
+      'analysis read [单元编号] --session 会话 [--offset 0] [--length 16000] [--input 读取批次.json|-]',
     description:
-      '读取源码并生成工具凭据；offset 相对单元起点，length 使用 UTF-16 单位，最大 100000。',
+      '读取源码并生成工具凭据；可用 reads 批次一次读取 1–32 项，批次原子保存。位置使用 UTF-16，单项最大 100000。',
   },
   'analysis record': {
     options: ['session', 'input'],
@@ -620,11 +621,17 @@ try {
           kind: options.kind || 'units',
         });
       if (action === 'read') {
-        if (!positional[0]) invalid('需要分析单元编号。');
-        result = await analysis.readAnalysis(options.session, positional[0], {
-          offset: integer('offset', 0),
-          length: integer('length', 16000),
-        });
+        if (options.input) {
+          if (positional.length || options.offset !== undefined || options.length !== undefined)
+            invalid('批量读取使用 reads 中的 id、offset、length，不与单项参数混用。');
+          result = await analysis.readAnalysisBatch(options.session, inputObject());
+        } else {
+          if (!positional[0]) invalid('需要分析单元编号或 --input 读取批次。');
+          result = await analysis.readAnalysis(options.session, positional[0], {
+            offset: integer('offset', 0),
+            length: integer('length', 16000),
+          });
+        }
       }
       if (action === 'record')
         result = await analysis.recordAnalysis(options.session, inputObject());

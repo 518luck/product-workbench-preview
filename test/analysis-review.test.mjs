@@ -244,6 +244,8 @@ test('旧的浅摘要进入待处理清单，不能绑定 observed、保存严�
     }),
   );
   fs.writeFileSync(path.join(session, 'state.json'), JSON.stringify(current));
+  // Construct a legacy JSON-only fixture, not a changed base with an old journal.
+  fs.rmSync(path.join(session, 'state.json.events.jsonl'), { force: true });
   const report = checkAnalysis(session);
   assert.equal(report.recordedCount, report.unitCount);
   assert.equal(report.reviewedCount, report.unitCount - 1);

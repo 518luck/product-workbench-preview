@@ -1,0 +1,5 @@
+allowBuilds:
+  tree-sitter-c: false
+  tree-sitter-cpp: false
+  tree-sitter-go: false
+  tree-sitter-python: false

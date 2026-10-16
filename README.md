@@ -98,6 +98,8 @@ CLI 的 `init` 只创建空 JSON 文档和同目录的 `index.html`，不会覆�
 
 开发中的真实 AI 初始化评测入口是 `node scripts/evaluate-init.mjs --agent 运行配置.json --trials 3`。配置为 `{ "command": "codex", "args": ["exec", "--ephemeral", "--sandbox", "workspace-write", "--skip-git-repo-check", "--json", "-"] }`，也可传其他支持 stdin 提示的本机 AI 命令；模型使用调用方配置，不自动替换。六个场景覆盖已有功能完成、未实现需求草稿、示例保护、嵌套源码、中断恢复和批注协作闭环，外部 AI 每轮默认时限为 20 分钟，可用 --timeout-ms 调整；每次在新临时目录运行，以实际产物独立评分，保留报告与执行记录。`--case implemented --trials 3` 可单测场景。运行会调用外部 AI 并消耗其额度；普通 `pnpm check` 只测试工具和评分器，不运行模型。小样本结果不能作为任意项目的稳定性保证。
 
+评测脚本的默认时限用于隔离的微型样例，不是大型仓库初始化的耗时承诺。实际成本随函数、审阅位置、业务复杂度和模型速度增加。分析采用批量读取与增量保存；已有实现的功能验收、严格流程追踪和交付审阅分别推进。
+
 ## 项目结构
 
 | 位置        | 用途                                           |
@@ -119,7 +121,7 @@ pnpm check
 pnpm format:check
 pnpm package:check
 pnpm pack --pack-destination /你的输出目录
-pnpm add --global /你的输出目录/product-blueprint-0.3.0.tgz
+pnpm add --global /你的输出目录/product-blueprint-0.3.1.tgz
 product-blueprint --help
 ```
 
