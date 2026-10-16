@@ -76,6 +76,13 @@ async function fixture(t, { analyzed = true } = {}) {
           sideEffects: [],
           exceptions: [],
           unknowns: [],
+          coverage: unit.reviewPoints.map((point) => ({
+            pointId: point.id,
+            detail:
+              point.kind === 'parameter'
+                ? 'role 是待检查的角色。'
+                : '仅 admin 返回允许，其他角色返回拒绝。',
+          })),
         },
       ],
     });

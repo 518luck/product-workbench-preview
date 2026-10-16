@@ -2,13 +2,14 @@
 
 ## 选择工具与目标
 
-使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、严格验收和 delivery v2；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
+使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收和 delivery v2；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
 
 全局命令缺失或协议过旧时，可使用已知工具源码的绝对入口 `node /工具目录/bin/product-blueprint.mjs`；在工具仓库内也可用 `pnpm blueprint`。无法找到可用工具时说明需更新工具，保留现有文件，不自行改模板或手填基线。
 
 读取项目介绍、清单与配置，确定产品名称、目标用户、项目根目录和输出位置：
 
-- 目标蓝图已存在：先 `document status /文档 --json`，转维护工作流，保留定义、编号、分组与历史。
+- 同一任务的恢复或自动续跑：先按 [验收参考](verification.md) 的结束与恢复规则核对已有进度和交付；完成后不重建。
+- 其他已有目标蓝图：先 `document status /文档 --json`，转维护工作流，保留定义、编号、分组与历史。
 - 只有其他产品的示例：保留示例，新产品书使用独立且未占用的目录。
 - 新项目只有需求：根据需求建立草稿，不编造源码引用或完成记录。
 
@@ -27,11 +28,19 @@ product-blueprint analysis scan /项目 --config 范围.json --json
 1. 分页读取 `analysis list --session SESSION --kind contexts --json`，通过 `analysis read` 读取清单、配置等上下文并取得凭据。
 2. 每轮从 offset 0 请求 `analysis list --session SESSION --status pending --limit 50 --json`；处理后 pending 集合缩小，不递增 offset 跳过剩余单元。
 3. 用 `analysis read ID --session SESSION --json` 实际阅读每个单元，跟随 `nextOffset` 直到 null。源码输出及凭据需进入当前分析上下文。
-4. 按当前 Schema 提交每个单元的职责、输入输出、条件、调用、副作用、异常和未知。有确切理由为空时使用空数组，不自动填充通用摘要。完整覆盖嵌套单元的凭据可复用，但分析记录仍独立。
+4. 按当前 Schema 提交每个单元的职责、输入输出、条件、调用、副作用、异常和未知，并用 coverage 逐项说明其 reviewPoints。完整覆盖嵌套单元的凭据可复用，但嵌套函数有自己的位置与独立分析，不能沿用父函数摘要。
 
 按索引中实际解析的调用追踪行为。动态调用、外部服务、未解析调用和框架宿主行为保留未知，不猜测内部路径。配置用于说明运行条件，测试用于验收；二者不能冒充产品实现。
 
-同一快照可保存进度并恢复；源码或解析配置变化后重新扫描，旧凭据不能用于新快照。仍有 pending、未读完分段或未提交记录时继续处理，不能把耗时或上下文不足说成不可消除缺口。
+同一快照可保存进度并恢复，但先运行当前版本 `analysis check`，检查 reviewedCount、位置审阅与 gaps，不能因 recordedCount 等于 unitCount 就跳过阅读。旧浅摘要需回到源码补做，索引升级或源码／解析配置变化后重新扫描，旧凭据不能用于新快照。仍有 pending、未读完分段或未提交记录时继续处理，不能把耗时或上下文不足说成不可消除缺口。
+
+## 逐函数审阅质量
+
+reviewPoints 是最低位置清单，不是语义分析答案。先读完整函数，再逐项解释具体条件、输入与返回、调用影响、写入、抛错、捕获与最终清理；同时核对清单之外的闭包输入、异步边界、重试／并发、部分成功和异常传播。数组为空必须确实没有相应行为，不能因难以判断就填写空数组。
+
+每条位置说明都对应本函数的实际行为，不能只抄源码、把同一段职责重复到所有位置、用脚本批量生成套话，或把 unresolvedCalls 清空来隐藏未知。脚本可以整理已经完成的记录，不代替阅读和分析。工具只能拦住缺项，无法保证解释正确。
+
+把产品规则、步骤、异常反查到真正实现该行为的函数及其分支；常量、重导出、哈希或通用辅助函数不能单独支撑不相关业务结论。沿实际调用关系核对入口到结果和失败路径，必要时重读相关函数。与产品有关的 Skill／工作流、HTML/CSS、配置另行读取，不以 JS/TS 函数计数声称整个仓库已理解。
 
 ## 归纳产品内容
 

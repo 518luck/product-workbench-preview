@@ -41,9 +41,9 @@ export function fixture(t, extras = {}) {
   );
   return { root, filename };
 }
-export function summary(unitId, receiptIds, extra = {}) {
+export function summary(unit, receiptIds, extra = {}) {
   return {
-    unitId,
+    unitId: typeof unit === 'string' ? unit : unit.id,
     receiptIds,
     responsibility: '检查管理员权限',
     inputs: ['角色'],
@@ -53,6 +53,13 @@ export function summary(unitId, receiptIds, extra = {}) {
     sideEffects: [],
     exceptions: [],
     unknowns: [],
+    coverage: (unit.reviewPoints || []).map((point) => ({
+      pointId: point.id,
+      detail:
+        point.kind === 'parameter'
+          ? 'role 参数提供当前调用者角色。'
+          : '将 role 与 admin 比较，管理员返回 true，其余角色返回 false。',
+    })),
     ...extra,
   };
 }
@@ -68,7 +75,7 @@ export async function analyzeAll(session) {
         receiptIds.push(read.receipt.id);
         readOffset = read.nextOffset;
       } while (readOffset !== null);
-      await recordAnalysis(session, { records: [summary(unit.id, receiptIds)] });
+      await recordAnalysis(session, { records: [summary(unit, receiptIds)] });
     }
     offset = page.nextOffset;
   } while (offset !== null);
@@ -137,24 +144,24 @@ test('遗漏记录、读取缺口和伪造凭据不能通过；记录批次失�
     scan = await scanAnalysis(root),
     unit = listAnalysis(scan.session).items[0];
   assert.equal(checkAnalysis(scan.session).valid, false);
-  await assert.rejects(recordAnalysis(scan.session, { records: [summary(unit.id, ['r-fake'])] }), {
+  await assert.rejects(recordAnalysis(scan.session, { records: [summary(unit, ['r-fake'])] }), {
     code: 'ANALYSIS_INCOMPLETE',
   });
   const part = await readAnalysis(scan.session, unit.id, { length: 10 });
   await assert.rejects(
-    recordAnalysis(scan.session, { records: [summary(unit.id, [part.receipt.id])] }),
+    recordAnalysis(scan.session, { records: [summary(unit, [part.receipt.id])] }),
     { code: 'ANALYSIS_INCOMPLETE' },
   );
   const whole = await readAnalysis(scan.session, unit.id);
   const before = fs.readFileSync(path.join(scan.session, 'state.json'), 'utf8');
   await assert.rejects(
     recordAnalysis(scan.session, {
-      records: [summary(unit.id, [whole.receipt.id]), summary('unknown', [whole.receipt.id])],
+      records: [summary(unit, [whole.receipt.id]), summary('unknown', [whole.receipt.id])],
     }),
     { code: 'INVALID_ARGUMENT' },
   );
   assert.equal(fs.readFileSync(path.join(scan.session, 'state.json'), 'utf8'), before);
-  await recordAnalysis(scan.session, { records: [summary(unit.id, [whole.receipt.id])] });
+  await recordAnalysis(scan.session, { records: [summary(unit, [whole.receipt.id])] });
   assert.ok(checkAnalysis(scan.session).gaps.some((gap) => gap.kind === 'context'));
   await analyzeAll(scan.session);
   assert.equal(checkAnalysis(scan.session).valid, true);
@@ -275,7 +282,13 @@ test('分析记录更新使引用旧记录的依据失效；未知不得作为�
   await traceValues(scan.session, '仅管理员可以访问。', '/features/access/description');
   const record = Object.values(loadSession(scan.session).state.records)[0];
   await recordAnalysis(scan.session, {
-    records: [summary(record.unitId, record.receiptIds, { responsibility: '新的分析内容' })],
+    records: [
+      summary(
+        loadSession(scan.session).state.units.find((unit) => unit.id === record.unitId),
+        record.receiptIds,
+        { responsibility: '新的分析内容' },
+      ),
+    ],
   });
   assert.ok(checkAnalysis(scan.session).gaps.some((gap) => gap.kind === 'trace'));
   await assert.rejects(
@@ -324,7 +337,7 @@ test('CLI 读写接口、标准输入、分页与检查退出码', (t) => {
   assert.equal(read.data.code.includes('allowed'), true);
   const record = run(
     ['analysis', 'record', '--session', session, '--input', '-'],
-    JSON.stringify({ records: [summary(unit.id, [read.data.receipt.id])] }),
+    JSON.stringify({ records: [summary(unit, [read.data.receipt.id])] }),
   );
   assert.equal(record.status, 0);
   assert.equal(run(['analysis', 'check', '--session', session]).status, 1);

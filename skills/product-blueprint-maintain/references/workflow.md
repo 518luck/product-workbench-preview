@@ -2,7 +2,7 @@
 
 ## 读取当前状态
 
-使用支持 `document status` 和 `implementation.sourceSnapshot` 的 CLI，按 `--help`、`schema --analysis`、`schema --changes` 查询实际协议。全局命令缺失或协议过旧时可使用已知工具源码入口；没有可用工具时保留现有记录，说明需更新，不手填基线。
+使用支持 `document status`、`implementation.sourceSnapshot` 和 reviewPoints／coverage 的 CLI，按 `--help`、`schema --analysis`、`schema --changes` 查询实际协议。全局命令缺失或协议过旧时可使用已知工具源码入口；没有可用工具时保留现有记录，说明需更新，不手填基线。
 
 读取 `document get /文档 --json`、`feature list` 及目标 `feature get ID --related`。保存 documentHash，核对用户原文、当前 revision、flowRevision、批注与验收历史。
 
@@ -19,15 +19,17 @@ Git 提交号只作辅助；未提交修改同样需要检查。区分重构、�
 
 ## 分析需求与源码
 
-确认现有会话与当前源码及解析配置一致。相同快照继续 pending；源码或配置改变后重新 `analysis scan /项目 --config 已确认范围.json --json`，保留明确扫描范围并核对排除项。
+确认现有会话与当前源码及解析配置一致。恢复时先运行当前版本 `analysis check`，依据 reviewedCount 与具体 gaps 判断，不能只看 recordedCount。相同快照补做 pending 中的缺失或浅摘要；源码、索引或配置改变后重新 `analysis scan /项目 --config 已确认范围.json --json`，保留明确扫描范围并核对排除项。
 
 读取 contexts 和当前范围内所有待处理单元，不能只读 diff 就声称全量核验：
 
 - 每轮 pending 分页从 offset 0 取剩余项，避免处理后集合变化造成跳项。
-- `analysis read` 跟随 `nextOffset` 读完全部分段，提交各单元独立的职责、输入输出、条件、调用、副作用、异常和未知记录；完整嵌套凭据可复用，分析仍独立。
+- `analysis read` 跟随 `nextOffset` 读完全部分段，提交各单元独立的职责、输入输出、条件、调用、副作用、异常和未知记录，用 coverage 解释每个 reviewPoint；完整嵌套凭据可复用，位置说明和分析仍独立。
 - 动态及外部关系保留未知；配置说明运行条件，测试是验收依据，二者不冒充产品实现。
 
 对照用户需求、实际入口及调用关系，确认受影响功能、规则、流程与依赖。`observed` 记录已有行为，`requested` 保留需求原文；推断和未知明确标注在备注，不写成已确认事实。
+
+位置清单只是最低检查：完整函数中的闭包输入、调用后果、异步边界、异常传播、部分成功与并发／清理仍须逐项审阅。空数组需要真实依据，不用脚本、复制源码或通用摘要凑齐位置。将业务规则和异常反查到真正实现行为的函数及分支，常量／通用辅助函数不能独自支持不相关结论；相关 Skill、HTML/CSS 和非函数材料另行读取，函数覆盖不代表整个仓库已理解。
 
 ## 构建明确变更
 

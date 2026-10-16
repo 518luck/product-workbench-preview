@@ -117,6 +117,10 @@ test('损坏的 JSON、JSONC、JS 配置和其他语言，完整读取记录后�
           sideEffects: [],
           exceptions: [],
           unknowns: [],
+          coverage: unit.reviewPoints.map((point) => ({
+            pointId: point.id,
+            detail: '直接返回常量数值 1。',
+          })),
         },
       ],
     });
@@ -186,6 +190,10 @@ test('输入遵循 Schema，未知写入必须在文档原文显式标注，部�
         sideEffects: [],
         exceptions: [],
         unknowns: [],
+        coverage: unit.reviewPoints.map((point) => ({
+          pointId: point.id,
+          detail: '不读取参数，直接返回布尔值 true。',
+        })),
       },
     ],
   });

@@ -146,7 +146,8 @@ const commands = {
   'analysis record': {
     options: ['session', 'input'],
     usage: 'analysis record --session 会话 --input 记录.json|-',
-    description: '逐项保存函数分析；须提交完整读取凭据，字段规范见 schema --analysis。',
+    description:
+      '逐项保存函数分析；须完整读取并解释每个 reviewPoint，字段规范见 schema --analysis。',
   },
   'analysis trace': {
     options: ['session', 'input'],

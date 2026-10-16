@@ -71,6 +71,12 @@ async function analyze(session) {
         .filter((call) => call.status === 'unknown')
         .map((call) => `${call.expression} 是外部／动态调用`),
     };
+    // Known-answer transport fixture: explain each location using the business assertions below.
+    // This does not generate production analysis or stand in for an independent AI review.
+    record.coverage = unit.reviewPoints.map((point) => ({
+      pointId: point.id,
+      detail: `${record[point.field].join('；')}；对应位置：${point.code}`,
+    }));
     if (isTitle) assert.match(read.code, /trim/);
     if (isPublish) assert.match(read.code, /validateTitle/);
     const saved = await recordAnalysis(session, { records: [record] });

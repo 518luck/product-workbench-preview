@@ -58,7 +58,8 @@
         "calls",
         "sideEffects",
         "exceptions",
-        "unknowns"
+        "unknowns",
+        "coverage"
       ],
       "properties": {
         "unitId": {
@@ -96,6 +97,25 @@
         },
         "unknowns": {
           "$ref": "#/$defs/texts"
+        },
+        "coverage": {
+          "type": "array",
+          "description": "逐项解释 analysis list/read 返回的 reviewPoints；每个位置恰好一次。空函数可为 []。位置存在的分析字段不能留空。仅覆盖源码位置不证明解释正确。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pointId", "detail"],
+            "properties": {
+              "pointId": {
+                "type": "string",
+                "pattern": "^p-[a-f0-9]{24}$"
+              },
+              "detail": {
+                "$ref": "#/$defs/text",
+                "description": "说明该位置的具体行为与结果、适用条件或失败影响，不只复制代码或套用通用摘要。"
+              }
+            }
+          }
         }
       }
     },

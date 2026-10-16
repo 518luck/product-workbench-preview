@@ -1,0 +1,567 @@
+{
+  "version": 2,
+  "documentHash": "251be7d9054f0c3ec96caace56aed3fbb057c29828db9847fe79a3802d1b35a0",
+  "features": [
+    {
+      "id": "init-product-book",
+      "revision": 2,
+      "outcome": "unverified",
+      "reason": "本技能的行为由外部 AI 执行：本轮确实按该流程完成了一次真实初始化（读取 1136 个单元、保存产品 JSON 与 HTML、按功能核验并启动可编辑入口），但尚未在隔离项目中复跑“新项目纯需求”与“目标蓝图已存在转维护”分支，也没有全部异常路径的实际执行记录。",
+      "evidence": "本轮初始化产物：.blueprint/product-document.json、.blueprint/index.html、分析会话 .blueprint-analysis/s-7936ce886e4e8af2f1c16b9e634ab4a724000d341b0d897563009a6a580737fb（1136 单元／1136 记录／2342 字段依据）、本机服务能力核对 canSave:true；其余分支尚无执行记录。",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": []
+    },
+    {
+      "id": "maintain-product-blueprint",
+      "revision": 1,
+      "outcome": "unverified",
+      "reason": "维护流程的 AI 行为未在本轮独立执行：现有测试用手写变更批次模拟维护，没有实际验证 AI 只维护需求后停止、目标源码不变以及未处理批注不被误清理。",
+      "evidence": "skills/product-blueprint-maintain/SKILL.md 与 references/workflow.md；test/skill-workflows.test.mjs 为协议夹具，不等于真实 AI 协作执行。",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": []
+    },
+    {
+      "id": "implement-from-blueprint",
+      "revision": 1,
+      "outcome": "unverified",
+      "reason": "实现流程的 AI 行为未在本轮独立执行：旧实现样例由测试直接写入夹具代码，尚未证明真实 AI 能读取已保存批注、修改目标代码、执行验收并选择性清理批注。",
+      "evidence": "skills/product-blueprint-implement/SKILL.md 与 references/verification.md；test/skill-workflows.test.mjs 与 test/delivery.test.mjs 为协议夹具，不等于真实 AI 协作执行。",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": []
+    },
+    {
+      "id": "read-product-book",
+      "revision": 1,
+      "outcome": "implemented",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": [
+        {
+          "criterion": 0,
+          "scenario": "normal",
+          "steps": [
+            0
+          ],
+          "executionId": "v-27140e2b-1fd4-423d-a801-c6041ba89156",
+          "evidence": "test/template.test.mjs「拆分源码后仍生成不需要外部脚本、样式或模块的独立 HTML」断言生成页面不含外链脚本与样式；test/render-commit.test.mjs「默认保存自动生成最新HTML，与同份数据重复渲染一致」校验保存后 HTML 与文档一致。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "normal",
+          "steps": [
+            1,
+            2
+          ],
+          "executionId": "v-27140e2b-1fd4-423d-a801-c6041ba89156",
+          "evidence": "浏览器实际核验 http://127.0.0.1:60356：功能目录按 Skill 协作/产品书/CLI 与源码/验收与交付分组，功能页可切换业务流程图、时序图、数据流图，产品概览可切换背景与功能、系统架构图、数据关系图。"
+        }
+      ]
+    },
+    {
+      "id": "edit-book-collaboration",
+      "revision": 1,
+      "outcome": "implemented",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": [
+        {
+          "criterion": 0,
+          "scenario": "normal",
+          "steps": [
+            0,
+            1
+          ],
+          "executionId": "v-4ed584ec-429b-43db-8c8e-895a968641eb",
+          "evidence": "test/server.test.mjs「新增只生成空草稿，不信任客户端图表或完成声明，重试保持幂等」与「名称和分组独立保存版本拒绝旧页面覆盖，定义版本保持业务语义」验证新增草稿、名称/分组/定义保存及 editRevision 语义。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "normal",
+          "steps": [
+            1,
+            2
+          ],
+          "executionId": "v-4ed584ec-429b-43db-8c8e-895a968641eb",
+          "evidence": "test/server.test.mjs「批注独立保存，保留定义与完成状态，重试幂等并保护并发版本」与「页面编辑及删除批注保留编号和完成记录，冲突或无效输入不落盘」覆盖批注新增、修改、删除与同内容幂等重试。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "exception",
+          "steps": [
+            2
+          ],
+          "executionId": "v-4ed584ec-429b-43db-8c8e-895a968641eb",
+          "evidence": "同一组测试断言旧 expectedRevision／expectedEditRevision 返回 409、跨来源请求 403、空内容与超长内容 400，且文档内容保持不变，页面未保存输入得到保留。"
+        }
+      ]
+    },
+    {
+      "id": "manage-book-cli",
+      "revision": 1,
+      "outcome": "implemented",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": [
+        {
+          "criterion": 0,
+          "scenario": "normal",
+          "steps": [
+            0
+          ],
+          "executionId": "v-046b7853-c14f-4501-95b6-b7ede11c0bd6",
+          "evidence": "test/cli-operations.test.mjs「CLI 分区、功能筛选与关联依赖读取不改写文件」与逐命令帮助、Schema 结构化读取验证读取路径不修改文档。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "normal",
+          "steps": [
+            1,
+            2
+          ],
+          "executionId": "v-046b7853-c14f-4501-95b6-b7ede11c0bd6",
+          "evidence": "test/cli-operations.test.mjs 覆盖 create/update/define/sync/delete/apply 的哈希保护与 dry-run 预览；test/completion.test.mjs「已处理批注随完成登记原子删除，未处理内容和历史保留，失败或冲突不删除」验证批次失败整份保留。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "normal",
+          "steps": [
+            2,
+            3
+          ],
+          "executionId": "v-046b7853-c14f-4501-95b6-b7ede11c0bd6",
+          "evidence": "test/render-commit.test.mjs「默认保存自动生成最新HTML，与同份数据重复渲染一致」断言保存后 HTML 匹配最新 JSON；test/document-operations.test.mjs 校验文档操作与引用完整性。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "exception",
+          "steps": [
+            2
+          ],
+          "executionId": "v-046b7853-c14f-4501-95b6-b7ede11c0bd6",
+          "evidence": "test/cli-operations.test.mjs「CLI 普通编辑保护原文，明确改写定义保留历史记录并检测旧哈希」与「CLI 整批失败全部保留」断言旧哈希或最终校验失败时整批拒绝且文件保持原字节。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "exception",
+          "steps": [
+            3
+          ],
+          "executionId": "v-046b7853-c14f-4501-95b6-b7ede11c0bd6",
+          "evidence": "test/render-commit.test.mjs「保存后HTML失败明确返回部分成功，保留输出并可单独重新生成」与「单独渲染读取锁内最新内容，失败保留旧HTML并释放锁」断言渲染失败保留旧 HTML 并报告文档已保存。"
+        }
+      ]
+    },
+    {
+      "id": "analyze-project-source",
+      "revision": 1,
+      "outcome": "implemented",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": [
+        {
+          "criterion": 0,
+          "scenario": "normal",
+          "steps": [
+            0,
+            1
+          ],
+          "executionId": "v-67ffb162-f8b8-4cc3-b8e5-04afbc9b7e54",
+          "evidence": "test/analysis-index.test.mjs 覆盖扫描清单、排除项、嵌套单元编号与导入关系；test/analysis-record.test.mjs 覆盖逐单元记录与读取凭据，静态索引不执行项目代码。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "normal",
+          "steps": [
+            1,
+            2
+          ],
+          "executionId": "v-67ffb162-f8b8-4cc3-b8e5-04afbc9b7e54",
+          "evidence": "test/analysis-record.test.mjs 断言记录与字段依据绑定读取凭据、recordHash 与最终字段值，缺项使检查失败并阻止严格保存。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "normal",
+          "steps": [
+            3
+          ],
+          "executionId": "v-67ffb162-f8b8-4cc3-b8e5-04afbc9b7e54",
+          "evidence": "test/source-status.test.mjs「源码内容指纹发现未提交修改、新增删除及配置变化，保持完成记录和文档原文」与「只读 CLI 和本机端点比较当前源码，解析规则变化也提示核验且不执行源码」验证状态区分与文档不被改写。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "exception",
+          "steps": [
+            3
+          ],
+          "executionId": "v-67ffb162-f8b8-4cc3-b8e5-04afbc9b7e54",
+          "evidence": "test/source-status.test.mjs「缺少基线、扫描根不存在或基线格式错误不会显示源码已核验」断言只有 unverified／unavailable，不推断业务影响。"
+        }
+      ]
+    },
+    {
+      "id": "verify-and-deliver",
+      "revision": 1,
+      "outcome": "implemented",
+      "diagrams": {
+        "sequence": {
+          "decision": "included"
+        },
+        "dataflow": {
+          "decision": "included"
+        }
+      },
+      "content": {
+        "rules": {
+          "decision": "included"
+        },
+        "dependencies": {
+          "decision": "included"
+        }
+      },
+      "acceptance": [
+        {
+          "criterion": 0,
+          "scenario": "normal",
+          "steps": [
+            0,
+            1
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery.test.mjs「verification run CLI执行验收，不将输入当作 shell，并拒绝缺失会话和未知输入字段」与「真实命令生成验收记录，严格完成和最终交付通过」验证执行记录绑定文档、功能、定义版本与源码快照。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "normal",
+          "steps": [
+            1,
+            2
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery.test.mjs「空 passed 声明在严格完成及交付时被拒绝」验证只有真实 executionId 可完成；本次 5 个功能用 --require-verification 登记，工具自动写入 implementation.sourceSnapshot，document status 显示 current。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "normal",
+          "steps": [
+            2,
+            3
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery-content.test.mjs「同一真实执行可以覆盖多个业务条件及正常异常路径，不要求重复运行」与「全局回归命令未映射业务条件与异常路径时仍不具备完整交付依据」校验 review v2 的旅程、状态、图表、规则、依赖与验收覆盖；本次 document check 即该检查的实际执行。"
+        },
+        {
+          "criterion": 0,
+          "scenario": "exception",
+          "steps": [
+            0
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery.test.mjs「失败、超时、超量输出和被篡改日志的验收不能登记完成」断言失败执行不能支持完成。"
+        },
+        {
+          "criterion": 1,
+          "scenario": "exception",
+          "steps": [
+            2
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery.test.mjs「验收绑定文档与功能，执行期间定义或源码变化拒绝完成」断言过期哈希、跨功能复用或源码变化时拒绝登记。"
+        },
+        {
+          "criterion": 2,
+          "scenario": "exception",
+          "steps": [
+            3
+          ],
+          "executionId": "v-c2f8e1d0-e765-45c7-84f6-374660663ba9",
+          "evidence": "test/delivery.test.mjs「交付检查拒绝只保存草稿及未完成分析；具体新需求可交付，旧哈希和无理由图表跳过拒绝」与 test/delivery-content.test.mjs「拒绝只有失败名称的时序图与引用不存在图表的跳过理由」断言审阅缺项返回具体缺口。"
+        }
+      ]
+    }
+  ],
+  "diagrams": {
+    "architecture": {
+      "decision": "included"
+    },
+    "entities": {
+      "decision": "included"
+    }
+  },
+  "journeys": [
+    {
+      "title": "首次初始化产品书",
+      "outcome": "项目第一次得到可阅读、可编辑并经实际核验的产品书",
+      "evidence": "README「从产品书开始使用」；本次初始化实际产物 .blueprint/product-document.json 与 index.html，服务 http://127.0.0.1:60356。",
+      "steps": [
+        {
+          "featureId": "init-product-book",
+          "step": 0
+        },
+        {
+          "featureId": "init-product-book",
+          "step": 1
+        },
+        {
+          "featureId": "init-product-book",
+          "step": 2
+        },
+        {
+          "featureId": "init-product-book",
+          "step": 3
+        },
+        {
+          "featureId": "init-product-book",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "title": "阅读产品书并用自然语言提出修改",
+      "outcome": "人看懂功能与作用，并把修改想法保存为定义或批注",
+      "evidence": "README「阅读入口」与 DOCUMENT.md 批注段落；本次浏览器核验页面分组、图表与批注编辑区。",
+      "steps": [
+        {
+          "featureId": "read-product-book",
+          "step": 0
+        },
+        {
+          "featureId": "read-product-book",
+          "step": 1
+        },
+        {
+          "featureId": "read-product-book",
+          "step": 2
+        },
+        {
+          "featureId": "edit-book-collaboration",
+          "step": 0
+        },
+        {
+          "featureId": "edit-book-collaboration",
+          "step": 1
+        },
+        {
+          "featureId": "edit-book-collaboration",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "title": "维护需求与蓝图",
+      "outcome": "需求变化或源码差异被整理进蓝图，维护可独立结束而不改代码",
+      "evidence": "skills/product-blueprint-maintain/SKILL.md 工作流程与边界；本轮未独立执行，交付审阅按 unverified 记录。",
+      "steps": [
+        {
+          "featureId": "maintain-product-blueprint",
+          "step": 0
+        },
+        {
+          "featureId": "maintain-product-blueprint",
+          "step": 1
+        },
+        {
+          "featureId": "maintain-product-blueprint",
+          "step": 2
+        },
+        {
+          "featureId": "maintain-product-blueprint",
+          "step": 3
+        },
+        {
+          "featureId": "maintain-product-blueprint",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "title": "按蓝图实现并验收",
+      "outcome": "授权范围内的明确需求落地为代码，真实验收后登记完成并清理已处理批注",
+      "evidence": "skills/product-blueprint-implement/SKILL.md 与 DOCUMENT.md「真实验收与交付检查」；本轮未独立执行，交付审阅按 unverified 记录。",
+      "steps": [
+        {
+          "featureId": "implement-from-blueprint",
+          "step": 0
+        },
+        {
+          "featureId": "implement-from-blueprint",
+          "step": 1
+        },
+        {
+          "featureId": "implement-from-blueprint",
+          "step": 2
+        },
+        {
+          "featureId": "implement-from-blueprint",
+          "step": 3
+        },
+        {
+          "featureId": "implement-from-blueprint",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "title": "CLI 维护文档并追踪源码依据",
+      "outcome": "AI 用命令读写产品文档、扫描源码并把字段绑定到实际行为",
+      "evidence": "DOCUMENT.md「CLI 路径与输出」与 ANALYSIS.md「命令与处理顺序」；本轮扫描 1136 个单元、提交 1136 条记录与 2342 条字段依据。",
+      "steps": [
+        {
+          "featureId": "manage-book-cli",
+          "step": 0
+        },
+        {
+          "featureId": "manage-book-cli",
+          "step": 1
+        },
+        {
+          "featureId": "manage-book-cli",
+          "step": 2
+        },
+        {
+          "featureId": "manage-book-cli",
+          "step": 3
+        },
+        {
+          "featureId": "analyze-project-source",
+          "step": 0
+        },
+        {
+          "featureId": "analyze-project-source",
+          "step": 1
+        },
+        {
+          "featureId": "analyze-project-source",
+          "step": 2
+        },
+        {
+          "featureId": "analyze-project-source",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "title": "真实验收与交付检查",
+      "outcome": "验收记录与完成登记绑定当前定义和源码，交付检查给出明确结论",
+      "evidence": "DOCUMENT.md「真实验收与交付检查」；本轮 5 个功能以 --require-verification 登记完成，随后运行 document check。",
+      "steps": [
+        {
+          "featureId": "verify-and-deliver",
+          "step": 0
+        },
+        {
+          "featureId": "verify-and-deliver",
+          "step": 1
+        },
+        {
+          "featureId": "verify-and-deliver",
+          "step": 2
+        },
+        {
+          "featureId": "verify-and-deliver",
+          "step": 3
+        }
+      ]
+    }
+  ]
+}

@@ -47,7 +47,7 @@ package.json、tsconfig/jsconfig（含项目内 extends）、工作区及常见�
 
 快照哈希绑定规范化项目路径、声明范围、解析器及索引算法版本、源码／类型／上下文／非支持语言清单及实际内容。Git HEAD 只是补充。非源码文档或图片变化不使源码凭据失效；新源码、删除源码、内容及解析配置变化都会使旧会话失效。
 
-相同快照复用同一会话，无需重新处理已完成记录；索引算法升级也要求重新扫描，避免恢复旧的符号关系。新快照有独立目录和记录。
+相同快照复用同一会话，但先执行当前版本的 `analysis check`；只有读取、记录及逐位置审阅均有效的记录才可复用，不能只看 recordedCount。旧的浅摘要需重新对照源码补充，不能批量生成空数组或套话。索引算法升级也要求重新扫描，避免恢复旧的符号关系与审阅规则。新快照有独立目录和记录。
 
 会话位置为 `项目/.blueprint-analysis/s-哈希/state.json`。创建时原子发布，读取凭据、record 和 trace 通过文件锁及原子替换保存；已有他人锁不自动清理。分析模式保存文档时保持会话锁，提交前再次核验源码。外部编辑器不获取工具锁；出现冲突应重新读取，不能改哈希强行重试。
 
@@ -55,11 +55,13 @@ package.json、tsconfig/jsconfig（含项目内 extends）、工作区及常见�
 
 `analysis list --session SESSION --kind units|contexts|files|types|traces --status all|pending|recorded --offset 0 --limit 50`。默认 units，limit 为 1–200，返回 nextOffset。status 只过滤 units。units 包含作用域、文件、范围、内容指纹、role 和静态 calls；contexts 包含配置和类型的读取编号。类型不是 record 单元。
 
-处理 pending 时集合会随着 record 变小，因此每轮从 offset 0 获取剩余项；只读不改变集合时用 nextOffset 分页。不要在变化的 pending 列表上持续递增 offset。
+units 同时返回 `reviewPoints`：参数、返回、条件／循环／短路、调用、赋值／删除、throw／catch／finally 等可见语法位置，含 id、field、UTF-16 范围、行列与代码摘要。嵌套函数的位置只属于其自身记录，不重复计入父函数。类型签名不冒充可执行参数。写入位置可能只是局部变量变化，需要解释实际影响，不能仅凭语法认定有外部副作用。
+
+pending 包括未记录或逐位置审阅不合格的单元。处理后集合会缩小，因此每轮从 offset 0 获取剩余项；只读不改变集合时用 nextOffset 分页。不要在变化的 pending 列表上持续递增 offset。
 
 `analysis read ID --session SESSION [--offset 0] [--length 16000]` 返回 code、receipt 和 nextOffset。offset 相对单元起点，默认 length 16000，最大 100000。源码偏移为 **UTF-16 单位**、范围为 `[start,end)`、展示行列为 **1-based**。分段不会切开 Unicode 代理对；非法起点被拒绝。跟随 nextOffset 到 null 才是读完。
 
-receipt.id 由工具生成，含快照、文件、源码和片段内容指纹。record 的 receiptIds 可以来自多个分段，也可来自包含该嵌套单元完整主体的父函数／顶层单元。覆盖必须没有缺口；每个嵌套函数仍需独立 record。配置／类型上下文读取不计函数记录。
+receipt.id 由工具生成，含快照、文件、源码和片段内容指纹；新凭据还保存实际生成时间 createdAt。它证明工具返回过这些内容，不能证明 AI 理解正确。record 的 receiptIds 可以来自多个分段，也可来自包含该嵌套单元完整主体的父函数／顶层单元。覆盖必须没有缺口；每个嵌套函数仍需独立 record 和自己的位置说明。配置／类型上下文读取不计函数记录。
 
 ## 函数分析记录
 
@@ -77,12 +79,18 @@ receipt.id 由工具生成，含快照、文件、源码和片段内容指纹。
     "calls": ["调用实际已解析的保存函数；动态目标保留未知"],
     "sideEffects": ["写入答案"],
     "exceptions": ["保存失败时返回原因且保留输入"],
-    "unknowns": []
+    "unknowns": [],
+    "coverage": [{
+      "pointId": "从当前单元 reviewPoints 获取的实际编号",
+      "detail": "解释该位置的具体行为、分支结果或失败影响；每个 reviewPoint 都需对应一项。"
+    }]
   }]
 }
 ```
 
-八项分析必须明确：responsibility 为非空职责说明，其余七项使用文字数组，无相应行为时用 `[]`。不能自动为所有函数填写通用文字。工具返回 recordHash，用于 trace 引用。摘要更改会使引用旧 recordHash 的依据失效。
+八项分析必须明确：responsibility 为非空职责说明，其余七项使用文字数组，无相应行为时用 `[]`。另需 coverage 对本单元每个 reviewPoint 逐项解释，不得缺失、重复、使用其他函数的位置、只复制代码或提交通用套话；位置对应的 field 不能留空。确实没有位置的空函数可提交 coverage:[]，不要求伪造调用和异常。工具返回 recordHash，用于 trace 引用；摘要和位置说明均参与哈希，修改后旧依据失效。
+
+位置清单只检查静态可见行为是否被明确处理，不能证明自然语言解释正确，也不穷尽运行时路径。AI 仍需读完整函数体，核对闭包输入、调用后果、异步边界、异常传播、部分成功、并发与清理。不得用脚本把源码片段自动包成解释、把整份函数摘要重复到每个位置或捏造无异常／无副作用来凑齐计数。相关 Skill、HTML/CSS 及其他非函数材料要另外读取，函数覆盖率不代表这些材料已读。
 
 unresolvedCalls 另外保留索引中未知的外部／动态调用；函数名称不构成调用证据。直接函数、不可变别名、静态命名／命名空间导入及显式构造器可报告 `resolved`；参数回调、可变或重新赋值的绑定、接收者方法分派、框架注册关系保留 `unknown`。candidateTargets 仅表示类型声明提供的候选，不能当作已确认执行目标；本版对方法调用采用保守处理。
 
@@ -115,7 +123,7 @@ trace 输入示例：
 
 ## 检查与草稿交付
 
-`analysis check --session SESSION --json` 核验快照、每个单元的记录／完整读取、配置／类型上下文读取，以及已有 trace 来源。缺项返回 `valid: false`、gaps 和非零退出码。检查不根据业务文档猜测功能边界；记录完整也不等于理解正确，未解析动态关系留在报告及记录中。
+`analysis check --session SESSION --json` 核验快照、每个单元的记录／完整读取／逐位置说明、配置／类型上下文读取，以及已有 trace 来源。`recordedCount` 只表示有存储记录；`reviewedCount` 表示记录、读取及位置审阅全部有效的单元数，另返回 reviewPointCount 和 reviewedPointCount。缺项返回 `valid:false`、带文件／位置的 gaps 及非零退出码；质量缺口 kind 为 review。同一检查也用于严格保存、完成登记和最终交付；旧浅摘要不能绑定有效 observed 依据。检查不根据业务文档猜测功能边界；位置齐全也不等于理解正确，未解析动态关系留在报告及记录中。
 
 `apply` 和所有现有 feature 写命令可以加 `--analysis-session SESSION`。工具在当前文档哈希保护下合并整批变更，核对最终变更字段与有效 trace 的内容指纹。sync／complete 还核验当前定义、步骤、规则、异常、验收和依赖依据：
 

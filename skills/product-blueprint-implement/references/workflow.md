@@ -2,7 +2,7 @@
 
 ## 检查工具与待办
 
-使用 CLI 帮助与 Schema 确认支持 `document status`、`implementation.sourceSnapshot`、`feature.complete.resolvedAnnotationIds` 和严格验收。全局工具不支持时可使用已知工具源码入口；找不到可用工具时说明需更新，保留原文与批注，不绕过 CLI 直接清空 JSON。
+使用 CLI 帮助与 Schema 确认支持 `document status`、`implementation.sourceSnapshot`、reviewPoints／coverage、`feature.complete.resolvedAnnotationIds` 和严格验收。全局工具不支持时可使用已知工具源码入口；找不到可用工具时说明需更新，保留原文与批注，不绕过 CLI 直接清空 JSON。
 
 1. 先运行 `document status /文档 --json` 比较当前源码与验收基线。检查范围内全部功能，即使它们显示完成且没有批注；提交号不能替代文件内容比较。
 2. 读取 `document get` 和未按 draft 过滤的 `feature list`。候选包括草稿、`annotationCount > 0` 及源码状态 `changed`／`unverified`／`unavailable` 的功能。
@@ -17,10 +17,12 @@
 用变更清单定位入口、调用与依赖，再完整读取本次已确认扫描范围。`analysis scan /项目 --config 已确认范围.json --json` 后：
 
 - 分页读取 contexts，取得相应凭据；每轮 pending 从 offset 0 获取剩余项。
-- 逐项 `analysis read`，跟随 `nextOffset` 读完分段，再保存独立职责、输入输出、条件、调用、副作用、异常与未知记录。
+- 逐项 `analysis read`，跟随 `nextOffset` 读完分段，再保存独立职责、输入输出、条件、调用、副作用、异常与未知记录，用 coverage 解释每个 reviewPoint。父函数的读取凭据不代替嵌套函数自己的位置说明。
 - 配置、测试和产品代码按实际用途分类；未解析或外部调用保留未知，不自动填充通用摘要换取检查通过。
 
-相同快照可以恢复；源码、清单或解析配置改变时重新扫描，不复用旧快照凭据。
+相同快照可以恢复，但先运行当前版本 `analysis check`，检查 reviewedCount、位置说明和具体 gaps；recordedCount 齐全或旧 valid 报告不能证明分析合格。旧浅摘要回到源码补做；源码、索引、清单或解析配置改变时重新扫描，不复用旧快照凭据。
+
+位置清单只是最低检查：完整函数中的闭包输入、调用后果、异步边界、异常传播、部分成功与并发／清理仍须逐项审阅。不能用脚本批量填空数组、复制源码或重复通用摘要换取通过。把规则与失败路径反查到实际实现函数和分支，常量或通用辅助函数不能独自支持不相关结论；与功能有关的 Skill、HTML/CSS 等非函数材料另行读取，不把函数覆盖率当作整个仓库已理解的证明。
 
 ## 明确并保存目标
 

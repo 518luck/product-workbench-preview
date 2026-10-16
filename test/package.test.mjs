@@ -165,6 +165,11 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
             sideEffects: [],
             exceptions: [],
             unknowns: [],
+            coverage: units.items[0].reviewPoints.map((point) => ({
+              pointId: point.id,
+              detail:
+                point.kind === 'parameter' ? 'count 接收待计算的数量。' : '返回 count 的两倍。',
+            })),
           },
         ],
       }),
