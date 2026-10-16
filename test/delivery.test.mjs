@@ -236,6 +236,46 @@ async function complete(f, receipt, { strict = true } = {}) {
   return result;
 }
 
+test('独立功能验收可先完成，流程追踪未执行时保持未核验且严格交付仍失败', async (t) => {
+  const f = await fixture(t),
+    run = await runVerification(f.filename, 'access', f.session, command),
+    s = readSnapshot(f.filename);
+  await applyChanges(
+    f.filename,
+    {
+      version: 1,
+      expectedHash: s.documentHash,
+      operations: [
+        {
+          op: 'feature.complete',
+          id: 'access',
+          revision: 1,
+          implementation: {
+            revision: 1,
+            verifiedAt: new Date().toISOString(),
+            checks: [
+              {
+                name: '管理员允许、成员拒绝的真实断言',
+                result: 'passed',
+                executionId: run.executionId,
+              },
+            ],
+          },
+        },
+      ],
+    },
+    { analysisSession: f.session, requireVerification: true },
+  );
+  await syncFlowStatus(f.filename, f.session);
+  const document = readSnapshot(f.filename).document;
+  assert.equal(document.features.access.implementedRevision, 1);
+  assert.equal(document.flowVerification.features.access.status, 'unverified');
+  const delivery = await checkDelivery(f.filename, f.session, review(f.filename));
+  assert.equal(delivery.valid, false);
+  assert.ok(delivery.gaps.some((x) => x.kind === 'execution'));
+  assert.equal(readSnapshot(f.filename).document.features.access.implementedRevision, 1);
+});
+
 test('交付检查拒绝只保存草稿及未完成分析；具体新需求可交付，旧哈希和无理由图表跳过拒绝', async (t) => {
   const f = await fixture(t, { analyzed: false });
   const r = await checkDelivery(f.filename, f.session, review(f.filename, 'unverified'));
