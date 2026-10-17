@@ -18,6 +18,7 @@ import { saveVerificationPlan, checkVerificationPlans } from '../lib/verificatio
 import { runVerification } from '../lib/verification.mjs';
 import { checkDelivery } from '../lib/delivery.mjs';
 import { syncFlowStatus } from '../lib/flow-status.mjs';
+import { recordFlows } from '../lib/flow.mjs';
 
 // These are independently specified tiny businesses, not names required by the CLI.
 const commerce = [
@@ -127,7 +128,7 @@ async function fixture(t, specs = commerce, narrowed = false) {
           responsibility: meaning,
           inputs: spec ? [spec.inputMeaning] : [],
           outputs: spec ? [meaning] : [],
-          conditions: [],
+          conditions: spec?.conditions || [],
           calls: spec ? spec.calls || [] : [meaning],
           sideEffects: [],
           exceptions: [],
@@ -498,6 +499,27 @@ test('工作流产品可引用已读指令原文，伪造引文与只有编号�
   const good = await assessImplementation(filename, f.id, session, make());
   assert.equal(good.status, 'complete');
   assert.equal(readSnapshot(filename).document.features[f.id].implementation, undefined);
+  await assert.rejects(
+    saveVerificationPlan(filename, session, {
+      id: 'fake-host-component',
+      featureId: f.id,
+      expectedHash: readSnapshot(filename).documentHash,
+      goal: f.description,
+      steps: [{ step: 0, level: 'component', contextIds: [context.id], scenarioIds: ['normal'] }],
+      scenarios: [
+        {
+          id: 'normal',
+          kind: 'normal',
+          level: 'component',
+          steps: [0],
+          criteria: [0],
+          assertion: '用工具函数替代工作人员确认',
+          observations: [],
+        },
+      ],
+    }),
+    /工作流宿主行为/,
+  );
   const capability = {
     kind: 'adapter',
     reason: '工具尚不采集外部工作流宿主的执行事件。',
@@ -685,6 +707,9 @@ test('异步返回的具体数据字段由探针核对，错误值、缺失字�
   };
   const f = await fixture(t, [spec]);
   const input = plan(f, spec);
+  // This fixture only generates a successful receipt, not a rejection path.
+  input.scenarios = input.scenarios.filter((s) => s.kind === 'normal');
+  input.steps[0].scenarioIds = ['normal'];
   for (const scenario of input.scenarios)
     scenario.observations = [
       {
@@ -732,6 +757,8 @@ test('异步返回的具体数据字段由探针核对，错误值、缺失字�
   };
   const g = await fixture(t, [echo]),
     getterPlan = plan(g, echo);
+  getterPlan.scenarios = getterPlan.scenarios.filter((s) => s.kind === 'normal');
+  getterPlan.steps[0].scenarioIds = ['normal'];
   for (const scenario of getterPlan.scenarios)
     scenario.observations = [
       {
@@ -856,5 +883,402 @@ test('跨记录识别仅替换函数名的未知模板，真实同义小包装�
     checkAnalysis(english.session).valid,
     true,
     '不同的英文业务解释不能被归为同一个空模板',
+  );
+});
+
+test('中文编号与短随机标签不能把同一职责模板变成独立分析', async (t) => {
+  const nonce = ['甲乙寅卯', '辰巳午未', '申酉戌亥', '天地玄黄'];
+  await assert.rejects(
+    fixture(
+      t,
+      nonce.map((label, i) => ({
+        ...commerce[0],
+        id: `alter-${i}`,
+        fn: `alter${i}`,
+        arg: 'value',
+        expression: `value+${i + 1}`,
+        meaning: `在数量模块中，专职负责序列标号【${label}】对应alter${i}的具体控制逻辑，执行参数映射与关键状态维护`,
+        inputMeaning: 'value 是需要增加的商品数量。',
+      })),
+    ),
+    { code: 'ANALYSIS_INCOMPLETE' },
+  );
+});
+
+test('真实增量常数不同的准确说明不会因数字归一化被误判为套话', async (t) => {
+  const f = await fixture(
+    t,
+    [1, 2, 3, 4].map((n) => ({
+      ...commerce[0],
+      id: `plus-${n}`,
+      fn: `plus${n}`,
+      arg: 'value',
+      expression: `value+${n}`,
+      meaning: `将商品数量增加 ${n}，返回增加后的数量。`,
+      inputMeaning: 'value 是待增加的商品数量。',
+    })),
+  );
+  assert.equal(checkAnalysis(f.session).valid, true);
+});
+
+test('职责写得不同但逐位置说明全部模板化时仍原子拒绝，保留已正确分析的记录', async (t) => {
+  const explanations = [
+    '商品数量增加一件。',
+    '总数量增加两件。',
+    '装箱数量增加三件。',
+    '发货数量增加四件。',
+  ];
+  const f = await fixture(
+    t,
+    explanations.map((meaning, i) => ({
+      ...commerce[0],
+      id: `increase-${i}`,
+      fn: `increase${i}`,
+      arg: 'value',
+      expression: `value+${i + 1}`,
+      meaning,
+      inputMeaning: 'value 是待增加的数量。',
+    })),
+  );
+  const before = loadSession(f.session).state.records,
+    records = [];
+  for (const unit of f.state.units.filter((u) => u.file === 'business.mjs')) {
+    const read = await readAnalysis(f.session, unit.id),
+      stored = before[unit.id];
+    const record = structuredClone(
+      Object.fromEntries(
+        [
+          'unitId',
+          'responsibility',
+          'inputs',
+          'outputs',
+          'conditions',
+          'calls',
+          'sideEffects',
+          'exceptions',
+          'unknowns',
+          'coverage',
+        ].map((k) => [k, stored[k]]),
+      ),
+    );
+    record.receiptIds = [read.receipt.id];
+    for (const item of record.coverage) {
+      const point = unit.reviewPoints.find((p) => p.id === item.pointId);
+      if (point.field === 'outputs')
+        item.detail = `执行返回逻辑【${point.code}】将当前函数的计算结果或处理状态对象移交给上层调用者`;
+    }
+    records.push(record);
+  }
+  await assert.rejects(recordAnalysis(f.session, { records }), { code: 'ANALYSIS_INCOMPLETE' });
+  assert.deepEqual(
+    Object.values(loadSession(f.session).state.records).map((r) => r.recordHash),
+    Object.values(before).map((r) => r.recordHash),
+  );
+});
+
+test('不同业务步骤不能用相同源码点改写说明来全部登记实现', async (t) => {
+  const f = await fixture(t),
+    spec = commerce[0],
+    doc = readSnapshot(f.filename).document;
+  doc.features[spec.id].flow.push(['扣减库存', '保存商品的新库存数量']);
+  doc.features[spec.id].stepDetails.push({
+    ...doc.features[spec.id].stepDetails[0],
+    description: '减少库存并持久化',
+  });
+  fs.writeFileSync(f.filename, JSON.stringify(doc));
+  const before = fs.readFileSync(f.filename, 'utf8');
+  await assert.rejects(
+    assessImplementation(f.filename, spec.id, f.session, f.input(spec)),
+    /本步骤独立的行为依据/,
+  );
+  assert.equal(fs.readFileSync(f.filename, 'utf8'), before);
+});
+
+test('修改预期值或结果字段不能把同一函数返回位置包装成多个业务步骤', async (t) => {
+  for (const field of [false, true]) {
+    const f = await fixture(t),
+      spec = commerce[0],
+      doc = readSnapshot(f.filename).document;
+    doc.features[spec.id].flow.push(['保存订单', '返回已持久化的订单']);
+    doc.features[spec.id].stepDetails.push({ ...doc.features[spec.id].stepDetails[0] });
+    fs.writeFileSync(f.filename, JSON.stringify(doc));
+    const input = plan(f, spec);
+    input.steps.push({ ...input.steps[0], step: 1 });
+    input.scenarios = input.scenarios.filter((s) => s.kind === 'normal');
+    input.steps.forEach((s) => (s.scenarioIds = ['normal']));
+    input.scenarios[0].steps = [0, 1];
+    input.scenarios[0].observations = [0, 1].map((step) => ({
+      unitId: f.units[spec.id].id,
+      event: 'return',
+      operator: 'equals',
+      step,
+      criterion: 0,
+      expected: field ? true : `hash-${step}`,
+      ...(field ? { path: `/field${step}` } : {}),
+    }));
+    await assert.rejects(saveVerificationPlan(f.filename, f.session, input), /同一结果源码位置/);
+    const base = input.scenarios[0];
+    input.scenarios = [0, 1].map((step) => ({
+      ...base,
+      id: `scene-${step}`,
+      steps: [step],
+      observations: [base.observations[step]],
+    }));
+    input.steps.forEach((s, i) => (s.scenarioIds = [`scene-${i}`]));
+    await assert.rejects(saveVerificationPlan(f.filename, f.session, input), /同一结果源码位置/);
+  }
+});
+
+test('普通返回值的第二组变体不算异常，具体拒绝分支须与结果属于同一次调用', async (t) => {
+  const spec = {
+    ...commerce[0],
+    fn: 'decision',
+    arg: 'amount',
+    expression: "amount<0?'DENIED':'OK'",
+    meaning: '金额为负时拒绝并返回 DENIED，其余返回 OK。',
+    inputMeaning: 'amount 是本次申请金额。',
+    conditions: ['金额与零比较，负值进入 DENIED 拒绝分支。'],
+    yes: 3,
+    no: -2,
+  };
+  const f = await fixture(t, [spec]),
+    input = plan(f, spec);
+  input.scenarios[0].observations[0].expected = 'OK';
+  input.scenarios[1].observations[0].expected = 'DENIED';
+  await assert.rejects(
+    saveVerificationPlan(f.filename, f.session, input),
+    /另一组正常返回值不算异常/,
+  );
+  const point = f.units[spec.id].reviewPoints.find((p) => p.field === 'conditions');
+  input.scenarios[1].failure = { observation: 0, pointId: point.id, decision: true };
+  await saveVerificationPlan(f.filename, f.session, input);
+  assert.equal(
+    (await runVerification(f.filename, spec.id, f.session, command(f, spec, 'exception'))).valid,
+    true,
+  );
+  // A refusal in the first invocation cannot justify a successful result in the second.
+  input.scenarios[1].observations[0].expected = 'OK';
+  await saveVerificationPlan(f.filename, f.session, input);
+  const wrong = await runVerification(
+    f.filename,
+    spec.id,
+    f.session,
+    command(
+      f,
+      spec,
+      'exception',
+      "import {decision} from './business.mjs';decision(-2);decision(3);",
+    ),
+  );
+  assert.equal(wrong.exitCode, 0);
+  assert.equal(wrong.valid, false);
+});
+
+test('不存在的项目文件依据阻止交付，真实文件与外部链接不会误报', async (t) => {
+  const f = await fixture(t),
+    { review, report } = await deliver(f);
+  assert.equal(report.valid, true, JSON.stringify(report.gaps));
+  for (const ref of ['lib/fabricated-init.mjs', 'missing.py', '../outside.go']) {
+    review.journeys[0].evidence = `实际依据 ${ref} 的业务入口`;
+    const bad = await checkDelivery(f.filename, f.session, review);
+    assert.equal(bad.deliverable, false, ref);
+    assert.ok(
+      bad.gaps.some((g) => g.path === '/review/journeys/0/evidence'),
+      JSON.stringify(bad.gaps),
+    );
+  }
+  review.journeys[0].evidence =
+    'business.mjs 的实际库存资格判断，参考 https://example.org/guides/remote.py';
+  assert.equal((await checkDelivery(f.filename, f.session, review)).valid, true);
+  review.journeys[0].evidence = `${path.join(f.root, 'business.mjs')} 的资格判断`;
+  assert.equal((await checkDelivery(f.filename, f.session, review)).valid, true);
+});
+
+test('具名但无差别的非业务排除不能批量消除入口缺口', async (t) => {
+  const meanings = [
+    '商品数量增加一件。',
+    '总数量增加两件。',
+    '装箱数量增加三件。',
+    '发货数量增加四件。',
+  ];
+  const f = await fixture(
+    t,
+    meanings.map((meaning, i) => ({
+      ...commerce[0],
+      id: `increment-${i}`,
+      fn: `increment${i}`,
+      arg: 'value',
+      expression: `value+${i + 1}`,
+      meaning,
+      inputMeaning: 'value 是待增加的数量。',
+    })),
+  );
+  const entries = f.state.facts.entries.filter((e) => e.file === 'business.mjs');
+  const input = {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    flows: [],
+    dispositions: entries.map((e) => ({
+      entryId: e.id,
+      kind: 'non-business',
+      reason: `已完整审阅的库导出函数／类型声明 ${e.name}（${e.file}），作为内部公共能力供各业务步骤按需调用。`,
+    })),
+  };
+  await assert.rejects(recordFlows(f.filename, f.session, input), /无差别模板/);
+  assert.deepEqual(loadSession(f.session).state.entryDispositions, {});
+});
+
+test('多步骤实际结果可正常交付，交叉拼接未观测的步骤与条件不能交付', async (t) => {
+  const f = await fixture(t, booking),
+    id = 'review-actions';
+  const feature = createFeature(id, {
+    title: '预约操作资格对照',
+    description: '分别检查剩余名额是否允许预约、当前状态是否允许取消。',
+    rules: booking.map((s) => s.meaning),
+    checks: booking.map((s) => s.meaning),
+    flow: booking.map((s) => [s.title, s.meaning]),
+    stepDetails: booking.map((s) => ({
+      actor: '业务调用方',
+      description: s.meaning,
+      rules: [s.meaning],
+      dependencies: [],
+      result: '返回此类操作的资格布尔值',
+      exception: s.meaning,
+      acceptance: s.meaning,
+      interactions: [],
+    })),
+  });
+  feature.flowRevision = 1;
+  const doc = readSnapshot(f.filename).document;
+  doc.features = { [id]: feature };
+  fs.writeFileSync(f.filename, JSON.stringify(doc));
+  const basisFor = (s) => ({
+    kind: 'code',
+    unitId: f.units[s.id].id,
+    pointIds: f.units[s.id].reviewPoints.filter((p) => p.field === 'outputs').map((p) => p.id),
+    detail: s.detail,
+  });
+  await assessImplementation(f.filename, id, f.session, {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    revision: 1,
+    items: assessmentTargets(feature).map((target) => {
+      const specs = target === '/description' ? booking : [booking[Number(target.split('/')[2])]];
+      return {
+        target,
+        state: 'implemented',
+        detail: specs.map((s) => s.detail).join('；'),
+        basis: specs.map(basisFor),
+      };
+    }),
+  });
+  const input = {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    id: 'review-actions-plan',
+    featureId: id,
+    goal: feature.description,
+    steps: booking.map((s, step) => ({
+      step,
+      level: 'component',
+      unitIds: [f.units[s.id].id],
+      scenarioIds: ['normal', 'exception'],
+    })),
+    scenarios: ['normal', 'exception'].map((kind) => ({
+      id: kind,
+      kind,
+      level: 'component',
+      steps: [0, 1],
+      criteria: [0, 1],
+      assertion:
+        kind === 'normal'
+          ? '有名额允许预约，booked 状态允许取消'
+          : '无名额拒绝预约，cancelled 状态拒绝重复取消',
+      observations: booking.map((s, i) => ({
+        unitId: f.units[s.id].id,
+        event: 'return',
+        step: i,
+        criterion: i,
+        operator: 'equals',
+        expected: kind === 'normal',
+      })),
+    })),
+  };
+  await saveVerificationPlan(f.filename, f.session, input);
+  const runs = [];
+  for (const kind of ['normal', 'exception']) {
+    const code =
+      "import {reserve,cancel} from './business.mjs';" +
+      booking.map((s) => `${s.fn}(${JSON.stringify(kind === 'normal' ? s.yes : s.no)});`).join('');
+    const r = await runVerification(f.filename, id, f.session, {
+      command: process.execPath,
+      args: ['--input-type=module', '-e', code],
+      scope: { planId: input.id, scenarioId: kind },
+    });
+    assert.equal(r.valid, true, JSON.stringify(r));
+    runs.push(r);
+  }
+  const traces = [],
+    state = loadSession(f.session).state;
+  const visit = (value, target) => {
+    if (value && typeof value === 'object')
+      for (const [k, v] of Object.entries(value)) visit(v, `${target}/${k}`);
+    else if (value !== '')
+      traces.push({
+        id: `t-${traces.length}`,
+        target,
+        value,
+        classification: 'observed',
+        evidence: booking.map((s) => ({
+          kind: 'code',
+          unitId: f.units[s.id].id,
+          recordHash: state.records[f.units[s.id].id].recordHash,
+        })),
+      });
+  };
+  for (const field of ['description', 'rules', 'checks', 'flow', 'stepDetails', 'dependencies'])
+    visit(feature[field], `/features/${id}/${field}`);
+  await traceAnalysis(f.session, { traces });
+  await syncFlowStatus(f.filename, f.session);
+  const review = {
+    version: 4,
+    documentHash: readSnapshot(f.filename).documentHash,
+    flows: [],
+    acknowledgedGaps: [],
+    diagrams: { architecture: skip, entities: skip },
+    journeys: [
+      {
+        title: '核对两类操作资格',
+        outcome: '预约和取消的资格判断分别返回',
+        evidence: 'business.mjs 中 reserve 与 cancel 的比较结果',
+        steps: [
+          { featureId: id, step: 0 },
+          { featureId: id, step: 1 },
+        ],
+      },
+    ],
+    features: [
+      {
+        id,
+        revision: 1,
+        outcome: 'implemented',
+        content: { rules: { decision: 'included' }, dependencies: skip },
+        diagrams: { sequence: skip, dataflow: skip },
+        acceptance: runs.flatMap((r, k) =>
+          booking.map((s, i) => ({
+            criterion: i,
+            scenario: k ? 'exception' : 'normal',
+            steps: [i],
+            executionId: r.executionId,
+            evidence: s.meaning,
+          })),
+        ),
+      },
+    ],
+  };
+  const good = await checkDelivery(f.filename, f.session, review);
+  assert.equal(good.valid, true, JSON.stringify(good.gaps));
+  review.features[0].acceptance[0].steps = [0, 1];
+  const bad = await checkDelivery(f.filename, f.session, review);
+  assert.equal(bad.deliverable, false);
+  assert.ok(
+    bad.gaps.some((g) => g.kind === 'verification' && g.path === `/features/${id}/acceptance`),
   );
 });

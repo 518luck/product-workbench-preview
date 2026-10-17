@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "分层验收方案 v2：执行前绑定业务范围",
+  "title": "分层验收方案 v3：业务结果位置与失败分支绑定",
   "type": "object",
   "additionalProperties": false,
   "required": ["expectedHash", "id", "featureId", "goal", "steps", "scenarios"],
@@ -199,6 +199,25 @@
                   "pattern": "^/",
                   "description": "JS/TS 结果上自有数据字段的 JSON Pointer，不调用 getter；其他语言尚不支持字段观测。"
                 }
+              }
+            }
+          },
+          "failure": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["observation", "pointId", "decision"],
+            "description": "异常使用自定义错误码或结构化拒绝结果时，绑定同一次函数调用的实际拒绝分支；不能拼接不同调用。",
+            "properties": {
+              "observation": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pointId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "decision": {
+                "type": "boolean"
               }
             }
           }

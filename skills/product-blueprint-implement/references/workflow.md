@@ -1,6 +1,6 @@
 # 实现流程
 
-先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
+先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`，并确认 `runtime.verificationPlan` 为 3、`runtime.resultScope` 为 `distinct-source-location-per-step`、`runtime.failureBinding` 为 `rejection-or-same-invocation-branch`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
 
 ## 检查工具与待办
 
@@ -63,4 +63,4 @@ product-blueprint apply /文档 --input 批次.json --analysis-session SESSION -
 
 ## 阅读与记录的质量边界
 
-源码正文和配置原文必须进入 AI 的当前分析上下文。脚本调用 read 后丢弃正文，再按文件名或语法类型填摘要，不算逐函数审阅。脚本只整理和提交已完成的分析，不自动生成业务解释。工具会跨记录比较模板与真实源码行为；同义包装函数可以共享准确说明，行为不同的函数不能只替换编号、函数名或源码前缀。恢复旧记录需通过当前质量检查，位置和数量齐全仍不证明语义正确。
+源码正文和配置原文必须进入 AI 的当前分析上下文。脚本调用 read 后丢弃正文，再按文件名或语法类型填摘要，不算逐函数审阅。脚本只整理和提交已完成的分析，不自动生成业务解释。工具会跨记录比较模板与真实源码行为；同义包装函数可以共享准确说明，行为不同的函数不能只替换编号、函数名或源码前缀；职责和逐位置说明都会比较，无关汉字、标签及随机串不算业务解释。恢复旧记录需通过当前质量检查，位置和数量齐全仍不证明语义正确。

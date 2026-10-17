@@ -636,6 +636,9 @@ try {
       runtime: {
         component: '工具探针核对声明的具体结果，不等于整条业务链路观测',
         observationBinding: 'step-and-criterion',
+        resultScope: 'distinct-source-location-per-step',
+        failureBinding: 'rejection-or-same-invocation-branch',
+        verificationPlan: 3,
         resultFields: 'javascript-own-data-properties',
         commandIsolation: 'temporary-project-copy',
         workflowHostObservation,

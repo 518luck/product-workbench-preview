@@ -121,7 +121,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   const packageRoot = fs.realpathSync(path.join(install, 'node_modules', 'product-blueprint'));
   const manifest = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
-  assert.equal(manifest.version, '0.8.0');
+  assert.equal(manifest.version, '0.9.0');
   assert.equal(manifest.dependencies.typescript, '6.0.2');
   const installedRequire = createRequire(path.join(packageRoot, 'package.json'));
   assert.equal(installedRequire('typescript/package.json').version, '6.0.2');
