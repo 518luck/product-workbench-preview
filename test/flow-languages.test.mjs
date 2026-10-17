@@ -329,7 +329,16 @@ for (const sample of samples)
             steps: [0],
             criteria: [0],
             assertion: '输入 2 返回 3',
-            observations: [{ unitId: from.id, event: 'return', operator: 'equals', expected: 3 }],
+            observations: [
+              {
+                step: 0,
+                criterion: 0,
+                unitId: from.id,
+                event: 'return',
+                operator: 'equals',
+                expected: 3,
+              },
+            ],
           },
         ],
       };

@@ -635,6 +635,9 @@ try {
       languages: adapterProfiles(),
       runtime: {
         component: '工具探针核对声明的具体结果，不等于整条业务链路观测',
+        observationBinding: 'step-and-criterion',
+        resultFields: 'javascript-own-data-properties',
+        commandIsolation: 'temporary-project-copy',
         workflowHostObservation,
       },
       scope: '已识别入口、声明场景及所列能力范围；未知关系必须保留缺口。',

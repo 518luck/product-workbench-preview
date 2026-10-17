@@ -389,19 +389,23 @@ test('验收绑定文档与功能，执行期间定义或源码变化拒绝完�
       "const fs=require('fs');const f='product-document.json';const d=JSON.parse(fs.readFileSync(f));d.features.access.description='已改变的定义';fs.writeFileSync(f,JSON.stringify(d));",
     ],
   };
-  assert.equal(
-    (await runVerification(f.filename, 'access', f.session, mutate)).documentStable,
-    false,
-  );
+  const beforeDocument = fs.readFileSync(f.filename, 'utf8');
+  const changedCopy = await runVerification(f.filename, 'access', f.session, mutate);
+  assert.equal(changedCopy.valid, false);
+  assert.equal(changedCopy.documentStable, true);
+  assert.equal(changedCopy.copyDocumentStable, false);
+  assert.equal(fs.readFileSync(f.filename, 'utf8'), beforeDocument);
+  const beforeSource = fs.readFileSync(path.join(other.root, 'access.mjs'), 'utf8');
   assert.equal(
     (
       await runVerification(other.filename, 'access', other.session, {
         command: process.execPath,
         args: ['-e', "require('fs').appendFileSync('access.mjs','// changed')"],
       })
-    ).sourceStable,
+    ).copyStable,
     false,
   );
+  assert.equal(fs.readFileSync(path.join(other.root, 'access.mjs'), 'utf8'), beforeSource);
 });
 test('verification run CLI执行验收，不将输入当作 shell，并拒绝缺失会话和未知输入字段', async (t) => {
   const f = await fixture(t);

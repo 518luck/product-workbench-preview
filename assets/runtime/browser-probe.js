@@ -12,6 +12,43 @@
       ? { rawScalar: value, valueType: type }
       : { valueType: type };
   };
+  const observedFields = (frame, kind, value, factId) => {
+    const fields = {};
+    for (const observation of config.observations || []) {
+      if (
+        !observation.path ||
+        observation.unitId !== frame.unitId ||
+        observation.event !== kind ||
+        (observation.factId && observation.factId !== factId)
+      )
+        continue;
+      let current = value,
+        present = true;
+      for (const part of observation.path
+        .slice(1)
+        .split('/')
+        .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))) {
+        if (current === null || typeof current !== 'object') {
+          present = false;
+          break;
+        }
+        let property;
+        try {
+          property = Object.getOwnPropertyDescriptor(current, part);
+        } catch {
+          present = false;
+          break;
+        }
+        if (!property || !Object.hasOwn(property, 'value')) {
+          present = false;
+          break;
+        }
+        current = property.value;
+      }
+      if (present) fields[observation.path] = fingerprint(current);
+    }
+    return fields;
+  };
   const emit = (kind, frame, extra = {}) => {
     queue.push({
       runId: config.runId,
@@ -83,7 +120,11 @@
           return value;
         },
         fail = (error) => {
-          emit('throw', frame, { errorName: error?.name || '', ...fingerprint(error) });
+          emit('throw', frame, {
+            errorName: error?.name || '',
+            errorMessage: typeof error?.message === 'string' ? error.message : '',
+            ...fingerprint(error),
+          });
           throw error;
         };
       try {
@@ -115,7 +156,12 @@
             frame.id,
             callId,
           );
-        if (call?.resultId) emit('value', frame, { factId: call.resultId, ...fingerprint(value) });
+        if (call?.resultId)
+          emit('value', frame, {
+            factId: call.resultId,
+            ...fingerprint(value),
+            fields: observedFields(frame, 'value', value, call.resultId),
+          });
         return value;
       };
       try {
@@ -136,8 +182,15 @@
     },
     returned(frame, factId, value) {
       frame.returnId = factId;
-      emit('return', frame, { factId, ...fingerprint(value) });
-      return value;
+      const capture = (result) => {
+        emit('return', frame, {
+          factId,
+          ...fingerprint(result),
+          fields: observedFields(frame, 'return', result, factId),
+        });
+        return result;
+      };
+      return value instanceof Promise ? value.then(capture) : capture(value);
     },
     branch(frame, pointId, value) {
       emit('branch', frame, { pointId, decision: Boolean(value), ...fingerprint(value) });
@@ -148,7 +201,11 @@
       return value;
     },
     value(frame, factId, value) {
-      emit('value', frame, { factId, ...fingerprint(value) });
+      emit('value', frame, {
+        factId,
+        ...fingerprint(value),
+        fields: observedFields(frame, 'value', value, factId),
+      });
       return value;
     },
   });

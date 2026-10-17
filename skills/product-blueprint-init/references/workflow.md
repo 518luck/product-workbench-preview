@@ -1,5 +1,7 @@
 # 初始化流程
 
+先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
+
 ## 选择工具与目标
 
 使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收和 delivery v4 和 verification plan；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
@@ -77,3 +79,7 @@ dry-run 是内部检查。通过后提交同一批次，无须等待内容确认
 定义初次保存时实现状态待确认。随后按 [验收与交付检查](verification.md) 判断已有功能，完成核验、登记和最终交付。
 
 恢复时分别核对源码读取与分析、最终字段依据、真实验收、功能完成登记、流程核验及交付审阅。记录数量齐全或执行成功不表示后续阶段已完成；缺少 trace、实现核对或 delivery-review 时继续补齐；实际验收单独记录。先完成可独立验收的已有功能，再推进严格流程追踪，不因后者有缺口把所有功能停在草稿。
+
+## 阅读与记录的质量边界
+
+源码正文和配置原文必须进入 AI 的当前分析上下文。脚本调用 read 后丢弃正文，再按文件名或语法类型填摘要，不算逐函数审阅。脚本只整理和提交已完成的分析，不自动生成业务解释。工具会跨记录比较模板与真实源码行为；同义包装函数可以共享准确说明，行为不同的函数不能只替换编号、函数名或源码前缀。恢复旧记录需通过当前质量检查，位置和数量齐全仍不证明语义正确。

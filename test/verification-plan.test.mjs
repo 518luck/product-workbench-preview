@@ -146,6 +146,8 @@ function plan(f, level = 'component') {
                     {
                       unitId: f.unit.id,
                       event: 'return',
+                      step: 0,
+                      criterion: 0,
                       operator: 'equals',
                       expected: kind === 'normal',
                     },

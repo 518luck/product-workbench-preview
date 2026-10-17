@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "分层验收方案 v1：执行前绑定业务范围",
+  "title": "分层验收方案 v2：执行前绑定业务范围",
   "type": "object",
   "additionalProperties": false,
   "required": ["expectedHash", "id", "featureId", "goal", "steps", "scenarios"],
@@ -161,7 +161,7 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["unitId", "event", "operator", "expected"],
+              "required": ["unitId", "event", "operator", "expected", "step", "criterion"],
               "properties": {
                 "unitId": {
                   "type": "string",
@@ -179,10 +179,25 @@
                   "enum": ["return", "throw", "value", "branch"]
                 },
                 "operator": {
-                  "enum": ["equals", "type", "error", "error-name"]
+                  "enum": ["equals", "error", "error-name"]
                 },
                 "expected": {
                   "type": ["string", "number", "boolean", "null"]
+                },
+                "step": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "此观测实际支持的单个业务步骤。"
+                },
+                "criterion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "此观测实际支持的单个验收条件。"
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "description": "JS/TS 结果上自有数据字段的 JSON Pointer，不调用 getter；其他语言尚不支持字段观测。"
                 }
               }
             }

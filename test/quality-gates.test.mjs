@@ -128,7 +128,7 @@ async function fixture(t, specs = commerce, narrowed = false) {
           inputs: spec ? [spec.inputMeaning] : [],
           outputs: spec ? [meaning] : [],
           conditions: [],
-          calls: spec ? [] : [meaning],
+          calls: spec ? spec.calls || [] : [meaning],
           sideEffects: [],
           exceptions: [],
           unknowns: spec ? [] : ['URL 构造器由宿主运行时提供。'],
@@ -188,6 +188,8 @@ const plan = (f, spec) => ({
       {
         unitId: f.units[spec.id].id,
         event: 'return',
+        step: 0,
+        criterion: 0,
         operator: 'equals',
         expected: kind === 'normal',
       },
@@ -564,4 +566,295 @@ test('工作流产品可引用已读指令原文，伪造引文与只有编号�
   });
   assert.equal(report.stage, 'partial', JSON.stringify(report.gaps));
   assert.equal(report.valid, false);
+});
+
+test('实现说明与依据不能只套用函数位置和“维护一致性”，失败不改写当前文档', async (t) => {
+  const f = await fixture(t),
+    spec = f.specs[0],
+    before = fs.readFileSync(f.filename, 'utf8');
+  const generated = f.input(spec);
+  for (const item of generated.items) {
+    item.detail = '在 business.mjs 的 canBuy 中已实现对应逻辑与约束';
+    item.basis[0].detail = '在该模块核心业务逻辑中调度底层接口以推进流程执行并维护状态一致性';
+  }
+  await assert.rejects(assessImplementation(f.filename, spec.id, f.session, generated));
+  assert.equal(fs.readFileSync(f.filename, 'utf8'), before);
+  const onlyLabel = f.input(spec);
+  for (const item of onlyLabel.items)
+    item.detail = '在 business.mjs 的 canBuy 中已实现对应逻辑与约束';
+  await assert.rejects(assessImplementation(f.filename, spec.id, f.session, onlyLabel));
+  assert.equal(
+    (await assessImplementation(f.filename, spec.id, f.session, f.input(spec))).status,
+    'complete',
+  );
+});
+
+test('类型检查、泛化异常、重复结果及额外挂入函数不能覆盖业务步骤和条件', async (t) => {
+  const f = await fixture(t),
+    spec = f.specs[0];
+  for (const change of [
+    (o) => {
+      o.operator = 'type';
+      o.expected = 'object';
+    },
+    (o) => {
+      o.event = 'throw';
+      o.operator = 'error-name';
+      o.expected = 'Error';
+    },
+    (o) => {
+      delete o.step;
+    },
+    (o) => {
+      delete o.criterion;
+    },
+  ]) {
+    const input = plan(f, spec);
+    change(input.scenarios[0].observations[0]);
+    await assert.rejects(saveVerificationPlan(f.filename, f.session, input), {
+      code: 'INVALID_ARGUMENT',
+    });
+  }
+  const overclaim = plan(f, spec);
+  overclaim.steps[0].unitIds.push(f.state.units.find((u) => u.file === 'metadata.mjs').id);
+  await assert.rejects(saveVerificationPlan(f.filename, f.session, overclaim), {
+    code: 'INVALID_ARGUMENT',
+  });
+  const doc = readSnapshot(f.filename).document,
+    feature = doc.features[spec.id];
+  feature.flow.push(['扣减库存', '扣减后保存剩余库存']);
+  feature.stepDetails.push({ ...feature.stepDetails[0], description: '扣减后保存库存。' });
+  feature.checks.push('扣减后保存库存。');
+  fs.writeFileSync(f.filename, JSON.stringify(doc));
+  const duplicated = plan(f, spec);
+  duplicated.steps.push({ ...duplicated.steps[0], step: 1 });
+  for (const scenario of duplicated.scenarios) {
+    scenario.steps = [0, 1];
+    scenario.criteria = [0, 1];
+    scenario.observations.push({ ...scenario.observations[0], step: 1, criterion: 1 });
+  }
+  await assert.rejects(saveVerificationPlan(f.filename, f.session, duplicated), {
+    code: 'INVALID_ARGUMENT',
+  });
+});
+
+test('验收步骤与已保存实现依据需对应，不能拿资格函数验证另一项数据来源', async (t) => {
+  const f = await fixture(t, booking),
+    spec = f.specs[0];
+  await assessImplementation(f.filename, spec.id, f.session, f.input(spec));
+  const wrong = plan(f, spec),
+    other = f.units[f.specs[1].id].id;
+  wrong.steps[0].unitIds = [other];
+  for (const scenario of wrong.scenarios) scenario.observations[0].unitId = other;
+  await assert.rejects(saveVerificationPlan(f.filename, f.session, wrong), {
+    code: 'INVALID_ARGUMENT',
+  });
+  await saveVerificationPlan(f.filename, f.session, plan(f, spec));
+  const good = await runVerification(f.filename, spec.id, f.session, command(f, spec, 'normal'));
+  assert.equal(good.valid, true);
+  const changed = f.input(spec);
+  const otherUnit = f.units[f.specs[1].id];
+  const stepItem = changed.items.find((i) => i.target === '/flow/0');
+  stepItem.detail = '严格比较预约状态与 booked，返回取消资格。';
+  stepItem.basis = [
+    {
+      kind: 'code',
+      unitId: otherUnit.id,
+      pointIds: otherUnit.reviewPoints.filter((p) => p.field === 'outputs').map((p) => p.id),
+      detail: '仅 booked 状态返回允许取消。',
+    },
+  ];
+  await assessImplementation(f.filename, spec.id, f.session, changed);
+  await assert.rejects(
+    runVerification(f.filename, spec.id, f.session, command(f, spec, 'normal')),
+    { code: 'ANALYSIS_STALE' },
+  );
+  const outdated = checkVerificationPlans(f.filename, f.session);
+  assert.ok(outdated.gaps.some((g) => g.kind === 'stale'));
+});
+
+test('异步返回的具体数据字段由探针核对，错误值、缺失字段和 getter 都不能通过', async (t) => {
+  const spec = {
+    ...commerce[0],
+    fn: 'receipt',
+    arg: 'amount',
+    expression: 'Promise.resolve({state:"saved",total:amount})',
+    meaning: '生成回执，state 固定为 saved，total 保留传入金额；不执行持久化。',
+    inputMeaning: 'amount 是回执金额。',
+    calls: ['Promise.resolve 返回包含回执的已解决承诺。'],
+  };
+  const f = await fixture(t, [spec]);
+  const input = plan(f, spec);
+  for (const scenario of input.scenarios)
+    scenario.observations = [
+      {
+        unitId: f.units[spec.id].id,
+        step: 0,
+        criterion: 0,
+        event: 'return',
+        operator: 'equals',
+        path: '/total',
+        expected: 3,
+      },
+      {
+        unitId: f.units[spec.id].id,
+        step: 0,
+        criterion: 0,
+        event: 'return',
+        operator: 'equals',
+        path: '/state',
+        expected: 'saved',
+      },
+    ];
+  await saveVerificationPlan(f.filename, f.session, input);
+  const run = (body) =>
+    runVerification(f.filename, spec.id, f.session, command(f, spec, 'normal', body));
+  const good = await run("import {receipt} from './business.mjs';await receipt(3);");
+  assert.equal(good.valid, true, JSON.stringify(good));
+  const wrong = await run("import {receipt} from './business.mjs';await receipt(4);");
+  assert.equal(wrong.exitCode, 0);
+  assert.equal(wrong.valid, false);
+  for (const scenario of input.scenarios) scenario.observations[0].path = '/missing';
+  await saveVerificationPlan(f.filename, f.session, {
+    ...input,
+    expectedHash: readSnapshot(f.filename).documentHash,
+  });
+  assert.equal(
+    (await run("import {receipt} from './business.mjs';await receipt(3);")).valid,
+    false,
+  );
+  const echo = {
+    ...spec,
+    fn: 'inspectReceipt',
+    expression: 'amount',
+    calls: [],
+    meaning: '直接返回传入的回执对象，不访问其字段。',
+  };
+  const g = await fixture(t, [echo]),
+    getterPlan = plan(g, echo);
+  for (const scenario of getterPlan.scenarios)
+    scenario.observations = [
+      {
+        unitId: g.units[echo.id].id,
+        step: 0,
+        criterion: 0,
+        event: 'return',
+        operator: 'equals',
+        path: '/total',
+        expected: 3,
+      },
+    ];
+  await saveVerificationPlan(g.filename, g.session, getterPlan);
+  const getterRun = await runVerification(
+    g.filename,
+    echo.id,
+    g.session,
+    command(
+      g,
+      echo,
+      'normal',
+      "import {inspectReceipt} from './business.mjs';const value=Object.defineProperty({},'total',{get(){throw new Error('getter executed');}});inspectReceipt(value);",
+    ),
+  );
+  assert.equal(getterRun.exitCode, 0, '探针不能调用 getter');
+  assert.equal(getterRun.valid, false, '无自有数据值时不能当作已观察');
+  const proxyRun = await runVerification(
+    g.filename,
+    echo.id,
+    g.session,
+    command(
+      g,
+      echo,
+      'normal',
+      "import {inspectReceipt} from './business.mjs';inspectReceipt(new Proxy({total:3},{getOwnPropertyDescriptor(){throw new Error('proxy trap executed');}}));",
+    ),
+  );
+  assert.equal(proxyRun.exitCode, 0, 'Node 探针不触发 Proxy 属性陷阱');
+  assert.equal(proxyRun.valid, false);
+  // The hashing reader must not execute an object's user-defined getters.
+  const { observationProblems } = await import('../lib/component-observation.mjs');
+  const foreign = { ...f.state, units: f.state.units.map((u) => ({ ...u, language: 'python' })) };
+  assert.ok(observationProblems(input, input.scenarios[0], foreign).length);
+});
+
+test('普通验收也在临时副本运行，新增杂项不落原项目，修改副本业务源码则失效', async (t) => {
+  const f = await fixture(t),
+    spec = f.specs[0];
+  const original = fs.readFileSync(path.join(f.root, 'business.mjs'), 'utf8');
+  const run = (body) =>
+    runVerification(f.filename, spec.id, f.session, {
+      command: process.execPath,
+      args: ['-e', body],
+    });
+  const good = await run(
+    "require('node:fs').writeFileSync('test-doc.json','{}');require('node:fs').mkdirSync('.test-s');",
+  );
+  assert.equal(good.valid, true);
+  assert.equal(good.isolated, true);
+  assert.equal(fs.existsSync(path.join(f.root, 'test-doc.json')), false);
+  assert.equal(fs.existsSync(path.join(f.root, '.test-s')), false);
+  const record = JSON.parse(fs.readFileSync(good.record, 'utf8'));
+  assert.equal(fs.existsSync(record.cwd), false, '临时副本在结束时清理');
+  const changed = await run(
+    "require('node:fs').writeFileSync('business.mjs','export function canBuy(){return true;}');",
+  );
+  assert.equal(changed.exitCode, 0);
+  assert.equal(changed.copyStable, false);
+  assert.equal(changed.valid, false);
+  assert.equal(fs.readFileSync(path.join(f.root, 'business.mjs'), 'utf8'), original);
+});
+
+test('真实交付门禁报告新散落文件，不能靠填写已知缺口变成部分交付', async (t) => {
+  const f = await fixture(t),
+    { review, report } = await deliver(f);
+  assert.equal(report.valid, true, JSON.stringify(report.gaps));
+  fs.writeFileSync(path.join(f.root, 'test-doc.json'), '{}');
+  const bad = await checkDelivery(f.filename, f.session, review);
+  assert.equal(bad.valid, false);
+  assert.equal(bad.deliverable, false);
+  assert.ok(bad.gaps.some((g) => g.kind === 'artifact' && g.path === 'test-doc.json'));
+  fs.rmSync(path.join(f.root, 'test-doc.json'));
+  const work = path.join(f.root, '.blueprint-analysis/work/task');
+  fs.mkdirSync(work, { recursive: true });
+  fs.writeFileSync(path.join(work, 'batch.json'), '{}');
+  assert.equal((await checkDelivery(f.filename, f.session, review)).valid, true);
+});
+
+test('跨记录识别仅替换函数名的未知模板，真实同义小包装函数可共享说明', async (t) => {
+  const repeated = [0, 1, 2, 3].map((i) => ({
+    ...commerce[0],
+    id: `adjust-${i}`,
+    fn: `adjust${i}`,
+    arg: 'value',
+    expression: `value+${i + 1}`,
+    meaning: `此例程经由 adjust${i} 完成此处的处理事项。`,
+    inputMeaning: 'value 是待调整的数量。',
+  }));
+  await assert.rejects(fixture(t, repeated), { code: 'ANALYSIS_INCOMPLETE' });
+  const wrappers = repeated.map((s) => ({
+    ...s,
+    expression: 'value+1',
+    meaning: '将传入的商品数量加一，返回递增后的数量。',
+  }));
+  const f = await fixture(t, wrappers);
+  assert.equal(checkAnalysis(f.session).valid, true);
+  const explanations = [
+    'Add one unit to the incoming inventory count.',
+    'Apply a two-unit correction to the count.',
+    'Increase the shipment quantity by three.',
+    'Return the input count with an extra four units.',
+  ];
+  const english = await fixture(
+    t,
+    repeated.map((s, i) => ({
+      ...s,
+      meaning: explanations[i],
+      inputMeaning: 'value is the incoming item count.',
+    })),
+  );
+  assert.equal(
+    checkAnalysis(english.session).valid,
+    true,
+    '不同的英文业务解释不能被归为同一个空模板',
+  );
 });

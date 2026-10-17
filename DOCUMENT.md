@@ -228,3 +228,5 @@ v4 的 valid:true、stage:ready 表示声明的逐业务步骤方案成立，不
 组件／契约场景的 observations 使用 unitId、event、operator、expected 及适用的 factId／pointId；事件为 return／throw／value／branch。返回或结果用 equals 核对标量、type 核对类型；异常用 error／error-name，分支使用本函数的条件位置。每个声明步骤都须有相应结果观测。类型观测仅证明类型，不能说明对象字段、持久化或业务条件均正确。工具复用临时副本探针执行，不要求组件场景同时证明完整调用链。
 
 限定范围分析的 scopeCoverage 差异进入交付与页面范围缺口。默认补齐；确有用户局部范围授权时，review.scope 记录 reason 和 authorization:{source:user,text:原文}，并逐项列入 acknowledgedGaps，仍不能获得全项目 ready。范围声明的真实性由执行者遵守对话授权，工具核验机器遗漏清单。
+
+交付检查还对照分析扫描的文件清单报告之后新增且位于约定目录外的文件，标准 `.blueprint/` 内仅保留产品 JSON、HTML 和最终交付审阅。artifact 缺口需实际核对与处理，不能作为环境限制豁免；已有用户文件不自动删除。扫描之前已经存在的杂项不由此检查推定来源。

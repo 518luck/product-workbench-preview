@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { types } from 'node:util';
 
 const config = JSON.parse(fs.readFileSync(process.env.PRODUCT_BLUEPRINT_PROBE_CONFIG, 'utf8'));
 const storage = new AsyncLocalStorage(),
@@ -28,6 +29,38 @@ function fingerprint(value) {
       .update(JSON.stringify({ type, value: safe }))
       .digest('hex'),
   };
+}
+function observedFields(frame, kind, value, factId) {
+  const fields = {};
+  for (const observation of config.observations || []) {
+    if (
+      !observation.path ||
+      observation.unitId !== frame.unitId ||
+      observation.event !== kind ||
+      (observation.factId && observation.factId !== factId)
+    )
+      continue;
+    let current = value,
+      present = true;
+    for (const part of observation.path
+      .slice(1)
+      .split('/')
+      .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))) {
+      // Reading a getter would change program behavior. Observe only own data.
+      if (current === null || typeof current !== 'object' || types.isProxy(current)) {
+        present = false;
+        break;
+      }
+      const property = Object.getOwnPropertyDescriptor(current, part);
+      if (!property || !Object.hasOwn(property, 'value')) {
+        present = false;
+        break;
+      }
+      current = property.value;
+    }
+    if (present) fields[observation.path] = fingerprint(current);
+  }
+  return fields;
 }
 function emit(kind, frame, extra = {}) {
   const event = {
@@ -125,7 +158,12 @@ const probe = Object.freeze({
           frame.id,
           callId,
         );
-      if (call?.resultId) emit('value', frame, { factId: call.resultId, ...fingerprint(value) });
+      if (call?.resultId)
+        emit('value', frame, {
+          factId: call.resultId,
+          ...fingerprint(value),
+          fields: observedFields(frame, 'value', value, call.resultId),
+        });
       return value;
     };
     return storage.run({ frame, pending }, () => {
@@ -144,11 +182,22 @@ const probe = Object.freeze({
   },
   returned(frame, factId, value) {
     frame.returnId = factId;
-    emit('return', frame, { factId, ...fingerprint(value) });
-    return value;
+    const capture = (result) => {
+      emit('return', frame, {
+        factId,
+        ...fingerprint(result),
+        fields: observedFields(frame, 'return', result, factId),
+      });
+      return result;
+    };
+    return value instanceof Promise ? value.then(capture) : capture(value);
   },
   value(frame, factId, value) {
-    emit('value', frame, { factId, ...fingerprint(value) });
+    emit('value', frame, {
+      factId,
+      ...fingerprint(value),
+      fields: observedFields(frame, 'value', value, factId),
+    });
     return value;
   },
   branch(frame, pointId, value) {
