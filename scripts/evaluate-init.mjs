@@ -107,8 +107,28 @@ export function checkOriginalScope(directory, original, scope) {
       errors.push(`原始源码或配置未纳入交付范围：${file.file}`);
   return errors;
 }
-export async function gradeCase(directory, item, original) {
+export function checkArtifactLayout(directory, original) {
   const errors = [];
+  const deliveries = new Set([
+    '.blueprint/product-document.json',
+    '.blueprint/index.html',
+    '.blueprint/delivery-review.json',
+  ]);
+  function visit(relative = '') {
+    for (const entry of fs.readdirSync(path.join(directory, relative), { withFileTypes: true })) {
+      const file = relative ? `${relative}/${entry.name}` : entry.name;
+      if (Object.hasOwn(original, file)) continue;
+      if (file === '.blueprint-analysis' && entry.isDirectory()) continue;
+      if (entry.isDirectory()) visit(file);
+      else if (entry.isSymbolicLink() || !deliveries.has(file))
+        errors.push(`生成产物不在约定位置：${file}`);
+    }
+  }
+  visit();
+  return errors;
+}
+export async function gradeCase(directory, item, original) {
+  const errors = checkArtifactLayout(directory, original);
   let delivery;
   for (const [file, digest] of Object.entries(original)) {
     try {
@@ -217,7 +237,7 @@ export async function runSuite({
         path.join(directory, `${item.id}-${trial}.inputs.json`),
         JSON.stringify(original, null, 2) + '\n',
       );
-      const prompt = `使用 ${skill} 为当前临时项目初始化产品书，输出到 .blueprint/，保留根目录已有示例与源码。CLI 使用 ${process.execPath} ${cli}。读取实际协议及 references；已有功能实际验收完成，未来需求保留草稿。实际验收用 verification run 收集 executionId，完成批次使用 --require-verification 和 --analysis-session。最终按 schema --delivery 保存 .blueprint/delivery-review.json 并运行 document check，检查成功才宣布初始化完成。授权在临时项目执行必要验收；只需 CLI 产品书交付，不启动浏览器服务。分析缺口继续处理；任务不需要修改原项目源码。`;
+      const prompt = `使用 ${skill} 为当前临时项目初始化产品书，保留已有示例与源码。CLI 使用 ${process.execPath} ${cli}。读取实际协议及 references；已有功能实际验收完成，未来需求保留草稿。实际验收用 verification run 收集 executionId，完成批次使用 --require-verification 和 --analysis-session。最终按 schema --delivery 保存交付审阅并运行 document check，检查成功才宣布初始化完成。授权在临时项目执行必要验收；只需 CLI 产品书交付，不启动浏览器服务。分析缺口继续处理；任务不需要修改原项目源码。`;
       fs.writeFileSync(path.join(directory, `${item.id}-${trial}.prompt.txt`), prompt);
       const replace = (value) =>
         value

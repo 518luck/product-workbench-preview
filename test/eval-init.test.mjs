@@ -9,6 +9,7 @@ import {
   gradeCase,
   runSuite,
   checkOriginalScope,
+  checkArtifactLayout,
 } from '../scripts/evaluate-init.mjs';
 
 test('六类初始化评测各自隔离，保护源码与示例，已有进度保留待分析项', async (t) => {
@@ -69,4 +70,56 @@ test('评分允许排除生成产物，但独立拒绝遗漏原始源码或项�
   });
   assert.ok(errors.some((error) => error.includes('normalize.mjs')));
   assert.ok(errors.some((error) => error.includes('package.json')));
+});
+
+test('初始化产物统一存放，评分报告根目录、源码目录及产品书内的杂项文件', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-eval-layout-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const original = await prepareCase(
+    root,
+    cases.find((item) => item.example),
+  );
+  for (const file of [
+    '.blueprint/product-document.json',
+    '.blueprint/index.html',
+    '.blueprint/delivery-review.json',
+    '.blueprint-analysis/work/task-a/batch.json',
+    '.blueprint-analysis/s-example/verifications/run.json',
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), '{}');
+  }
+  assert.deepEqual(checkArtifactLayout(root, original), []);
+  const misplaced = [
+    'batch.json',
+    'src/analyze.mjs',
+    '.blueprint/traces.json',
+    'another-book/index.html',
+  ];
+  for (const file of misplaced) {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), '{}');
+  }
+  const errors = checkArtifactLayout(root, original);
+  assert.equal(errors.length, misplaced.length);
+  for (const file of misplaced) assert.ok(errors.some((error) => error.endsWith(file)));
+  assert.ok(
+    (
+      await gradeCase(
+        root,
+        cases.find((item) => item.example),
+        original,
+      )
+    ).errors.some((error) => error.includes('生成产物不在约定位置：batch.json')),
+  );
+  for (const file of misplaced) fs.rmSync(path.join(root, file));
+  fs.symlinkSync(path.join(root, '.blueprint-analysis'), path.join(root, '.blueprint', 'external'));
+  assert.ok(
+    checkArtifactLayout(root, original).some((error) => error.endsWith('.blueprint/external')),
+  );
+  fs.rmSync(path.join(root, '.blueprint-analysis'), { recursive: true });
+  fs.symlinkSync(os.tmpdir(), path.join(root, '.blueprint-analysis'));
+  assert.ok(
+    checkArtifactLayout(root, original).some((error) => error.endsWith('.blueprint-analysis')),
+  );
 });

@@ -2,6 +2,8 @@
 
 ## 检查工具与待办
 
+先按 [产物目录](artifacts.md) 定位已有产品书并固定 WORK，后续命令显式使用同一文档路径；扫描配置、批次和辅助脚本放在 WORK，或通过标准输入提交。
+
 使用 CLI 帮助与 Schema 确认支持 `document status`、`implementation.sourceSnapshot`、reviewPoints／coverage、`feature.complete.resolvedAnnotationIds` 和严格验收。全局工具不支持时可使用已知工具源码入口；找不到可用工具时说明需更新，保留原文与批注，不绕过 CLI 直接清空 JSON。
 
 1. 先运行 `document status /文档 --json` 比较当前源码与验收基线。检查范围内全部功能，即使它们显示完成且没有批注；提交号不能替代文件内容比较。

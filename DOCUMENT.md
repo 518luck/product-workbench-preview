@@ -20,6 +20,8 @@
 
 以下示例使用安装后的 `product-blueprint`。在工具源码目录中可替换为 `pnpm blueprint`。目录参数和 JSON 完整路径都可以使用，也可用 `--document` 指定；省略时读取当前目录的 `product-document.json`。单功能命令在功能编号后指定文档路径，`apply` 也接受文档路径。
 
+Skill 首次生成默认使用目标项目的 `.blueprint/`，命令显式传递该绝对目录；已有文档继续使用原路径。产品书目录保存产品 JSON、独立 HTML 和最终交付审阅；工具证据保存在 `.blueprint-analysis/`，AI 的中间输入位于其 `work/本次任务编号/`。这些工作输入也可通过 `--input -` 提交，不需要在项目根目录创建批次文件。CLI 的省略路径行为不代替 Skill 的目录约定。
+
 各命令支持 `--json` 结构化输出，失败返回非零退出码；具体参数通过 `--help` 查询。`schema` 输出文档规范，`schema --changes` 输出整批变更规范，`schema --analysis` 输出分析记录规范。`validate` 检查文档格式、稳定编号、引用与版本记录。
 
 ## 文档结构

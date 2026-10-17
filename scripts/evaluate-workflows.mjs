@@ -117,7 +117,7 @@ export async function evaluateWorkflows(
   } else
     init = await execute(
       'init',
-      '为现有访问管理功能初始化 .blueprint/，已有实现实际核验完成。不得修改源码。',
+      '为现有访问管理功能初始化产品书，已有实现实际核验完成。不得修改源码。',
     );
   try {
     const snapshot = readSnapshot(filename);

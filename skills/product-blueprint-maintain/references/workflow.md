@@ -2,6 +2,8 @@
 
 ## 读取当前状态
 
+先按 [产物目录](artifacts.md) 定位已有产品书并固定 WORK，后续命令显式使用同一文档路径；扫描配置、批次和辅助脚本放在 WORK，或通过标准输入提交。
+
 使用支持 `document status`、`implementation.sourceSnapshot` 和 reviewPoints／coverage 的 CLI，按 `--help`、`schema --analysis`、`schema --changes` 查询实际协议。全局命令缺失或协议过旧时可使用已知工具源码入口；没有可用工具时保留现有记录，说明需更新，不手填基线。
 
 读取 `document get /文档 --json`、`feature list` 及目标 `feature get ID --related`。保存 documentHash，核对用户原文、当前 revision、flowRevision、批注与验收历史。
