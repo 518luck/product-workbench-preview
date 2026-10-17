@@ -16,10 +16,10 @@
 
 ## 执行验收并登记完成
 
-先读 `verification run --help`、`schema --verification` 和 `schema --changes`，按目标项目选择合适的现有测试、命令及界面交互。每个业务条件应有正常与适用异常路径的实际断言；同一执行记录可支持多个条件，无须逐条件重跑整套回归。
+先按 [分层验收](layered-verification.md) 保存逐业务步骤方案，再读 `verification run --help`、`schema --verification` 和 `schema --changes`，按目标项目选择合适的现有测试、命令及界面交互。每个业务条件应有正常与适用异常路径的实际断言；同一执行记录可支持多个条件，无须逐条件重跑整套回归。
 
 1. 保存业务定义与完整流程，再确认本次目标 revision。若流程已与定义一致，可用 `feature.sync` 声明同步；该操作不会生成流程。
-2. 在当前源码快照下，通过以下命令实际运行验收。输入按 Schema 提供命令和参数，不经过 shell；超时等限制以当前帮助为准。
+2. 在当前源码快照下，通过以下命令实际运行带 scope 的验收。输入按 Schema 提供方案、场景、命令和参数，不经过 shell；超时等限制以当前帮助为准。
 
    ```sh
    product-blueprint verification run ID /文档 --analysis-session SESSION --input 命令.json --json
@@ -31,7 +31,7 @@
 
 失败、超时或被修改的执行结果不能支持完成；旧手动记录保留但不冒充真实执行。命令通过只证明执行结果，仍须审阅断言是否覆盖业务。文件存在和协议夹具不能替代真实 AI 协作验收。
 
-随后按 [业务流程核验](flow-verification.md) 建立调用与数据映射，运行声明场景并 flow check、flow sync。普通验收只支持具体检查过的功能行为，不证明所有连接和分支均被追踪；带 flow 的执行还须满足对应流程核验才能引用。功能完成与流程核验分开，不要求先穷尽全书流程的每个条件再登记任何完成功能，也不将缺少流程追踪解释为代码尚未实现。严格交付仍要求相应流程证据；不能用普通命令成功冒充流程通过。
+先依方案执行对应的组件／契约业务测试；选择端到端验证的场景再按 [业务流程核验](flow-verification.md) 建立调用与数据映射、flow check。通过 flow sync 保存各层级、步骤覆盖及实际缺口。普通验收只支持具体检查过的功能行为，不证明所有连接和分支均被追踪；带 flow 的执行还须满足对应流程核验才能引用。功能完成与流程核验分开，不要求先穷尽全书流程的每个条件再登记任何完成功能，也不将缺少流程追踪解释为代码尚未实现。严格交付仍要求相应流程证据；不能用普通命令成功冒充流程通过。
 
 ## 最终交付检查
 
@@ -39,7 +39,7 @@
 
 1. 运行 `document status /文档 --json`，确认本次已核验功能为 `current`。旧记录缺少基线时是 `unverified`；路径或读取问题需如实保留。
 2. 用浏览器核验实际 HTML 的流程、图表、正常／异常情景及详情入口。结构与来源检查不能代替业务审阅。
-3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v3 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
+3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v4 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
 4. 运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`；只有 `valid:true` 才称严格通过。漏读、漏记录、漏映射继续补齐；真实能力限制可在缺口完整可见、deliverable:true 时部分交付，不将其称为严格通过。
 5. 按下节启动并核对本机编辑服务，打开页面。以上步骤均由 AI 内部执行，结果保存到相应记录，不要求用户验收或决定如何交付；最终回复按 SKILL.md 模板，只展示可编辑链接、产品定位与核心旅程。
 

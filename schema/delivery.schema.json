@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "产品书交付审阅 v3",
+  "title": "产品书交付审阅 v4（分层验收）；v3 历史仍可检查",
   "type": "object",
   "required": [
     "version",
@@ -14,7 +14,7 @@
   "additionalProperties": false,
   "properties": {
     "version": {
-      "const": 3
+      "const": 4
     },
     "documentHash": {
       "type": "string",

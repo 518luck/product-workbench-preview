@@ -104,6 +104,28 @@
     },
     "browser": {
       "type": "boolean"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId", "scenarioId"],
+      "properties": {
+        "planId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenarioId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side": {
+          "enum": ["consumer", "provider"]
+        }
+      }
+    },
+    "purpose": {
+      "enum": ["acceptance", "environment"],
+      "description": "environment 记录环境诊断，不可作为功能完成或业务验收证据。"
     }
   }
 }

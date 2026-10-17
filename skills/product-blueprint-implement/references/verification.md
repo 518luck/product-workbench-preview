@@ -10,13 +10,13 @@
 
 ## 执行真实验收
 
-读取 `verification run --help`、`schema --verification` 及 `schema --changes`，选择目标项目适当的测试、命令和界面交互，覆盖当前功能的正常与适用异常路径。
+先按 [分层验收](layered-verification.md) 保存当前版本的逐业务步骤方案，再读取 `verification run --help`、`schema --verification` 及 `schema --changes`，选择目标项目适当的测试、命令和界面交互，覆盖当前功能的正常与适用异常路径。
 
 ```sh
 product-blueprint verification run ID /文档 --analysis-session SESSION --input 命令.json --json
 ```
 
-命令与参数由当前 Schema 定义，工具不经过 shell 执行；超时等限制以帮助为准。实际运行后记录结果，不只生成“通过”的验收 JSON。只有 `valid:true` 的记录才能提供 `executionId`。
+输入携带 scope 绑定方案和场景，命令与参数由当前 Schema 定义，工具不经过 shell 执行；超时等限制以帮助为准。实际运行后记录结果，不只生成“通过”的验收 JSON。只有 `valid:true` 的记录才能提供 `executionId`。
 
 逐条核对业务条件与真实断言／交互的关系；同一次执行可支持多个条件，无须逐条件重复回归。文件存在、协议夹具或命令退出成功不能替代所声明的业务行为验收；声明 AI 自主协作能力时需实际执行相应工作流。
 

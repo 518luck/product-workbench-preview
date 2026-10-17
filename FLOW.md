@@ -70,6 +70,12 @@ Node、Python、Go、C++ 探针使用独立继承管道，stdout/stderr 不能�
 
 其他语言的能力缺口不必阻止独立功能完成。工具仅在该功能已有当前产品源码依据、读取与字段分析完整、真实验收有效，并确认全部剩余语言／语义／适配缺口都在其核验范围外时，允许独立同步／完成批次；整体缺口仍保留，严格交付仍未通过。缺少本功能的流程证据不能靠这项规则豁免。
 
-交付审阅 v3 增加 flows 与 acknowledgedGaps。严格 valid 仍要求全部相关检查成立；文档可读、HTML 当前且每项缺口都有对应 kind/path/reason 时，允许 deliverable:true、stage:partial，但 valid 仍为 false、命令仍退出非零。漏读、漏记录、错误映射是需要继续完成的工作，不能仅用理由把它们变成通过；仅实际能力／环境限制允许部分交付。旧 v2 审阅可读，但不能获得新严格通过结论。
+交付审阅 v4 使用运行前保存的逐业务步骤方案，按 source／component／contract／end-to-end 分层判断。`verification plan BOOK --analysis-session SESSION --input PLAN` 保存范围，省略 input 查询；Schema 为 `schema --verification-plan`。每个业务步骤绑定已读取的函数或上下文，运行场景绑定步骤、验收条件、正常／异常类型与具体断言。测试之后改变方案必须重新执行。
+
+组件验收使用真实模块与可控依赖；契约验收需要同一份已读取的 contractContextId，并通过 `verification run` 的 scope.side 分别记录 consumer 和 provider。两端测试仍只支持声明契约，不表示完整部署已联通。输入 scope 绑定 planId、scenarioId，端到端还需 flow 指向真实场景并通过严格观测检查。命令运行和绑定由工具核验，断言充分性仍须审阅。
+
+页面分别展示链路观测覆盖及各层验收。只有同一条有效流程覆盖该功能全部业务步骤，才显示整条“已核验”；多个断开的微型流程不能拼接这个结论。组件执行通过时可独立登记功能完成，流程仍为部分核验。source 不冒充运行完成，未来需求可以保留源码／需求说明的草稿。
+
+v4 的 valid 以所声明方案为范围，不要求全系统穷尽运行。真实限制步骤记录有依据的 limitation，并通过 flow sync 保存到页面；分析缺口也保留。仅真实限制且其余工作已补齐时允许 partial；漏读、漏记录、遗漏方案、未执行场景或失败断言不能凭 acknowledgedGaps 豁免。外部边界用已读取材料，环境问题用 purpose:environment 的实际诊断，诊断不能用于完成业务。旧 v3 仍执行原严格流程模式，v2 只保留历史可读。
 
 三个 Skill 保留初始化、需求维护、实现与验收各自职责。初始化自动保存、启动 serve、核对 canSave 并打开编辑页面；最终回复只给链接、产品定位和核心旅程。协议测试、语言样例、宿主浏览器验收和真实 AI 工作流评测分别记录，不能互相代替。

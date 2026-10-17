@@ -51,8 +51,9 @@ const commands = {
     description: '启动仅监听本机的阅读与编辑服务；默认端口为 62039。',
   },
   schema: {
-    options: ['changes', 'analysis', 'delivery', 'verification', 'flow'],
-    usage: 'schema [--changes | --analysis | --delivery | --verification | --flow]',
+    options: ['changes', 'analysis', 'delivery', 'verification', 'flow', 'verification-plan'],
+    usage:
+      'schema [--changes | --analysis | --delivery | --verification | --flow | --verification-plan]',
     description: '输出文档、整批变更或分析记录与流程依据规范。',
   },
   'document status': {
@@ -64,7 +65,13 @@ const commands = {
     options: ['document', 'analysis-session', 'input'],
     usage: 'document check [目录或文档.json] --analysis-session 会话 --input 交付审阅.json|-',
     description:
-      '只读检查分析覆盖、核心旅程、业务流程证据、真实验收、图表及最新 HTML；使用 delivery v3，严格 valid 与可部分交付分别报告。',
+      '只读检查分析、业务范围、分层验收、图表及最新 HTML；delivery v4 按预先保存的方案核验，v3 保留严格流程检查。',
+  },
+  'verification plan': {
+    options: ['document', 'analysis-session', 'input'],
+    usage: 'verification plan [产品书] --analysis-session 会话 [--input 验收方案.json|-]',
+    description:
+      '执行前保存逐业务步骤的源码、组件、契约或端到端验收范围；省略 input 只读查询已有方案。',
   },
   'verification run': {
     options: ['document', 'analysis-session', 'input'],
@@ -213,6 +220,7 @@ const booleanOptions = new Set([
   'analysis',
   'delivery',
   'verification',
+  'verification-plan',
   'flow',
   'allow-partial-analysis',
   'require-verification',
@@ -367,8 +375,9 @@ function parseArguments() {
   if (options['allow-partial-analysis'] && !options['analysis-session'])
     invalid('--allow-partial-analysis 需要 --analysis-session。');
   if (
-    ['changes', 'analysis', 'delivery', 'verification', 'flow'].filter((key) => options[key])
-      .length > 1
+    ['changes', 'analysis', 'delivery', 'verification', 'flow', 'verification-plan'].filter(
+      (key) => options[key],
+    ).length > 1
   )
     invalid('schema 格式选项不能同时使用。');
   return positional;
@@ -524,17 +533,19 @@ try {
     console.log(
       fs
         .readFileSync(
-          options.flow
-            ? new URL('../schema/flow.schema.json', import.meta.url)
-            : options.delivery
-              ? new URL('../schema/delivery.schema.json', import.meta.url)
-              : options.verification
-                ? new URL('../schema/verification.schema.json', import.meta.url)
-                : options.analysis
-                  ? analysisSchemaPath
-                  : options.changes
-                    ? changesSchemaPath
-                    : schemaPath,
+          options['verification-plan']
+            ? new URL('../schema/verification-plan.schema.json', import.meta.url)
+            : options.flow
+              ? new URL('../schema/flow.schema.json', import.meta.url)
+              : options.delivery
+                ? new URL('../schema/delivery.schema.json', import.meta.url)
+                : options.verification
+                  ? new URL('../schema/verification.schema.json', import.meta.url)
+                  : options.analysis
+                    ? analysisSchemaPath
+                    : options.changes
+                      ? changesSchemaPath
+                      : schemaPath,
           'utf8',
         )
         .trim(),
@@ -576,6 +587,28 @@ try {
       languages: adapterProfiles(),
       scope: '已识别入口、声明场景及所列能力范围；未知关系必须保留缺口。',
     };
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+  } else if (command === 'verification plan') {
+    if (!options['analysis-session']) invalid('验收方案需要 --analysis-session。');
+    const filename = documentFile(positional);
+    const plan = await import('../lib/verification-plan.mjs');
+    let result;
+    if (options.input)
+      result = await plan.saveVerificationPlan(
+        filename,
+        options['analysis-session'],
+        inputObject(),
+      );
+    else {
+      const { loadSession } = await import('../lib/analysis-session.mjs');
+      const { state } = loadSession(options['analysis-session']);
+      result = {
+        plans: Object.values(state.verificationPlans || {}).filter(
+          (p) => p.documentPath === fs.realpathSync(filename),
+        ),
+        report: plan.checkVerificationPlans(filename, options['analysis-session'], state),
+      };
+    }
     emit({ command, ...result }, JSON.stringify(result, null, 2));
   } else if (command === 'verification run') {
     if (!options['analysis-session']) invalid('验收需要 --analysis-session。');

@@ -321,7 +321,12 @@
     const record = flowStatus?.features?.[f.id];
     const changed =
       record && (record.revision !== documentRecord(f)?.revision || descriptionEdits.has(f.id));
-    const status = changed ? 'stale' : record?.status || 'unverified';
+    const status = changed
+      ? 'stale'
+      : record?.status === 'passed' &&
+          (!record.coverage || record.coverage.observedSteps.length < record.coverage.totalSteps)
+        ? 'partial'
+        : record?.status || 'unverified';
     const labels = {
       passed: '已核验',
       partial: '部分核验',
@@ -333,13 +338,38 @@
       ? [{ message: '功能定义已变化，需要重新核验流程。' }]
       : record?.gaps || [{ message: '尚无此功能的业务流程与运行证据。' }];
     const globalGaps = flowStatus?.globalGaps || [];
+    const coverage = record?.coverage;
+    const layers = record?.verification?.steps || [];
+    const layerLabels = {
+      source: '源码核对',
+      component: '组件验收',
+      contract: '契约两端验收',
+      'end-to-end': '端到端观测',
+    };
+    const scope = `${coverage ? `<p>链路观测覆盖 ${coverage.observedSteps.length}/${coverage.totalSteps} 个业务步骤；组件与契约验收另列，各层结论分别计算。</p>` : '<p>当前记录未提供完整业务步骤覆盖，不能据此认定整条链路已核验。</p>'}${
+      layers.length
+        ? `<p>${Object.entries(layerLabels)
+            .filter(([key]) => layers.some((s) => s.level === key))
+            .map(
+              ([key, label]) =>
+                `${label}：${layers.filter((s) => s.level === key && s.valid).length}/${layers.filter((s) => s.level === key).length} 步`,
+            )
+            .join(
+              ' · ',
+            )}</p><p>组件与契约执行支持已声明的业务断言，不代表整条链路已观测。断言的业务充分性须单独审阅。</p>`
+        : ''
+    }`;
+    const plan = record?.verification;
+    const planDetails = plan
+      ? `<details><summary>分层验收范围与执行证据</summary><p>${esc(plan.goal)}</p><ul>${plan.scenarios.map((s) => `<li>${esc(layerLabels[s.level])} · ${s.kind === 'exception' ? '异常' : '正常'}：${esc(s.assertion)}（${s.valid ? '执行记录有效' : '尚缺有效执行'}）${s.executionIds.length ? `<ul>${s.executionIds.map((id) => `<li><code>${esc(id)}</code></li>`).join('')}</ul>` : ''}</li>`).join('')}</ul></details>`
+      : '';
     const flows = (record?.flows || [])
       .map((flow) => {
         const scenarios = flow.scenarios || [];
         return `<p>${esc(flow.title)}：${esc(labels[flow.status] || labels.unverified)}</p>${scenarios.length ? `<details><summary>执行证据（${scenarios.length} 个场景）</summary>${flow.scope ? `<p>入口：<code>${esc(flow.scope.entryId)}</code> · ${esc(flow.scope.sourceUnits)} 个源码单元 · ${esc(flow.scope.edges)} 项连接</p>` : ''}<ul>${scenarios.map((scenario) => `<li>${esc(scenario.id)}（${scenario.kind === 'exception' ? '异常' : '正常'}）：${scenario.valid ? '观测成立' : '未通过'}${scenario.executionId ? ` · <code>${esc(scenario.executionId)}</code>` : ' · 尚无执行记录'}</li>`).join('')}</ul></details>` : ''}`;
       })
       .join('');
-    return `<section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 功能完成历史单独保留。</p><details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>声明场景中的连接、数据关系及结果均有对应执行证据。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目入口与范围缺口（${globalGaps.length}）</summary><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section>`;
+    return `<section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 功能完成历史单独保留。</p>${scope}${planDetails}<details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>所列场景已有对应证据；完整链路结论以步骤覆盖与连接检查为准。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目入口与范围缺口（${globalGaps.length}）</summary><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section>`;
   }
   function renderDocumentAccess() {
     const panel = $('document-access');

@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "分层验收方案 v1：执行前绑定业务范围",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["expectedHash", "id", "featureId", "goal", "steps", "scenarios"],
+  "properties": {
+    "expectedHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "featureId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "level", "scenarioIds"],
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "level": {
+            "enum": ["source", "component", "contract", "end-to-end"]
+          },
+          "unitIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "contextIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "scenarioIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "limitation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "reason", "evidence"],
+            "properties": {
+              "kind": {
+                "enum": ["adapter", "environment", "external"]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": {
+                    "enum": ["analysis-gap", "execution", "context"]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "language": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "level", "steps", "criteria", "assertion"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": ["normal", "exception"]
+          },
+          "level": {
+            "enum": ["component", "contract", "end-to-end"]
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "criteria": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "assertion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "flowId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractContextId": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -168,7 +168,7 @@ product-blueprint apply ./my-product --input changes.json --json
 
 工具在分析会话的 `verifications/` 保存命令、退出码、起止时间、输出及指纹、文档路径、功能编号、定义版本和业务内容指纹、源码指纹。使用返回的 `executionId` 填写 `implementation.checks`：`{ "name": "正常与异常路径验收", "result": "passed", "executionId": "v-工具返回编号" }`，verifiedAt 不早于执行结束。完成批次同时带 `--require-verification --analysis-session SESSION`；缺记录、失败、超时、被修改日志、跨文档／功能／定义／源码复用都拒绝落盘。保留旧兼容入口不表示旧记录有这些证据；任何传入 executionId 的登记都检查其有效性。记录文件不构成针对有文件权限程序的防伪安全边界，退出码通过也不证明测试充分。
 
-初始化最终运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`，读取交付审阅协议 `schema --delivery`。review v3 绑定最新 documentHash，逐项记录功能 id、revision、outcome（implemented/requested/unimplemented/unverified）及图表判断；草稿填写具体 reason 与 evidence。图表存在填 `included`，未生成填 `skipped` 及具体原因。检查分析缺项、逐功能状态、完成源码依据和真实执行记录、源码基线以及同目录最新 index.html，成功返回 `valid:true, stage:ready`；失败退出 1，不修改文档。语义正确性仍由真实业务验收与评测判断，不能用高读取率替代。
+初始化最终运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`，读取交付审阅协议 `schema --delivery`。review v4 绑定最新 documentHash 与运行前保存的分层方案，逐项记录功能 id、revision、outcome（implemented/requested/unimplemented/unverified）及图表判断；草稿填写具体 reason 与 evidence。图表存在填 `included`，未生成填 `skipped` 及具体原因。检查分析缺项、逐功能状态、完成源码依据和真实执行记录、源码基线以及同目录最新 index.html，成功返回 `valid:true, stage:ready`；失败退出 1，不修改文档。语义正确性仍由真实业务验收与评测判断，不能用高读取率替代。
 
 业务文档先保存，再基于保存后的版本实现代码并实际验收；验收后重新读取并登记完成。不用旧定义的测试结果为新定义登记完成。初始化既有项目时，先保存从源码归纳的定义，再核验已有实现并登记完成，无需重复开发。新建功能或产生新定义版本的批次不能同时登记该功能完成；已有已保存版本可以在不修改业务内容的批次中同步并登记验收。
 
@@ -196,6 +196,18 @@ JSON 错误结果的 `code` 区分 `INVALID_ARGUMENT`（参数或输入操作错
 
 用户可在页面新增功能、改写定义、修改名称及分组；页面不生成分析结果、不调用 AI 或执行代码。现有用户文档与备注是用户内容，开发、格式化、测试和打包都不得覆盖。所有测试使用临时文档，工具包只包含程序和通用资源。
 
-严格交付审阅 v3 还记录核心 `journeys`（业务结果、材料依据及有序 featureId／step 映射）、逐功能 `content.rules`／`content.dependencies` 的 included 或带理由的 skipped，以及 `acceptance`。完成功能的 checks 是业务条件；acceptance 用从 0 开始的 criterion、steps，normal／exception 情景、本功能真实 executionId 和具体用例／断言依据建立覆盖。所有条件及正常步骤要有覆盖，已定义异常步骤另有异常检查；仅在时序 error 分支出现的步骤只要求异常覆盖；同一执行可支持多项条件。功能依赖须关联实际使用步骤，规则不能全部埋在描述中。时序图 failure 名称须有 error 分支；跳过理由的 alternative 图表引用须真实存在。旧 v1 审阅需重新核对才能通过严格交付，现有产品 JSON 的读取与保存格式保持兼容。检查器核验结构和执行关联，业务旅程是否完整、规则是否正确、断言是否充分仍需人工或 AI 审阅及实际验收。
+交付审阅 v4 仍记录核心 `journeys`（业务结果、材料依据及有序 featureId／step 映射）、逐功能 `content.rules`／`content.dependencies` 的 included 或带理由的 skipped，以及 `acceptance`。完成功能的 checks 是业务条件；acceptance 用从 0 开始的 criterion、steps，normal／exception 情景、本功能真实 executionId 和具体用例／断言依据建立覆盖。所有条件及正常步骤要有覆盖，已定义异常步骤另有异常检查；仅在时序 error 分支出现的步骤只要求异常覆盖；同一执行可支持多项条件。功能依赖须关联实际使用步骤，规则不能全部埋在描述中。时序图 failure 名称须有 error 分支；跳过理由的 alternative 图表引用须真实存在。旧 v1 审阅需重新核对才能通过严格交付，现有产品 JSON 的读取与保存格式保持兼容。检查器核验结构和执行关联，业务旅程是否完整、规则是否正确、断言是否充分仍需人工或 AI 审阅及实际验收。
 
 业务流程机器核验、分析协议 v2、多语言能力边界、临时副本探针与部分交付详见 [FLOW.md](FLOW.md)。旧执行记录仍可阅读，缺少流程证据时不得称为新协议严格通过；功能完成历史不被自动改写。
+
+## 执行前保存验收范围
+
+`schema --verification-plan` 输出当前方案规范。`verification plan BOOK --analysis-session SESSION --input PLAN` 保存单个功能的方案；省略 input 只读查询。方案的 goal 描述用户目标与结果，steps 覆盖全部真实业务步骤，引用已完整读取的 unitIds 或 contextIds，并选择 source、component、contract 或 end-to-end。scenarios 记录具体业务断言、正常／异常类型、步骤和验收条件编号。运行范围不能在测试后补贴或暗中缩小。
+
+`verification run` 输入的 scope 包含 planId、scenarioId；契约场景还需分别用 side:consumer、side:provider 执行两端测试，均绑定同一份已完整读取的 contractContextId。端到端场景同时携带 flow，必须绑定当前真实流程、同名场景及其声明步骤；普通命令不能替代探针观测。组件／契约执行沿用真实命令和日志指纹，工具核验执行绑定，断言的业务含义和充分性仍由 AI 审阅，不能把空命令或成功文字当作业务通过。
+
+方案和执行绑定文档路径、功能定义、源码、方案内容及核验规则。范围、源码或定义变化使旧证据失效。登记完成仍要求真实业务验收；源码核对不生成完成证据，flow sync 只保存层级、步骤覆盖与实际缺口，不改写功能完成历史。其 valid 仍表示严格流程结论，分层交付结论由 document check v4 给出。
+
+无法运行的具体步骤用 source 加 limitation 保留未核验范围：adapter／environment／external，附真实 analysis-gap、失败的 purpose:environment 诊断记录或已读取的外部边界上下文。诊断与业务验收分开，失败业务测试不能冒充环境限制。工具核对材料和绑定，AI 仍需实际排查障碍；说明一句“没做完”不能豁免。草稿原因同时写入 notes 和审阅 reason，使用户在产品书里能直接看到。
+
+v4 的 valid:true、stage:ready 表示声明的逐业务步骤方案成立，不宣称整个系统或所有分支被观测。未选择的严格流程和候选入口列于 diagnostics；所选流程仍严格检查。只有真实限制有依据、其余工作已完成且缺口可见时允许 deliverable:true、stage:partial，valid 仍为 false。漏读、漏记录、错映射、遗漏方案与未执行场景即使写入 acknowledgedGaps，也只能 incomplete。v3 仍按旧严格流程模式检查，不自动升级证据或改写用户历史。

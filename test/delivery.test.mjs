@@ -299,7 +299,11 @@ test('交付检查拒绝只保存草稿及未完成分析；具体新需求可�
   );
   await syncFlowStatus(other.filename, other.session);
   current.documentHash = readSnapshot(other.filename).documentHash;
-  assert.equal((await checkDelivery(other.filename, other.session, current)).deliverable, true);
+  assert.equal(
+    (await checkDelivery(other.filename, other.session, current)).deliverable,
+    false,
+    '漏执行不能仅凭填写缺口说明进入部分交付；新需求可用 v4 源码范围交付',
+  );
   current.documentHash = '0'.repeat(64);
   delete current.diagrams.entities.reason;
   const rejected = await checkDelivery(other.filename, other.session, current);

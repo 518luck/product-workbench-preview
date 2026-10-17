@@ -59,6 +59,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'lib/validation.mjs',
     'lib/source-status.mjs',
     'lib/verification.mjs',
+    'lib/verification-plan.mjs',
     'lib/delivery.mjs',
     'assets/template.html',
     'assets/client.js',
@@ -76,6 +77,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'schema/changes.schema.json',
     'schema/analysis.schema.json',
     'schema/verification.schema.json',
+    'schema/verification-plan.schema.json',
     'schema/delivery.schema.json',
     'examples/minimal-product.json',
     'README.md',
@@ -110,7 +112,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   const packageRoot = fs.realpathSync(path.join(install, 'node_modules', 'product-blueprint'));
   const manifest = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
-  assert.equal(manifest.version, '0.3.1');
+  assert.equal(manifest.version, '0.4.0');
   assert.equal(manifest.dependencies.typescript, '6.0.2');
   const installedRequire = createRequire(path.join(packageRoot, 'package.json'));
   assert.equal(installedRequire('typescript/package.json').version, '6.0.2');
