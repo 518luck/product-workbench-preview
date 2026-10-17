@@ -262,6 +262,15 @@
             "$ref": "#/$defs/implementation"
           },
           "description": "工具登记新验收记录时保留上一条记录；不由一般业务编辑操作改写。"
+        },
+        "implementationAssessment": {
+          "$ref": "#/$defs/implementationAssessment"
+        },
+        "implementationAssessmentHistory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/implementationAssessment"
+          }
         }
       },
       "allOf": [
@@ -644,6 +653,136 @@
           }
         }
       ]
+    },
+    "implementationAssessment": {
+      "type": "object",
+      "required": ["revision", "definitionHash", "assessedAt", "items", "sourceSnapshot"],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "definitionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "assessedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["target", "state", "detail"],
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^/(description|(?:rules|checks|flow)/[0-9]+)$"
+              },
+              "state": {
+                "enum": ["implemented", "missing", "unknown"]
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1
+              },
+              "unitIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "contextIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "requirement": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source", "text"],
+                "properties": {
+                  "source": {
+                    "enum": ["user", "document"]
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "basis": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "unitId", "pointIds", "detail"],
+                      "properties": {
+                        "kind": {
+                          "const": "code"
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "pointIds": {
+                          "type": "array",
+                          "minItems": 1,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "detail": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "contextId", "quote", "detail"],
+                      "properties": {
+                        "kind": {
+                          "const": "context"
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 8
+                        },
+                        "detail": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/sourceSnapshot"
+        }
+      }
     }
   }
 }

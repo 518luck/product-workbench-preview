@@ -51,9 +51,17 @@ const commands = {
     description: '启动仅监听本机的阅读与编辑服务；默认端口为 62039。',
   },
   schema: {
-    options: ['changes', 'analysis', 'delivery', 'verification', 'flow', 'verification-plan'],
+    options: [
+      'changes',
+      'analysis',
+      'delivery',
+      'verification',
+      'flow',
+      'verification-plan',
+      'assessment',
+    ],
     usage:
-      'schema [--changes | --analysis | --delivery | --verification | --flow | --verification-plan]',
+      'schema [--changes | --analysis | --delivery | --verification | --flow | --verification-plan | --assessment]',
     description: '输出文档、整批变更或分析记录与流程依据规范。',
   },
   'document status': {
@@ -87,7 +95,7 @@ const commands = {
   },
   'feature list': {
     options: ['document', 'group', 'status'],
-    usage: 'feature list [目录或文档.json] [--group 模块/子模块] [--status draft|complete]',
+    usage: 'feature list [目录或文档.json] [--group 模块/子模块] [--status draft|complete|unknown]',
     description: '列出功能摘要；按分组前缀和草稿／完成筛选。',
   },
   'feature get': {
@@ -125,6 +133,18 @@ const commands = {
     usage: 'feature complete <功能编号> [目录或文档.json] --input 文件|- --expected-hash 哈希',
     description:
       '输入 {"revision":版本,"implementation":验收记录}；--require-verification 核对 verification run 执行编号，可带 resolvedAnnotationIds 清理已处理批注。',
+  },
+  'feature assess': {
+    options: ['input', 'document', 'analysis-session', 'dry-run', 'no-render'],
+    usage: 'feature assess <功能编号> [产品书] --analysis-session 会话 --input 核对.json|-',
+    description:
+      '逐项对照功能定义与实际实现；全部实现为完成，有具体未实现项为草稿，无法判断为待确认。不会生成测试通过记录或删除批注。',
+  },
+  'verification diagnose': {
+    options: ['input', 'document', 'analysis-session'],
+    usage: 'verification diagnose <功能编号> [产品书] --analysis-session 会话 --input 诊断.json|-',
+    description:
+      '工具直接检查命令可用性、文件存在或 TCP 连接；输入见 schema --verification 的 $defs.environmentDiagnostic。诊断不作为业务通过证据。',
   },
   apply: {
     options: ['input'],
@@ -221,6 +241,7 @@ const booleanOptions = new Set([
   'delivery',
   'verification',
   'verification-plan',
+  'assessment',
   'flow',
   'allow-partial-analysis',
   'require-verification',
@@ -375,9 +396,15 @@ function parseArguments() {
   if (options['allow-partial-analysis'] && !options['analysis-session'])
     invalid('--allow-partial-analysis 需要 --analysis-session。');
   if (
-    ['changes', 'analysis', 'delivery', 'verification', 'flow', 'verification-plan'].filter(
-      (key) => options[key],
-    ).length > 1
+    [
+      'changes',
+      'analysis',
+      'delivery',
+      'verification',
+      'flow',
+      'verification-plan',
+      'assessment',
+    ].filter((key) => options[key]).length > 1
   )
     invalid('schema 格式选项不能同时使用。');
   return positional;
@@ -390,7 +417,7 @@ function isMutation() {
 function checkPositionals(positional) {
   const hasId =
     (command.startsWith('feature ') && command !== 'feature list') ||
-    command === 'verification run';
+    ['verification run', 'verification diagnose'].includes(command);
   const maximum = hasId
     ? 2
     : (command.startsWith('analysis ') && !['analysis scan', 'analysis read'].includes(command)) ||
@@ -447,7 +474,9 @@ function mutationMessage(result) {
       : '文档内容未变化';
   const lines = [action, `文档哈希：${result.documentHash}`];
   const state = (value, absent) =>
-    value ? (value.status === 'complete' ? '完成' : '草稿') : absent;
+    value
+      ? { complete: '完成', draft: '草稿', unknown: '待确认' }[value.status] || '待确认'
+      : absent;
   for (const feature of result.features || []) {
     lines.push(
       `${feature.id}：${state(feature.before, '不存在')} → ${state(feature.after, '已删除')}，版本 ${feature.before?.revision ?? '-'} → ${feature.after?.revision ?? '-'}`,
@@ -533,23 +562,41 @@ try {
     console.log(
       fs
         .readFileSync(
-          options['verification-plan']
-            ? new URL('../schema/verification-plan.schema.json', import.meta.url)
-            : options.flow
-              ? new URL('../schema/flow.schema.json', import.meta.url)
-              : options.delivery
-                ? new URL('../schema/delivery.schema.json', import.meta.url)
-                : options.verification
-                  ? new URL('../schema/verification.schema.json', import.meta.url)
-                  : options.analysis
-                    ? analysisSchemaPath
-                    : options.changes
-                      ? changesSchemaPath
-                      : schemaPath,
+          options.assessment
+            ? new URL('../schema/implementation-assessment.schema.json', import.meta.url)
+            : options['verification-plan']
+              ? new URL('../schema/verification-plan.schema.json', import.meta.url)
+              : options.flow
+                ? new URL('../schema/flow.schema.json', import.meta.url)
+                : options.delivery
+                  ? new URL('../schema/delivery.schema.json', import.meta.url)
+                  : options.verification
+                    ? new URL('../schema/verification.schema.json', import.meta.url)
+                    : options.analysis
+                      ? analysisSchemaPath
+                      : options.changes
+                        ? changesSchemaPath
+                        : schemaPath,
           'utf8',
         )
         .trim(),
     );
+  } else if (command === 'feature assess') {
+    if (!options['analysis-session']) invalid('实现核对需要 --analysis-session。');
+    const id = positional.shift();
+    if (!id || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) invalid('请提供有效功能编号。');
+    const { assessImplementation } = await import('../lib/implementation-assessment.mjs');
+    const result = await assessImplementation(
+      documentFile(positional),
+      id,
+      options['analysis-session'],
+      inputObject(),
+      {
+        dryRun: Boolean(options['dry-run']),
+        render: !options['no-render'],
+      },
+    );
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
   } else if (command === 'init') await initialize(positional);
   else if (command.startsWith('flow ')) {
     if (!options.session) invalid('流程命令需要 --session。');
@@ -582,9 +629,14 @@ try {
     emit({ command, ...result }, JSON.stringify(result, null, 2));
   } else if (command === 'analysis capabilities') {
     const { adapterProfiles } = await import('../lib/analysis-adapters.mjs');
+    const { workflowHostObservation } = await import('../lib/component-observation.mjs');
     const result = {
       protocol: 2,
       languages: adapterProfiles(),
+      runtime: {
+        component: '工具探针核对声明的具体结果，不等于整条业务链路观测',
+        workflowHostObservation,
+      },
       scope: '已识别入口、声明场景及所列能力范围；未知关系必须保留缺口。',
     };
     emit({ command, ...result }, JSON.stringify(result, null, 2));
@@ -610,17 +662,16 @@ try {
       };
     }
     emit({ command, ...result }, JSON.stringify(result, null, 2));
-  } else if (command === 'verification run') {
+  } else if (command === 'verification run' || command === 'verification diagnose') {
     if (!options['analysis-session']) invalid('验收需要 --analysis-session。');
     const id = positional.shift();
     if (!id || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) invalid('请提供有效功能编号。');
-    const { runVerification } = await import('../lib/verification.mjs');
-    const result = await runVerification(
-      documentFile(positional),
-      id,
-      options['analysis-session'],
-      inputObject(),
-    );
+    const verification = await import('../lib/verification.mjs');
+    const result = await (
+      command === 'verification diagnose'
+        ? verification.runEnvironmentDiagnostic
+        : verification.runVerification
+    )(documentFile(positional), id, options['analysis-session'], inputObject());
     emit({ command, ...result }, JSON.stringify(result, null, 2));
     if (!result.valid) process.exitCode = 1;
   } else if (command.startsWith('analysis ')) {
@@ -740,14 +791,14 @@ try {
             ? `${snapshot.document.product.name}\n${Object.keys(snapshot.document.features).length} 个功能，${snapshot.document.dependencies.length} 项依赖。`
             : JSON.stringify(result.data, null, 2);
       } else if (action === 'list') {
-        if (options.status && !['draft', 'complete'].includes(options.status))
-          invalid('--status 应为 draft 或 complete。');
+        if (options.status && !['draft', 'complete', 'unknown'].includes(options.status))
+          invalid('--status 应为 draft、complete 或 unknown。');
         result = listFeatures(snapshot, { group: options.group, status: options.status });
         message =
           result.features
             .map(
               (feature) =>
-                `${feature.id}  ${feature.title}  ${feature.status === 'complete' ? '完成' : '草稿'}  ${(feature.groupPath || []).join(' / ') || '未分组'}`,
+                `${feature.id}  ${feature.title}  ${{ complete: '完成', draft: '草稿', unknown: '待确认' }[feature.status]}  ${(feature.groupPath || []).join(' / ') || '未分组'}`,
             )
             .join('\n') || '没有符合条件的功能。';
       } else {

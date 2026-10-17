@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { readSnapshot } from '../lib/document-operations.mjs';
+import { readSnapshot, featureStatus } from '../lib/document-operations.mjs';
 import { savePageAnnotation } from '../lib/feature-operations.mjs';
 import { updateDocument } from '../lib/document-store.mjs';
 import { renderSnapshot } from '../lib/document-operations.mjs';
@@ -98,9 +98,13 @@ export async function evaluateWorkflows(
     init = { mode: 'init', reused: true, historicalCheck: true, exitCode: 0, errors: [] };
   else if (existingProject) {
     const document = readSnapshot(filename).document,
-      baseline = Object.values(document.features).find(
-        (feature) => feature.implementation?.sourceSnapshot,
-      )?.implementation.sourceSnapshot;
+      baseline = Object.values(document.features)
+        .map(
+          (feature) =>
+            feature.implementationAssessment?.sourceSnapshot ||
+            feature.implementation?.sourceSnapshot,
+        )
+        .find(Boolean);
     const scan = await scanAnalysis(project, baseline?.scope || {}),
       review = JSON.parse(fs.readFileSync(path.join(project, '.blueprint/delivery-review.json')));
     const report = await checkDelivery(filename, scan.session, review);
@@ -121,7 +125,7 @@ export async function evaluateWorkflows(
       init.errors.push('初始化修改了原源码。');
     if (
       !Object.values(snapshot.document.features).some(
-        (feature) => feature.implementedRevision === feature.revision,
+        (feature) => featureStatus(feature) === 'complete',
       )
     )
       init.errors.push('已有功能未实际核验完成。');
@@ -141,7 +145,7 @@ export async function evaluateWorkflows(
   if (!init.valid) return { directory, results };
   const before = readSnapshot(filename),
     target = Object.values(before.document.features).find(
-      (feature) => feature.implementedRevision === feature.revision,
+      (feature) => featureStatus(feature) === 'complete',
     );
   const maintain = await execute(
     'maintain',
@@ -153,7 +157,7 @@ export async function evaluateWorkflows(
       maintain.errors.push('维护越权修改了源码。');
     if (
       feature.revision <= target.revision ||
-      feature.implementedRevision === feature.revision ||
+      featureStatus(feature) === 'complete' ||
       !JSON.stringify(feature).includes('viewer')
     )
       maintain.errors.push('需求没有形成保留旧历史的待实现定义。');
@@ -204,14 +208,18 @@ export async function evaluateWorkflows(
       { cwd: project, encoding: 'utf8', timeout: 30000 },
     );
     if (run.status !== 0) implement.errors.push('独立业务断言失败：' + run.stderr);
-    if (feature.implementedRevision !== feature.revision)
+    if (
+      featureStatus(feature) !== 'complete' ||
+      feature.implementation?.revision !== feature.revision
+    )
       implement.errors.push('当前定义没有完成登记。');
     if (
       feature.annotations?.some((note) => note.id === 'annotation-viewer') ||
       !feature.annotations?.some((note) => note.id === 'annotation-later')
     )
       implement.errors.push('批注清理范围错误。');
-    if (!feature.implementationHistory?.length) implement.errors.push('原验收历史未保留。');
+    if (target.implementation && !feature.implementationHistory?.length)
+      implement.errors.push('原验收历史未保留。');
   } catch (error) {
     implement.errors.push(error.message);
   }

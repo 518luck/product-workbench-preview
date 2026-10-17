@@ -125,7 +125,47 @@
     },
     "purpose": {
       "enum": ["acceptance", "environment"],
-      "description": "environment 记录环境诊断，不可作为功能完成或业务验收证据。"
+      "description": "environment 仅是普通诊断执行分类，不可作为功能通过或限制豁免；正式环境限制必须使用 verification diagnose。"
+    }
+  },
+  "$defs": {
+    "environmentDiagnostic": {
+      "title": "verification diagnose 输入（不传给 verification run）",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target"],
+          "properties": {
+            "kind": {
+              "enum": ["command", "file"]
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "host", "port"],
+          "properties": {
+            "kind": {
+              "const": "tcp"
+            },
+            "host": {
+              "type": "string",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      ]
     }
   }
 }

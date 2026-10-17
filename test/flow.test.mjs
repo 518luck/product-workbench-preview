@@ -16,6 +16,38 @@ import { runVerification } from '../lib/verification.mjs';
 import { syncFlowStatus, readFlowStatus } from '../lib/flow-status.mjs';
 import { updateDocument } from '../lib/document-store.mjs';
 
+// Independently specified meanings for these deliberately small flow fixtures.
+const pointMeanings = {
+  value: 'value 是当前调用传入的文本；后续是否仍使用它需检查实际绑定。',
+  'returnvalue.trim()': '返回去除首尾空格后的文本，原字符串不变。',
+  'value.trim()': '调用字符串 trim，产生去除首尾空格后的新文本。',
+  'returnnormalize(value)': '将当前 value 交给 normalize，并把其返回值作为提交结果。',
+  'normalize(value)': '当前 value 作为规范化步骤的实参，不是另造一个同值常量。',
+  'returnnormalize(value).trim()': '先规范化当前 value，再去除结果首尾空格并返回。',
+  'normalize(value).trim()': 'trim 接收规范化调用的返回文本；内外调用共享起点但属于两个位置。',
+  'returnnormalize("hello")': '忽略原输入，返回常量 hello 经规范化后的结果。',
+  'normalize("hello")': '固定传入 hello 常量，不是来自提交参数的数据。',
+  'value==="no-call"': 'no-call 输入直接返回常量，其他输入继续执行规范化调用。',
+  'return"hello"': '返回固定 hello，返回数据不来源于本次输入。',
+  'returnnormalize(object.other)':
+    '返回 object.other 的规范化结果，不能据此认定使用了 original 字段。',
+  'normalize(object.other)': '只取 object.other 字段作为实参，不传递 original 字段。',
+  'returnnormalize(items[1])': '返回第二个数组元素的规范化结果，未使用保存原输入的第一个元素。',
+  'normalize(items[1])': '固定读取下标 1，数据来源必须与原始参数区分。',
+  'returnclean(value)': 'clean 是导入 normalize 的别名；把当前 value 传入并返回其结果。',
+  'clean(value)': '通过真实导入别名调用规范化函数，传入当前 value。',
+  '!value': '空值在 trim 之前抛出 empty 错误，非空才继续规范化。',
+  'thrownewError("empty")': '空输入直接抛出 empty，中断当前规范化并传播到提交调用方。',
+  'newError("empty")': '创建消息为 empty 的错误对象，供当前拒绝分支抛出。',
+  returnvalue: '返回当前变量 value；是否仍为原输入取决于此前是否重赋值。',
+  'value="hello"': '将 value 重赋值为 hello，原参数到返回值的不可变绑定不再成立。',
+};
+function explainPoint(point) {
+  const key = point.code.replace(/\s+/g, '').replace(/;$/, '').replaceAll("'", '"');
+  assert.ok(pointMeanings[key], `测试样例需要补充明确说明：${point.code}`);
+  return pointMeanings[key];
+}
+
 async function fixture(
   t,
   source = 'export function normalize(value) { return value.trim(); }\nexport function submit(value) { return normalize(value); }',
@@ -41,25 +73,27 @@ async function fixture(
         {
           unitId: unit.id,
           receiptIds: [receipt.receipt.id],
-          responsibility: `执行 ${unit.name} 并返回调用结果`,
-          inputs: ['value 为用户提交的文本'],
-          outputs: ['返回规范化文本'],
-          conditions: unit.reviewPoints
-            .filter((point) => point.field === 'conditions')
-            .map((point) => `根据 ${point.code} 选择实际处理路径`),
-          calls: unit.calls.map((call) => `调用 ${call.expression} 传递当前文本`),
-          sideEffects: unit.reviewPoints
-            .filter((point) => point.field === 'sideEffects')
-            .map((point) => `更新 ${point.code} 对应的状态`),
-          exceptions: unit.reviewPoints
-            .filter((point) => point.field === 'exceptions')
-            .map((point) => `${point.code} 处理失败输入`),
+          responsibility:
+            unit.kind === 'top-level'
+              ? '声明文本提交和规范化函数，导入别名保留真实函数身份。'
+              : unit.reviewPoints
+                  .filter((p) => p.field === 'outputs')
+                  .map(explainPoint)
+                  .join('；'),
+          ...Object.fromEntries(
+            ['inputs', 'outputs', 'conditions', 'calls', 'sideEffects', 'exceptions'].map(
+              (field) => [
+                field,
+                unit.reviewPoints.filter((p) => p.field === field).map(explainPoint),
+              ],
+            ),
+          ),
           unknowns: unit.calls
             .filter((call) => !call.target)
-            .map((call) => `${call.expression} 由运行确认`),
+            .map((call) => `${call.expression} 的实际目标需由运行观测确认。`),
           coverage: unit.reviewPoints.map((point) => ({
             pointId: point.id,
-            detail: `${point.kind} 在文本处理步骤中提供输入或生成返回结果`,
+            detail: explainPoint(point),
           })),
         },
       ],
@@ -145,6 +179,36 @@ const command = (body) => ({
   command: process.execPath,
   args: ['--input-type=module', '-e', body],
   flow: { id: 'submit-text', scenarioId: 'normal' },
+});
+test('真实探针按完整位置绑定链式调用，内层函数不会误用外层调用编号', async (t) => {
+  const f = await fixture(
+    t,
+    'export function normalize(value){return value.trim();} export function submit(value){return normalize(value).trim();}',
+  );
+  const state = loadSession(f.session).state,
+    submit = state.units.find((u) => u.name === 'submit'),
+    normalize = state.units.find((u) => u.name === 'normalize');
+  const inner = submit.calls.find((c) => c.target === normalize.id),
+    outer = submit.calls.find((c) => c.id !== inner.id);
+  assert.equal(inner.start, outer.start);
+  assert.notEqual(inner.id, outer.id);
+  const run = await runVerification(
+    f.filename,
+    'stock-receipt',
+    f.session,
+    command("import {submit} from './main.mjs';if(submit(' hello ')!=='hello')process.exit(2);"),
+  );
+  assert.equal(run.valid, true, JSON.stringify(run));
+  const events = JSON.parse(fs.readFileSync(run.record.replace(/\.json$/, '.events.json'), 'utf8'));
+  const entered = events.find((e) => e.kind === 'enter' && e.unitId === normalize.id);
+  assert.ok(entered, '确实观察到规范化函数进入');
+  assert.equal(entered.callId, inner.id);
+  assert.ok(
+    events.some(
+      (e) =>
+        e.kind === 'binding' && e.callId === inner.id && e.targetId === normalize.parameters[0],
+    ),
+  );
 });
 test('实际调用、参数与返回在同一次运行成立，副本运行保持原源码及文档不变', async (t) => {
   const { root, filename, session } = await fixture(t),
@@ -422,7 +486,8 @@ test('流程同步保留业务内容，等待保存期间的外部修改使同�
 test('重新扫描并映射后，历史会话的入口缺口不遮盖当前范围结论', async (t) => {
   const f = await fixture(t);
   await updateSession(f.session, (state) => {
-    state.entryDispositions = {};
+    // A corrupt old mapping must neither classify entries nor shadow its replacement.
+    state.flows[f.flow.id].recordHash = 'invalid-old-mapping';
   });
   assert.ok(readFlowStatus(f.filename).globalGaps.some((gap) => gap.kind === 'entry'));
   fs.appendFileSync(path.join(f.root, 'main.mjs'), '\n// 新源码快照\n');

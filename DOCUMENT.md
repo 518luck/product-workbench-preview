@@ -12,7 +12,7 @@
 
 首次初始化由初始化 Skill 直接保存产品 JSON 并生成 HTML，完成后让用户阅读产品书，再提出自然语言修改。用户请求初始化已授权生成这份新文档，不需要先确认产品内容；内部 dry-run 仍检查字段、版本和依据。已有目标蓝图进入维护流程，其他产品的示例文档保留；用户明确只要求预览时不提交。
 
-页面保存定义后不会自动运行 Skill。业务变化会产生草稿，新定义与旧图表、旧验收的版本关系需要明确保留；AI 后续补齐规则和流程，实现并实际验收后登记完成。初始化应区分已有实现与未来需求：已有实现与当前定义一致、流程已同步并通过实际核验时登记完成；新需求、未实现或无法核验的功能保留草稿。首次整理不是一律草稿的理由，静态扫描本身也不代替实际核验。
+页面保存定义后不会自动运行 Skill。业务变化使旧实现核对失效，新定义与旧图表、旧验收的版本关系保留。AI 对照当前定义判断已实现、具体未实现或待确认，运行验收另行记录；未测试不能代替未实现。静态扫描本身不代替业务审阅。
 
 每次更新都应让下一次阅读的用户和 AI 能理解当前产品：保留用户原文和稳定身份，区分用户期望与代码已有行为，明确受影响功能和待确认事项，并同步变化后的业务规则与流程。以下命令、版本和保存约束用于支持这一过程。
 
@@ -60,7 +60,7 @@ AI 只维护语义数据，不改写模板、CSS、SVG 路径、页面事件或�
 
 ## 读取和明确变更
 
-`document get` 可以按分区读取；`feature list` 支持按分组路径和 `draft`／`complete` 筛选；`feature get --related` 附带关联依赖。例如：
+`document get` 可以按分区读取；`feature list` 支持按分组路径和 `draft`／`complete`／`unknown` 筛选；`feature get --related` 附带关联依赖。例如：
 
 ```sh
 product-blueprint document get ./my-product --section product --json
@@ -68,7 +68,7 @@ product-blueprint feature list ./my-product --status draft --json
 product-blueprint feature get feature-id ./my-product --related --json
 ```
 
-`document status` 返回 `{ documentHash, sourceStatus }`，只读比较各功能验收基线与当前源码并列出变更文件。`document get` 按 `all`、`product`、`dependencies`、`diagrams` 读取，结果为 `{ documentHash, section, data }`。`feature list` 返回 `{ documentHash, features }`，其中 `features` 是摘要数组，可按分组和草稿／完成筛选；`feature get` 返回 `{ documentHash, feature }`，启用 `--related` 时还返回 `relatedDependencies`。任何 CLI 写入都必须提交读取结果的整份文档哈希。
+`document status` 返回 `{ documentHash, sourceStatus }`，只读比较各功能验收基线与当前源码并列出变更文件。`document get` 按 `all`、`product`、`dependencies`、`diagrams` 读取，结果为 `{ documentHash, section, data }`。`feature list` 返回 `{ documentHash, features }`，其中 `features` 是摘要数组，可按分组和草稿／完成／待确认筛选；`feature get` 返回 `{ documentHash, feature }`，启用 `--related` 时还返回 `relatedDependencies`。任何 CLI 写入都必须提交读取结果的整份文档哈希。
 
 单功能命令使用 `--input 文件` 或 `--input -`：
 
@@ -140,14 +140,15 @@ product-blueprint apply ./my-product --input changes.json --json
 - `flowRevision`：最近一次明确同步业务流程所对应的定义版本。
 - `implementedRevision`：最近一次通过外部验收的定义版本，未验收为 `null`。
 
-同一批次每个功能最多递增一次定义版本及编辑版本。只改名称和分组不影响定义版本或完成状态。业务变化保留原流程与旧验收记录，但当前功能回到草稿；普通更新不能直接设置版本或完成状态。流程同步绑定同批保存后的最终定义版本。
+同一批次每个功能最多递增一次定义版本及编辑版本。只改名称和分组不影响定义版本或完成状态。业务变化保留原流程与旧验收记录，但当前定义的实现情况转为待确认；普通更新不能直接设置版本或完成状态。流程同步绑定同批保存后的最终定义版本。
 
 功能只有两个状态：
 
-- **草稿**：当前定义还未实现并验证，或业务内容发生新修改。
-- **完成**：登记的 `implementedRevision` 与当前 `revision` 一致。
+- **草稿**：当前定义存在明确未实现内容，implementationAssessment 逐项列出 missing。
+- **完成**：当前实现核对的全部业务项已实现；旧文档保留同版本 implementedRevision 的完成历史。
+- **待确认**：尚不能判断实际实现，或定义变化使旧实现核对失效；不能据此说功能没有实现。
 
-完成登记要求当前业务流程存在且 `flowRevision` 等于当前定义版本，并要求有效的外部验收记录。`sequence` 和 `dataflow` 可选。验收记录为：
+真实验收登记 feature.complete 要求当前业务流程存在且 `flowRevision` 等于当前定义版本，并要求有效的外部验收记录。`sequence` 和 `dataflow` 可选。验收记录为：
 
 ```json
 {
@@ -160,7 +161,7 @@ product-blueprint apply ./my-product --input changes.json --json
 
 完成登记可附带 `resolvedAnnotationIds: ["annotation-id"]`，仅删除本次已实现并验收通过的指定批注。编号必须存在且不重复；定义版本、验收、哈希或其他校验失败时，完成登记与批注删除都不保存。未处理的批注保留，不支持一律清空。批注删除只增加编辑版本，不改变业务定义版本；验收记录必须对应当前定义版本，批注可来自之前的定义版本，AI 需核对需求仍适用。
 
-记录保存在 `implementation`。登记不同的新验收记录时，将旧记录追加到 `implementationHistory`，一般业务编辑不能覆盖这些历史记录。`checks` 必须是非空数组且全部通过，时间必须有效，记录版本和完成命令版本都须对应当前定义版本。旧手动记录仍保留；完成命令本身不执行项目测试。“执行中”“失败”“需要补充”属于执行记录，不增加功能状态。
+记录保存在 `implementation`。登记不同的新验收记录时，将旧记录追加到 `implementationHistory`，一般业务编辑不能覆盖这些历史记录。`checks` 必须是非空数组且全部通过，时间必须有效，记录版本和完成命令版本都须对应当前定义版本。旧手动记录仍保留；feature.complete 本身不执行项目测试，实现情况通过 feature assess 单独记录。“执行中”“失败”“需要补充”属于执行记录，不增加功能状态。
 
 ## 真实验收与交付检查
 
@@ -206,8 +207,22 @@ JSON 错误结果的 `code` 区分 `INVALID_ARGUMENT`（参数或输入操作错
 
 `verification run` 输入的 scope 包含 planId、scenarioId；契约场景还需分别用 side:consumer、side:provider 执行两端测试，均绑定同一份已完整读取的 contractContextId。端到端场景同时携带 flow，必须绑定当前真实流程、同名场景及其声明步骤；普通命令不能替代探针观测。组件／契约执行沿用真实命令和日志指纹，工具核验执行绑定，断言的业务含义和充分性仍由 AI 审阅，不能把空命令或成功文字当作业务通过。
 
-方案和执行绑定文档路径、功能定义、源码、方案内容及核验规则。范围、源码或定义变化使旧证据失效。登记完成仍要求真实业务验收；源码核对不生成完成证据，flow sync 只保存层级、步骤覆盖与实际缺口，不改写功能完成历史。其 valid 仍表示严格流程结论，分层交付结论由 document check v4 给出。
+方案和执行绑定文档路径、功能定义、源码、方案内容及核验规则。范围、源码或定义变化使旧证据失效。功能实现通过 feature assess 单独核对；feature.complete 的运行验收登记仍要求真实执行。实现核对不生成运行证据，flow sync 只保存层级、步骤覆盖与实际缺口，不改写功能实现历史。其 valid 仍表示严格流程结论，分层交付结论由 document check v4 给出。
 
-无法运行的具体步骤用 source 加 limitation 保留未核验范围：adapter／environment／external，附真实 analysis-gap、失败的 purpose:environment 诊断记录或已读取的外部边界上下文。诊断与业务验收分开，失败业务测试不能冒充环境限制。工具核对材料和绑定，AI 仍需实际排查障碍；说明一句“没做完”不能豁免。草稿原因同时写入 notes 和审阅 reason，使用户在产品书里能直接看到。
+无法运行的具体步骤用 source 加 limitation 保留未核验范围：adapter／environment／external，附与步骤源码相关的真实 analysis-gap，或 verification diagnose 产生的当前功能失败诊断记录。外部边界须同时引用完整读取的上下文和该诊断 executionId，材料内包含具体目标；上下文或任意失败脚本本身不能豁免。诊断输入见 schema --verification 的 $defs.environmentDiagnostic，支持 command／file／tcp。诊断与业务验收分开，失败业务测试不能冒充环境限制。工具核对材料和绑定，AI 仍需实际排查障碍；说明一句“没做完”不能豁免。真实运行限制在验收详情保留；草稿通过实现核对列出实际未实现项，不能用未测试代替未实现。
 
-v4 的 valid:true、stage:ready 表示声明的逐业务步骤方案成立，不宣称整个系统或所有分支被观测。未选择的严格流程和候选入口列于 diagnostics；所选流程仍严格检查。只有真实限制有依据、其余工作已完成且缺口可见时允许 deliverable:true、stage:partial，valid 仍为 false。漏读、漏记录、错映射、遗漏方案与未执行场景即使写入 acknowledgedGaps，也只能 incomplete。v3 仍按旧严格流程模式检查，不自动升级证据或改写用户历史。
+v4 的 valid:true、stage:ready 表示声明的逐业务步骤方案成立，不宣称整个系统或所有分支被观测。未选择的严格流程列于 diagnostics；所选流程仍严格检查。候选入口必须通过当前业务步骤归类，或对已读取的非业务库导出／声明提供具名源码说明；未归类入口会阻止 ready 和 partial，不能仅写理由跳过 CLI、事件或 Skill 入口。只有真实限制有依据、其余工作已完成且缺口可见时允许 deliverable:true、stage:partial，valid 仍为 false。漏读、漏记录、错映射、遗漏方案与未执行场景即使写入 acknowledgedGaps，也只能 incomplete。v3 仍按旧严格流程模式检查，不自动升级证据或改写用户历史。
+
+## 按定义核对实际实现
+
+`feature assess ID BOOK --analysis-session SESSION --input 核对.json` 将实现情况与运行验收分开。输入规范由 `schema --assessment` 提供，包含 expectedHash、当前 revision 与 items；支持 dry-run 与 no-render。每项 target 覆盖 description、rules、checks 和 flow 的每个位置，state 为 implemented／missing／unknown，detail 解释具体行为或缺失，unitIds／contextIds 引用当前已完整读取和分析的产品依据。CLI 检查位置、版本与依据绑定，业务解释的正确性仍需 AI 对照实际源码审阅。
+
+全部实现为 complete；有明确缺失为 draft，并返回 missing 列表；没有明确缺失但有未知为 unknown。旧文档没有当前实现核对或完成历史时显示待确认，不编造缺失项。普通字段编辑不能写入实现核对。实现核对绑定定义内容、源码基线并保留历史，不生成 executionId、不删除批注、不改写既有验收。定义变化转待确认；改名、分组和批注不影响实现结论。
+
+实现完成可以同时存在未运行验收。严格交付仍检查已声明场景；没有运行且没有真实限制不能严格通过，有明确限制的部分交付保留运行未核验。业务测试证实功能缺失时，对照源码更新为具体 missing；未执行其他分支不直接等同缺失。feature.complete 仍用于真实验收及选择性批注清理，有当前 missing／unknown 核对项时必须先更新核对。
+
+实现核对 items 的 basis 将结论绑定到实际位置：代码为 `{kind:"code",unitId,pointIds,detail}`，上下文为 `{kind:"context",contextId,quote,detail}`。pointIds 引用本单元真实 reviewPoints 并解释行为，quote 必须匹配已完整读取的原文。unitIds／contextIds 可省略并从 basis 派生，提供时须包含全部来源。常量路径、重导出、参数声明或只重复定义不能单独支撑实现；旧核对保留可读，重新交付须补做当前位置依据。
+
+组件／契约场景的 observations 使用 unitId、event、operator、expected 及适用的 factId／pointId；事件为 return／throw／value／branch。返回或结果用 equals 核对标量、type 核对类型；异常用 error／error-name，分支使用本函数的条件位置。每个声明步骤都须有相应结果观测。类型观测仅证明类型，不能说明对象字段、持久化或业务条件均正确。工具复用临时副本探针执行，不要求组件场景同时证明完整调用链。
+
+限定范围分析的 scopeCoverage 差异进入交付与页面范围缺口。默认补齐；确有用户局部范围授权时，review.scope 记录 reason 和 authorization:{source:user,text:原文}，并逐项列入 acknowledgedGaps，仍不能获得全项目 ready。范围声明的真实性由执行者遵守对话授权，工具核验机器遗漏清单。

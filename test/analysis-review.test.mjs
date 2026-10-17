@@ -61,7 +61,7 @@ function knownRecord(unit, receiptIds) {
     conditions: unit.name === 'trim' ? [] : ['normalized 为空时拒绝，否则进入保存'],
     calls:
       unit.name === 'trim'
-        ? ['调用 value.trim']
+        ? ['去除首尾空白而不修改原字符串']
         : ['trim 规范化', '创建 empty 错误', '调用 persist 和 release'],
     sideEffects:
       unit.name === 'trim' ? [] : ['更新 store.value；异常时标记 store.failed；调用释放方法'],

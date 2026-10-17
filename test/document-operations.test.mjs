@@ -33,7 +33,7 @@ test('按分区、模块、状态读取，详情附带真实依赖并返回整�
   const { filename } = temporary(t);
   const snapshot = readSnapshot(filename);
   assert.equal(queryDocument(snapshot, { section: 'product' }).data.name, '库存管理');
-  const list = listFeatures(snapshot, { group: '库存', status: 'draft' });
+  const list = listFeatures(snapshot, { group: '库存', status: 'unknown' });
   assert.equal(list.features.length, 1);
   assert.equal(list.documentHash, snapshot.documentHash);
   assert.equal(listFeatures(snapshot, { group: '不存在' }).features.length, 0);

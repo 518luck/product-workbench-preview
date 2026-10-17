@@ -123,6 +123,36 @@ test('大基础会话只追加本次增量，不重写整个 JSON', (t) => {
   assert.deepEqual(fs.readFileSync(storage.journal), unchanged);
 });
 
+test('已有记录的嵌套修改会落盘，只读取的记录不会重复追加', (t) => {
+  const root = temporary(t),
+    filename = path.join(root, 'state.json');
+  fs.writeFileSync(
+    filename,
+    JSON.stringify({
+      version: 2,
+      editRevision: 0,
+      records: {
+        changed: { coverage: [{ detail: '旧说明' }] },
+        untouched: { coverage: [{ detail: '保留说明' }] },
+      },
+      receipts: {},
+      traces: {},
+    }),
+  );
+  const { state, storage } = readAnalysisState(filename),
+    snapshot = mutableSnapshot(state);
+  assert.equal(state.records.untouched.coverage[0].detail, '保留说明');
+  state.records.changed.coverage[0].detail = '新的实际行为';
+  state.editRevision++;
+  appendAnalysisState(state, snapshot, storage);
+  const changes = JSON.parse(fs.readFileSync(storage.journal, 'utf8')).changes;
+  assert.deepEqual(Object.keys(changes.records), ['changed']);
+  assert.equal(
+    readAnalysisState(filename).state.records.changed.coverage[0].detail,
+    '新的实际行为',
+  );
+});
+
 test('进程被强杀后恢复死锁，多进程追加凭据不丢失；活锁和未知锁仍受保护', async (t) => {
   const root = temporary(t);
   fs.writeFileSync(path.join(root, 'main.mjs'), 'export function one(x){return x;}');

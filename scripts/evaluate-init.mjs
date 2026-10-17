@@ -164,8 +164,13 @@ export async function gradeCase(directory, item, original) {
       if (!document.diagrams?.architecture?.edges?.length)
         errors.push('未表达人与外部 AI 的协作架构。');
     }
-    const baseline = features.find((feature) => feature.implementation?.sourceSnapshot)
-      ?.implementation.sourceSnapshot;
+    const baseline = features
+      .map(
+        (feature) =>
+          feature.implementationAssessment?.sourceSnapshot ||
+          feature.implementation?.sourceSnapshot,
+      )
+      .find(Boolean);
     const scan = await scanAnalysis(directory, baseline?.scope ?? {});
     // Scope may legitimately exclude generated artifacts. Independently require every original
     // authored unit and configuration, rather than trusting a narrower scope chosen by the AI.

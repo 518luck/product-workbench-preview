@@ -11,6 +11,7 @@ for file in sorted({unit["file"] for unit in request["units"] if unit.get("langu
     lines, offsets, total = text.splitlines(keepends=True), [], 0
     for line in lines: offsets.append(total); total += len(line.encode("utf-16-le")) // 2
     def start(node): return offsets[node.lineno - 1] + len(lines[node.lineno - 1].encode()[:node.col_offset].decode().encode("utf-16-le")) // 2
+    def end(node): return offsets[node.end_lineno - 1] + len(lines[node.end_lineno - 1].encode()[:node.end_col_offset].decode().encode("utf-16-le")) // 2
     units = {unit["start"]: unit for unit in request["units"] if unit["file"] == file and unit["id"] in request["selected"]}
     name = "__product_blueprint_probe"
     while name in text: name += "_"
@@ -30,7 +31,7 @@ for file in sorted({unit["file"] for unit in request["units"] if unit.get("langu
         visit_AsyncFunctionDef = visit_FunctionDef
         def visit_Call(self, node):
             owner = self.owner
-            fact = next((call for call in owner["calls"] if call["start"] == start(node)), None) if owner else None
+            fact = next((call for call in owner["calls"] if call["start"] == start(node) and call["end"] == end(node)), None) if owner else None
             node = self.generic_visit(node)
             if not fact or node.keywords or any(isinstance(arg, ast.Starred) for arg in node.args): return node
             arguments = [ast.Dict(keys=[ast.Constant("id"), ast.Constant("value")], values=[ast.Constant(fact["argumentIds"][index]), arg]) for index, arg in enumerate(node.args)]

@@ -18,9 +18,19 @@
             "required": ["id"],
             "additionalProperties": false,
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "offset": { "type": "integer", "minimum": 0 },
-              "length": { "type": "integer", "minimum": 1, "maximum": 100000 }
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000
+              }
             }
           }
         }
@@ -176,6 +186,25 @@
               "$ref": "#/$defs/text"
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "contextId", "quote"],
+          "properties": {
+            "kind": {
+              "const": "context"
+            },
+            "contextId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "quote": {
+              "type": "string",
+              "minLength": 8
+            }
+          },
+          "description": "已完整读取且由扫描器识别的工作流原文；不将普通说明文档当成代码实现。"
         }
       ]
     },

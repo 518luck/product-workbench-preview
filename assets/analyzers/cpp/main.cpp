@@ -1,5 +1,6 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/FrontendActions.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/JSON.h"
@@ -28,6 +29,7 @@ class Visitor : public RecursiveASTVisitor<Visitor> {
   }
   bool VisitCallExpr(CallExpr *call) {
     auto item=position(call->getBeginLoc());item["macro"]=call->getBeginLoc().isMacroID();
+    item["end"]=position(Lexer::getLocForEndOfToken(call->getEndLoc(),0,context.getSourceManager(),context.getLangOpts()));
     if(auto callee=call->getDirectCallee()) {
       auto method=dyn_cast<CXXMethodDecl>(callee);
       item["virtual"]=method && method->isVirtual();

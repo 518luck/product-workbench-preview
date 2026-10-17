@@ -110,7 +110,7 @@ test('完成登记绑定当前版本，名称和分组变化不会失效，业�
   assert.equal(current.implementedRevision, 1);
   assert.equal(current.implementation.revision, 1);
   assert.equal(current.flowRevision, 1);
-  assert.equal(listFeatures(readSnapshot(filename), { status: 'draft' }).features.length, 1);
+  assert.equal(listFeatures(readSnapshot(filename), { status: 'unknown' }).features.length, 1);
 });
 
 test('流程未同步和旧版本验收拒绝完成，同批同步后登记只增加一次保存版本', async (t) => {

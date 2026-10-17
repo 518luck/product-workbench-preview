@@ -105,11 +105,11 @@ test('CLI 分区、功能筛选与关联依赖读取不改写文件', (t) => {
     '--group',
     '库存/入库',
     '--status',
-    'draft',
+    'unknown',
   ]);
   assert.equal(selected.features.length, 1);
   assert.equal(selected.features[0].id, 'stock-receipt');
-  assert.equal(selected.features[0].status, 'draft');
+  assert.equal(selected.features[0].status, 'unknown');
   assert.equal(success(['feature', 'list', directory, '--group', '库存/出库']).features.length, 0);
   assert.equal(success(['feature', 'list', directory, '--status', 'complete']).features.length, 0);
   const feature = success(['feature', 'get', 'stock-receipt', directory, '--related']);
@@ -180,7 +180,7 @@ test('CLI 文件及标准输入新增功能，预览不落盘且不产生锁或 
   assert.equal(preview.data.dryRun, true);
   assert.equal(preview.data.documentSaved, false);
   assert.equal(preview.data.htmlUpdated, false);
-  assert.equal(preview.data.features[0].after.status, 'draft');
+  assert.equal(preview.data.features[0].after.status, 'unknown');
   assert.equal(fs.readFileSync(filename, 'utf8'), before);
   assert.deepEqual(fs.readdirSync(directory), ['product-document.json']);
   const inputFile = path.join(directory, 'input.json');

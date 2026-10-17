@@ -60,6 +60,14 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'lib/source-status.mjs',
     'lib/verification.mjs',
     'lib/verification-plan.mjs',
+    'lib/implementation-assessment.mjs',
+    'lib/entry-coverage.mjs',
+    'lib/environment-probe.mjs',
+    'lib/analysis-scope.mjs',
+    'lib/source-evidence.mjs',
+    'lib/evidence-quality.mjs',
+    'lib/component-observation.mjs',
+    'schema/implementation-assessment.schema.json',
     'lib/delivery.mjs',
     'assets/template.html',
     'assets/client.js',
@@ -112,7 +120,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   const packageRoot = fs.realpathSync(path.join(install, 'node_modules', 'product-blueprint'));
   const manifest = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
-  assert.equal(manifest.version, '0.4.0');
+  assert.equal(manifest.version, '0.7.0');
   assert.equal(manifest.dependencies.typescript, '6.0.2');
   const installedRequire = createRequire(path.join(packageRoot, 'package.json'));
   assert.equal(installedRequire('typescript/package.json').version, '6.0.2');
@@ -124,6 +132,14 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     command(process.execPath, [cli, 'schema', '--changes'], directory),
   );
   assert.ok(changesSchema.properties?.operations, '包内应包含整批变更规范');
+  const verificationSchema = JSON.parse(
+    command(process.execPath, [cli, 'schema', '--verification'], directory),
+  );
+  assert.ok(verificationSchema.$defs.environmentDiagnostic);
+  assert.match(
+    command(process.execPath, [cli, 'verification', 'diagnose', '--help'], directory),
+    /TCP/,
+  );
 
   for (const [name, label] of [
     ['first-project', '第一个产品'],

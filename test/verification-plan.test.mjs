@@ -10,15 +10,17 @@ import {
   readAnalysis,
   recordAnalysis,
   traceAnalysis,
+  updateSession,
 } from '../lib/analysis-session.mjs';
 import { createFeature } from '../lib/feature-operations.mjs';
 import { readSnapshot, applyChanges } from '../lib/document-operations.mjs';
 import { renderDocument } from '../lib/document.mjs';
-import { runVerification } from '../lib/verification.mjs';
+import { runVerification, runEnvironmentDiagnostic } from '../lib/verification.mjs';
 import { saveVerificationPlan, checkVerificationPlans } from '../lib/verification-plan.mjs';
 import { summarizeFlows, syncFlowStatus } from '../lib/flow-status.mjs';
 import { checkDelivery } from '../lib/delivery.mjs';
 import { recordFlows, checkFlows } from '../lib/flow.mjs';
+import { assessImplementation, assessmentTargets } from '../lib/implementation-assessment.mjs';
 
 const skip = { decision: 'skipped', reason: '纯角色判断，无跨参与者交互及持久化关系。' };
 async function fixture(t) {
@@ -30,7 +32,7 @@ async function fixture(t) {
   );
   fs.writeFileSync(
     path.join(root, 'contract.md'),
-    '# 外部角色服务契约\n输入 role 为字符串，返回 allowed 为布尔值。服务由外部团队管理，当前本机没有可访问的实例。\n',
+    '# 外部角色服务契约\n输入 role 为字符串，返回 allowed 为布尔值。服务由外部团队管理，外部服务需要 role-service.sock，当前本机没有此连接入口。\n',
   );
   const feature = createFeature('access', {
     title: '角色访问',
@@ -138,6 +140,18 @@ function plan(f, level = 'component') {
             steps: [0],
             criteria: [0],
             assertion: kind === 'normal' ? 'admin 返回 true' : 'member 返回 false',
+            ...(level !== 'end-to-end'
+              ? {
+                  observations: [
+                    {
+                      unitId: f.unit.id,
+                      event: 'return',
+                      operator: 'equals',
+                      expected: kind === 'normal',
+                    },
+                  ],
+                }
+              : {}),
             ...(level === 'contract' ? { contractContextId: f.context.id } : {}),
           })),
   };
@@ -221,6 +235,94 @@ function review(f, runs = [], outcome = 'implemented') {
   };
 }
 
+test('源码实现结论不冒充运行通过；完整验收仍需当前场景的真实执行', async (t) => {
+  const f = await fixture(t);
+  await assessImplementation(f.filename, 'access', f.session, {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    revision: 1,
+    items: assessmentTargets(readSnapshot(f.filename).document.features.access).map((target) => ({
+      target,
+      state: 'implemented',
+      detail: 'allowed 将角色与 admin 比较后返回布尔结果，其他角色为 false。',
+      unitIds: [f.unit.id],
+      basis: [
+        {
+          kind: 'code',
+          unitId: f.unit.id,
+          pointIds: f.unit.reviewPoints.filter((p) => p.field === 'outputs').map((p) => p.id),
+          detail: 'admin 获得访问许可，其他角色被拒绝；返回相应布尔标志。',
+        },
+      ],
+    })),
+  });
+  await saveVerificationPlan(f.filename, f.session, plan(f, 'source'));
+  assert.ok(checkVerificationPlans(f.filename, f.session).gaps.some((g) => g.kind === 'plan'));
+  const source = await checkDelivery(f.filename, f.session, review(f));
+  assert.equal(source.valid, false);
+  assert.equal(source.deliverable, false);
+  await saveVerificationPlan(f.filename, f.session, plan(f));
+  const missing = await checkDelivery(f.filename, f.session, review(f));
+  assert.equal(missing.valid, false);
+  const runs = await execute(f);
+  await syncFlowStatus(f.filename, f.session);
+  const delivered = await checkDelivery(f.filename, f.session, review(f, runs));
+  assert.equal(delivered.valid, true, JSON.stringify(delivered.gaps));
+  assert.equal(readSnapshot(f.filename).document.features.access.implementation, undefined);
+});
+
+test('已实现但客观无法运行时保持实现完成，交付仍为部分且没有伪造验收', async (t) => {
+  const f = await fixture(t);
+  await assessImplementation(f.filename, 'access', f.session, {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    revision: 1,
+    items: assessmentTargets(readSnapshot(f.filename).document.features.access).map((target) => ({
+      target,
+      state: 'implemented',
+      detail: 'allowed 返回 role 与 admin 的严格比较结果。',
+      unitIds: [f.unit.id],
+      basis: [
+        {
+          kind: 'code',
+          unitId: f.unit.id,
+          pointIds: f.unit.reviewPoints.filter((p) => p.field === 'outputs').map((p) => p.id),
+          detail: 'admin 获得访问许可，其他角色被拒绝；返回相应布尔标志。',
+        },
+      ],
+    })),
+  });
+  const scoped = plan(f, 'source');
+  scoped.steps[0].limitation = {
+    kind: 'external',
+    reason: '外部角色服务实例不可访问，未验证部署后的服务连接。',
+    evidence: {
+      kind: 'context',
+      id: f.context.id,
+      executionId: (
+        await runEnvironmentDiagnostic(f.filename, 'access', f.session, {
+          kind: 'file',
+          target: 'role-service.sock',
+        })
+      ).executionId,
+    },
+  };
+  await saveVerificationPlan(f.filename, f.session, scoped);
+  await syncFlowStatus(f.filename, f.session);
+  const input = review(f);
+  input.acknowledgedGaps = [
+    {
+      kind: 'limitation',
+      path: '/features/access/flow/0',
+      reason: scoped.steps[0].limitation.reason,
+    },
+  ];
+  const report = await checkDelivery(f.filename, f.session, input);
+  assert.equal(report.valid, false);
+  assert.equal(report.deliverable, true, JSON.stringify(report.gaps));
+  assert.equal(report.stage, 'partial');
+  assert.equal(readSnapshot(f.filename).document.features.access.implementation, undefined);
+  assert.equal(report.verification.features.access.scenarios.length, 0);
+});
+
 test('组件验收可完成并按声明范围交付，不冒充整条链路已观测', async (t) => {
   const f = await fixture(t);
   await saveVerificationPlan(f.filename, f.session, plan(f));
@@ -239,6 +341,15 @@ test('组件验收可完成并按声明范围交付，不冒充整条链路已�
   assert.match(report.scope, /验收方案/);
   const legacy = await checkDelivery(f.filename, f.session, { ...review(f, runs), version: 3 });
   assert.equal(legacy.valid, false, '旧严格链路模式没有被放宽');
+  await updateSession(f.session, (state) => {
+    state.verificationPlans['access-plan'].recordHash = 'obsolete';
+  });
+  const unmapped = await checkDelivery(f.filename, f.session, review(f, runs));
+  assert.equal(unmapped.deliverable, false);
+  assert.ok(
+    unmapped.gaps.some((g) => g.kind === 'entry'),
+    '过期方案不能继续豁免候选入口',
+  );
 });
 
 test('方案必须覆盖真实业务步骤；旧执行、假编号、未执行及事后改范围不能通过', async (t) => {
@@ -329,7 +440,16 @@ test('真实外部边界可部分交付，但不伪造任何验收记录，也�
   scoped.steps[0].limitation = {
     kind: 'external',
     reason,
-    evidence: { kind: 'context', id: f.context.id },
+    evidence: {
+      kind: 'context',
+      id: f.context.id,
+      executionId: (
+        await runEnvironmentDiagnostic(f.filename, 'access', f.session, {
+          kind: 'file',
+          target: 'role-service.sock',
+        })
+      ).executionId,
+    },
   };
   await saveVerificationPlan(f.filename, f.session, scoped);
   await syncFlowStatus(f.filename, f.session);
@@ -374,6 +494,12 @@ test('失败业务测试不能冒充环境限制；端到端不能用普通命�
     purpose: 'environment',
   });
   input.steps[0].limitation.evidence.id = diagnostic.executionId;
+  await assert.rejects(saveVerificationPlan(f.filename, f.session, input), /真实能力缺口/);
+  const actual = await runEnvironmentDiagnostic(f.filename, 'access', f.session, {
+    kind: 'file',
+    target: 'role-service.sock',
+  });
+  input.steps[0].limitation.evidence.id = actual.executionId;
   await saveVerificationPlan(f.filename, f.session, input);
   assert.equal(checkVerificationPlans(f.filename, f.session).gaps[0].kind, 'limitation');
   await assert.rejects(

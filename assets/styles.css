@@ -1291,6 +1291,29 @@ svg {
   overflow-wrap: anywhere;
 }
 
+.implementation-status {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line, #888);
+}
+.implementation-status p,
+.implementation-status li {
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.verification-details {
+  margin-top: 20px;
+}
+.implementation-targets {
+  font-size: 12px;
+  color: var(--muted);
+}
+.verification-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
 .flow-verification {
   margin: 16px 0;
   padding: 16px;

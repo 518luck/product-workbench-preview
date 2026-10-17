@@ -4,7 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { scanAnalysis, loadSession } from '../lib/analysis-session.mjs';
+import {
+  scanAnalysis,
+  loadSession,
+  readAnalysis,
+  recordAnalysis,
+} from '../lib/analysis-session.mjs';
+import { createFeature } from '../lib/feature-operations.mjs';
+import { saveVerificationPlan } from '../lib/verification-plan.mjs';
 import { recordFlows, checkFlows } from '../lib/flow.mjs';
 import { readSnapshot } from '../lib/document-operations.mjs';
 import { runVerification } from '../lib/verification.mjs';
@@ -258,4 +265,95 @@ for (const sample of samples)
     });
     assert.equal(checkFlows(filename, session, { id: flow.id }).flows[0].status, 'failed');
     assert.equal(fs.readFileSync(path.join(root, sample.file), 'utf8'), sample.source);
+    await t.test('组件场景同样核对实际返回，错误结果和未执行不能通过', async () => {
+      const feature = createFeature('number-component', {
+        title: '数值转换',
+        description: '将传入数值加一。',
+        checks: ['输入 2 时返回 3。'],
+        flow: [['转换', '把数值交给规范化函数加一']],
+        stepDetails: [
+          {
+            actor: '调用方',
+            description: '',
+            rules: [],
+            dependencies: [],
+            result: '返回加一的数值',
+            exception: '',
+            acceptance: '输入 2 返回 3',
+            interactions: [],
+          },
+        ],
+      });
+      fs.writeFileSync(
+        filename,
+        JSON.stringify({
+          schemaVersion: 1,
+          product: { name: '数值转换器' },
+          features: { 'number-component': feature },
+          dependencies: [],
+        }),
+      );
+      const read = await readAnalysis(session, from.id);
+      const meaning = '将传入数值交给 normalize 加一，并返回相加结果；负数错误向调用方传播。';
+      await recordAnalysis(session, {
+        records: [
+          {
+            unitId: from.id,
+            receiptIds: [read.receipt.id],
+            responsibility: meaning,
+            inputs: ['value 是待转换的整数。'],
+            outputs: [meaning],
+            conditions: [],
+            calls: [meaning],
+            sideEffects: [],
+            exceptions: ['负数错误向调用方传播。'],
+            unknowns: [],
+            coverage: from.reviewPoints.map((p) => ({
+              pointId: p.id,
+              detail: p.field === 'inputs' ? 'value 是待转换的整数。' : meaning,
+            })),
+          },
+        ],
+      });
+      const input = {
+        id: 'number-plan',
+        featureId: 'number-component',
+        goal: '数值加一',
+        expectedHash: readSnapshot(filename).documentHash,
+        steps: [{ step: 0, level: 'component', unitIds: [from.id], scenarioIds: ['normal'] }],
+        scenarios: [
+          {
+            id: 'normal',
+            kind: 'normal',
+            level: 'component',
+            steps: [0],
+            criteria: [0],
+            assertion: '输入 2 返回 3',
+            observations: [{ unitId: from.id, event: 'return', operator: 'equals', expected: 3 }],
+          },
+        ],
+      };
+      await saveVerificationPlan(filename, session, input);
+      const scope = { planId: input.id, scenarioId: 'normal' };
+      const noRun = await runVerification(filename, 'number-component', session, {
+        command: process.execPath,
+        args: ['-e', 'console.log("passed")'],
+        scope,
+      });
+      assert.equal(noRun.valid, false);
+      const actual = await runVerification(filename, 'number-component', session, {
+        ...sample.run,
+        scope,
+      });
+      assert.equal(actual.valid, true, JSON.stringify(actual));
+      input.scenarios[0].observations[0].expected = 4;
+      await saveVerificationPlan(filename, session, input);
+      const wrong = await runVerification(filename, 'number-component', session, {
+        ...sample.run,
+        scope,
+      });
+      assert.equal(wrong.exitCode, 0);
+      assert.equal(wrong.valid, false);
+      assert.equal(fs.readFileSync(path.join(root, sample.file), 'utf8'), sample.source);
+    });
   });

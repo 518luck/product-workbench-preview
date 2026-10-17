@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://product-blueprint.local/schema/implementation-assessment",
+  "title": "功能实现核对",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["expectedHash", "revision", "items"],
+  "properties": {
+    "expectedHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "state", "detail"],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^/(description|(?:rules|checks|flow)/[0-9]+)$"
+          },
+          "state": {
+            "enum": ["implemented", "missing", "unknown"]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unitIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "contextIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "requirement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "text"],
+            "properties": {
+              "source": {
+                "enum": ["user", "document"]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "basis": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["kind", "unitId", "pointIds", "detail"],
+                  "properties": {
+                    "kind": {
+                      "const": "code"
+                    },
+                    "unitId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "pointIds": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "detail": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["kind", "contextId", "quote", "detail"],
+                  "properties": {
+                    "kind": {
+                      "const": "context"
+                    },
+                    "contextId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 8
+                    },
+                    "detail": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "enum": ["implemented", "missing"]
+                }
+              },
+              "not": {
+                "required": ["requirement"]
+              }
+            },
+            "then": {
+              "required": ["basis"]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

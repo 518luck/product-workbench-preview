@@ -225,6 +225,10 @@
           "reason": {
             "type": "string",
             "minLength": 1
+          },
+          "kind": {
+            "const": "non-business",
+            "description": "显式非业务归类，仅适用已完整审阅的库函数；旧 reason-only 说明不再作为核验豁免。"
           }
         }
       }

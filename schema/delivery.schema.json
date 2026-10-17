@@ -211,6 +211,32 @@
           }
         }
       }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "authorization"],
+      "description": "只有用户实际要求缩小目标源码范围时填写，未覆盖源码仍只能部分交付。工具记录声明，不验证引用是否确实来自用户。",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "text"],
+          "properties": {
+            "source": {
+              "const": "user"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

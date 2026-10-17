@@ -235,7 +235,7 @@
       newFeatureDraft = { id: '', title: '', description: '', groupPathText: '' };
       state.diagramView = 'flow';
       setFeature(sent.id);
-      toast('新功能已保存为草稿，等待 AI 梳理流程。');
+      toast('新功能已保存，等待 AI 核对实现情况。');
     } catch (error) {
       toast(error.message || '保存失败，输入内容仍保留。');
     } finally {
@@ -245,11 +245,52 @@
   }
   const documentRecord = (f) => productDocument.features[f.id];
   const featureStatus = (f) => {
+    if (descriptionEdits.has(f.id)) return '待确认';
     const r = documentRecord(f);
+    const assessment = r?.implementationAssessment;
+    if (assessment?.revision === r?.revision && !descriptionEdits.has(f.id)) {
+      if (assessment.items.some((item) => item.state === 'missing')) return '草稿';
+      return assessment.items.every((item) => item.state === 'implemented') ? '完成' : '待确认';
+    }
     return r && Number.isInteger(r.implementedRevision) && r.implementedRevision === r.revision
       ? '完成'
-      : '草稿';
+      : '待确认';
   };
+  function implementationStatusMarkup(f) {
+    const r = documentRecord(f),
+      label = featureStatus(f);
+    const assessment =
+      r?.implementationAssessment?.revision === r?.revision && !descriptionEdits.has(f.id)
+        ? r.implementationAssessment
+        : null;
+    const items = assessment?.items || [];
+    const title = (target) => {
+      const [key, index] = target.slice(1).split('/');
+      if (key === 'description') return '功能定义';
+      if (key === 'flow') return '业务步骤：' + (r.flow[Number(index)]?.[0] || Number(index) + 1);
+      return (
+        (key === 'rules' ? '规则：' : '验收条件：') + (r[key]?.[Number(index)] || Number(index) + 1)
+      );
+    };
+    const list = (state, heading) => {
+      const entries = items.filter((item) => item.state === state);
+      const grouped = new Map();
+      for (const item of entries) {
+        if (!grouped.has(item.detail)) grouped.set(item.detail, []);
+        grouped.get(item.detail).push(title(item.target));
+      }
+      return grouped.size
+        ? `<h4>${heading}</h4><ul>${[...grouped].map(([detail, targets]) => `<li>${esc(detail)}<div class="implementation-targets">涉及：${targets.map(esc).join('、')}</div></li>`).join('')}</ul>`
+        : '';
+    };
+    return `<section class="implementation-status" aria-label="功能实现情况"><h3>实现情况：${label}</h3>${
+      label === '完成'
+        ? '<p>当前功能定义已实现。测试结果与未验证范围在验收详情中单独记录。</p>'
+        : label === '草稿'
+          ? '<p>以下内容尚未实现。</p>'
+          : '<p>当前定义的实现情况尚未确认；不能据此判断功能尚未实现。</p>'
+    }${list('missing', '尚未实现')}${list('unknown', '待确认的内容')}</section>`;
+  }
   function applyProductDocument(doc) {
     productDocument = doc;
     features.splice(
@@ -369,7 +410,7 @@
         return `<p>${esc(flow.title)}：${esc(labels[flow.status] || labels.unverified)}</p>${scenarios.length ? `<details><summary>执行证据（${scenarios.length} 个场景）</summary>${flow.scope ? `<p>入口：<code>${esc(flow.scope.entryId)}</code> · ${esc(flow.scope.sourceUnits)} 个源码单元 · ${esc(flow.scope.edges)} 项连接</p>` : ''}<ul>${scenarios.map((scenario) => `<li>${esc(scenario.id)}（${scenario.kind === 'exception' ? '异常' : '正常'}）：${scenario.valid ? '观测成立' : '未通过'}${scenario.executionId ? ` · <code>${esc(scenario.executionId)}</code>` : ' · 尚无执行记录'}</li>`).join('')}</ul></details>` : ''}`;
       })
       .join('');
-    return `<section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 功能完成历史单独保留。</p>${scope}${planDetails}<details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>所列场景已有对应证据；完整链路结论以步骤覆盖与连接检查为准。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目入口与范围缺口（${globalGaps.length}）</summary><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section>`;
+    return `<details class="verification-details"><summary>验收与技术详情</summary><section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 实现情况与验收情况分别记录。</p>${scope}${planDetails}<details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>所列场景已有对应证据；完整链路结论以步骤覆盖与连接检查为准。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目级诊断（${globalGaps.length}）</summary><p>这是整个项目的检查清单，条数不等于本功能未实现的数量。</p><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section></details>`;
   }
   function renderDocumentAccess() {
     const panel = $('document-access');
@@ -424,7 +465,7 @@
             ? '当前源码无法核验'
             : unverified || !checks.length
               ? '尚未建立源码核验基线'
-              : '源码与上次验收快照一致';
+              : '源码与上次核对快照一致';
     const message =
       sourceCheckError ||
       (changed
@@ -639,7 +680,7 @@
                 ? '已保存到项目文档'
                 : '尚未保存到项目文档'
               : '项目文档暂不可保存';
-    $('feature-status').textContent = changed ? '草稿 · 未保存' : featureStatus(f);
+    $('feature-status').textContent = changed ? '定义未保存 · 实现待确认' : featureStatus(f);
   }
   async function saveDescription() {
     const f = featureById(state.feature),
@@ -1046,11 +1087,12 @@
       : `<div class="empty-state"><p>尚未记录业务流程。</p></div>`;
     return (
       summary +
+      implementationStatusMarkup(f) +
       annotationMarkup(f) +
       (f.notes ? `<p class="document-note">${esc(f.notes)}</p>` : '') +
       heading +
-      flowStatusMarkup(f) +
-      flow
+      flow +
+      flowStatusMarkup(f)
     );
   }
 
