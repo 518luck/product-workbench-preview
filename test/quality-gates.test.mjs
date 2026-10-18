@@ -987,6 +987,48 @@ test('真实增量常数不同的准确说明不会因数字归一化被误判�
   assert.equal(checkAnalysis(f.session).valid, true);
 });
 
+test('跨文件名、裸序号和源码关键词不能把语法模板冒充独立函数分析', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-stem-template-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const sources = [
+    ['inventory.mjs', 'add', 'value', 'value+1'],
+    ['booking.mjs', 'allow', 'value', 'value>0'],
+    ['publishing.mjs', 'publish', 'value', 'String(value)'],
+    ['delivery.mjs', 'close', 'value', 'value!==null'],
+  ];
+  for (const [file, fn, arg, expression] of sources)
+    fs.writeFileSync(path.join(root, file), `export function ${fn}(${arg}){return ${expression};}`);
+  const { session } = await scanAnalysis(root),
+    state = loadSession(session).state;
+  const records = [];
+  for (const [i, unit] of state.units.entries()) {
+    const read = await readAnalysis(session, unit.id),
+      stem = path.basename(unit.file, '.mjs');
+    records.push({
+      unitId: unit.id,
+      receiptIds: [read.receipt.id],
+      responsibility: `在${stem}源码中作为单元${unit.name}，序号${i + 1}，承担特定逻辑实现与支持运算。`,
+      inputs: ['待处理的输入'],
+      outputs: ['计算返回的结果'],
+      conditions: [],
+      calls: ['委托其他运算'],
+      sideEffects: [],
+      exceptions: [],
+      unknowns: [],
+      coverage: unit.reviewPoints.map((p) => ({
+        pointId: p.id,
+        detail: `在${stem}模块单元序号${i + 1}中交付计算结果，操作涉及${(p.code.match(/[A-Za-z_$][\w$]*/g) || []).slice(0, 3).join('及')}向调用栈输出返回`,
+      })),
+    });
+  }
+  await assert.rejects(recordAnalysis(session, { records }), (error) => {
+    assert.equal(error.code, 'ANALYSIS_INCOMPLETE');
+    assert.match(error.message, /模板/);
+    return true;
+  });
+  assert.equal(Object.keys(loadSession(session).state.records).length, 0);
+});
+
 test('职责写得不同但逐位置说明全部模板化时仍原子拒绝，保留已正确分析的记录', async (t) => {
   const explanations = [
     '商品数量增加一件。',

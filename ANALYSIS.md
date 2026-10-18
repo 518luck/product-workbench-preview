@@ -213,4 +213,4 @@ product-blueprint apply /文档 --input 批次.json --analysis-session /会话�
 
 初始化保留完整源码读取、逐函数分析、来源、操作和业务审阅，使用 document check --mode source 交付产品书。source 不要求 verification plan 或运行场景；完成表示代码已实现，运行状态另列。核验 Skill 可独立选择单个/全部功能；实现 Skill 只处理页面已保存的所选修改并复用核验。全书运行验收交付使用 mode verified。
 
-business coverage 协议为 2。coverageValid 仅表示操作和源码连接等结构成立，valid 还要求能力与排除项审阅完成。公开操作不可凭“支撑”排除，support 需 capabilityIds 和真实结果连接；候选假阳性显式标 false-positive，明确声明不能如此排除。读取、分析和审阅分别检查，批量模板理由不能消除缺口。
+business coverage 协议为 3。coverageValid 仅表示操作和源码连接等结构成立，valid 还要求能力与排除项审阅完成。公开操作不可凭“支撑”排除，support 需 capabilityIds 和真实结果连接；候选不等于误识别；false-positive 只保存待确认判断，当前没有机器反证适配器，此分类不能使覆盖通过。无法确认时保留缺口，不能虚构功能消除它。读取、分析和审阅分别检查，批量模板理由不能消除缺口。更换触发器名称、文件名、函数名、源码关键词或裸序号，不构成不同的职责解释；跨记录检查须剥离这些来源标签。

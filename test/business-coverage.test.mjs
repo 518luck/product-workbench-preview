@@ -144,6 +144,80 @@ test('地图保存与审阅通过分别报告；业务 check 对待审阅返回�
   assert.equal(checkBusinessModel(f.session).valid, true);
 });
 
+test('候选不是反证：公开操作即使被逐项标记为误识别并审阅，也不能消失', async (t) => {
+  const f = await fixture(
+    t,
+    `export function save(){return 'saved'}button.addEventListener('click',save)`,
+  );
+  const op = f.state.facts.operations.find((o) => o.surface === 'library');
+  const event = f.state.facts.operations.find((o) => o.surface === 'event');
+  assert.equal(event.certainty, 'candidate');
+  const c = capability(op, result(f.state, 'save'));
+  const saved = await recordBusinessModel(f.session, {
+    version: 1,
+    capabilities: [c],
+    dispositions: [
+      {
+        operationId: event.id,
+        kind: 'false-positive',
+        source: 'product.mjs',
+        reason: '接收者身份未解析，代理判断点击注册可能只是模拟对象。',
+      },
+    ],
+  });
+  assert.equal(saved.coverageValid, false);
+  assert.ok(saved.gaps.some((g) => g.message.includes('不是已证明误识别')));
+  const reviewed = await reviewBusinessModel(f.session, {
+    modelHash: saved.model.recordHash,
+    reviewer: 'same-agent',
+    decisions: [
+      {
+        capabilityId: 'read',
+        verdict: 'supported',
+        reason: '保存函数返回 saved。',
+        evidence: c.results,
+      },
+    ],
+    exclusions: [
+      {
+        operationId: event.id,
+        verdict: 'supported',
+        reason: '候选未解析，仍判断不是业务入口。',
+        evidence: c.results,
+      },
+    ],
+  });
+  assert.equal(reviewed.semanticStatus, 'reviewed');
+  assert.equal(reviewed.valid, false);
+  assert.equal(reviewed.stage, 'incomplete');
+  assert.ok(
+    reviewed.gaps.some((g) => g.path.endsWith(event.id) && g.message.includes('不是已证明误识别')),
+  );
+});
+
+test('触发器文字和裸序号不能使公开操作的同一排除模板通过去重', async (t) => {
+  const f = await fixture(
+    t,
+    `export function read(){return 'record'}
+function save(){return 'saved'}function remove(){return 'removed'}function publish(){return 'published'}function close(){return 'closed'}
+button.addEventListener('click',save);form.addEventListener('submit',remove);bus.on('publish',publish);bus.once('close',close);`,
+  );
+  const op = f.state.facts.operations.find((o) => o.surface === 'library');
+  const saved = await recordBusinessModel(f.session, {
+    version: 1,
+    capabilities: [capability(op, result(f.state, 'read'))],
+    dispositions: f.state.facts.operations
+      .filter((o) => o.id !== op.id)
+      .map((o, i) => ({
+        operationId: o.id,
+        source: o.registration.file,
+        kind: 'false-positive',
+        reason: `内部工具事件${o.trigger.event}${o.trigger.receiver}辅助运行序号${i + 1}`,
+      })),
+  });
+  assert.ok(saved.gaps.filter((g) => g.message.includes('模板')).length >= 4);
+});
+
 test('支持标签不能将未读、未分析的排除项判作完成；完整独立分析后才能通过', async (t) => {
   const f = await fixture(
     t,

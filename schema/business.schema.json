@@ -205,7 +205,7 @@
               },
               "kind": {
                 "enum": ["internal", "support", "false-positive"],
-                "description": "公开操作不能直接排除；support 须连接所属能力实际结果，false-positive 仅限未确认候选。"
+                "description": "公开操作不能直接排除；support 须连接所属能力实际结果。false-positive 仅保存候选的待确认判断，当前无机器反证适配器，不能使覆盖通过。"
               },
               "capabilityIds": {
                 "type": "array",

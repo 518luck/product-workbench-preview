@@ -153,7 +153,7 @@ pnpm check
 pnpm format:check
 pnpm package:check
 pnpm pack --pack-destination /你的输出目录
-pnpm add --global /你的输出目录/product-blueprint-0.12.0.tgz
+pnpm add --global /你的输出目录/product-blueprint-0.12.1.tgz
 product-blueprint --help
 ```
 

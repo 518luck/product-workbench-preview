@@ -12,7 +12,7 @@ description: 从目标项目源码或新产品需求首次建立产品书，生�
 ## 流程
 
 1. 读取 [产物目录](references/artifacts.md)，定位目标项目。新产品书默认 `.blueprint/`，保留其他产品示例。已有本项目产品书时不覆盖重建；继续同一初始化任务可恢复，其余核验转核验 Skill。
-2. 读取 [初始化流程](references/workflow.md) 与 [业务发现](references/business-discovery.md)，先建立全仓操作和早期业务地图，再沿业务路径展开源码，并完整补齐约定范围的函数与上下文分析。
+2. 读取 [初始化流程](references/workflow.md) 与 [业务发现](references/business-discovery.md)，先建立全仓操作和早期业务地图，再沿业务路径展开源码，并完整补齐约定范围的函数与上下文分析。 先检查早期地图的 coverageValid，修正遗漏操作、错误排除和断开的结果依据，再投入全量记录；不要用大批模板记录补齐数字后再发现业务方向错误。
 3. 按 [内容审阅](references/content-review.md) 和 [图表](references/diagrams.md) 保存功能、规则、流程、依赖与图表。CLI、网页或 API 即使支撑上层旅程，只要交付了可独立使用的目标与结果，也应纳入产品能力；“支撑”不是自动排除理由。Skill 数量、目录或顶层旅程不能决定整本书的功能数量。
 4. 按 [实现情况](references/implementation-status.md) 对照源码保存判断。初始化只记录已有实现，不开发缺失功能，不制造验收执行编号。
 5. 按 [初始化交付检查](references/verification.md) 执行 `document check --mode source`。只有当前结果 `completion.canDeliver:true` 才交付。失败则依 `completion.nextAction` 补齐；保存进度和局部检查通过均不算初始化完成。

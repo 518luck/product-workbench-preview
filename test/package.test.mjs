@@ -159,7 +159,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   );
   assert.equal(capabilities.business.delivery, 5);
   assert.equal(capabilities.business.linkage, 1);
-  assert.equal(capabilities.business.coverage, 2);
+  assert.equal(capabilities.business.coverage, 3);
   assert.deepEqual(capabilities.delivery.modes, ['source', 'verified']);
   assert.deepEqual(capabilities.skills, [
     'product-blueprint-init',

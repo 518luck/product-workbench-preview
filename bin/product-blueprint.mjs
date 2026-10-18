@@ -692,7 +692,7 @@ try {
         delivery: 5,
         semanticReview: 'agent-submitted',
         linkage: 1,
-        coverage: 2,
+        coverage: 3,
         runtimeConnections: 'snapshot-bound-flow',
         adapters: {
           javascript: 'registration-and-bounded-dispatch',
