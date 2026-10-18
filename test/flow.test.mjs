@@ -15,6 +15,7 @@ import { readSnapshot } from '../lib/document-operations.mjs';
 import { runVerification } from '../lib/verification.mjs';
 import { syncFlowStatus, readFlowStatus } from '../lib/flow-status.mjs';
 import { updateDocument } from '../lib/document-store.mjs';
+import { recordBusinessModel, checkBusinessModel } from '../lib/business-model.mjs';
 
 // Independently specified meanings for these deliberately small flow fixtures.
 const pointMeanings = {
@@ -179,6 +180,63 @@ const command = (body) => ({
   command: process.execPath,
   args: ['--input-type=module', '-e', body],
   flow: { id: 'submit-text', scenarioId: 'normal' },
+});
+test('业务结果引用真实流程场景：未执行、错误场景和源码变更不能通过，实际精确结果可通过', async (t) => {
+  const f = await fixture(t),
+    state = loadSession(f.session).state,
+    unit = state.units.find((u) => u.name === 'submit');
+  f.flow.scenarios[0].assertions[0].valueId = unit.returns[0];
+  await recordFlows(f.filename, f.session, {
+    expectedHash: readSnapshot(f.filename).documentHash,
+    flows: [f.flow],
+  });
+  const operation = state.facts.operations.find((o) => o.entryId === f.flow.entryId);
+  const input = {
+    version: 1,
+    capabilities: [
+      {
+        id: 'submit',
+        title: '提交文本',
+        actor: '用户',
+        goal: '获得规范化文本',
+        outcome: '返回去除两侧空白的文本',
+        featureIds: ['stock-receipt'],
+        operationIds: [operation.id],
+        results: [
+          {
+            kind: 'code',
+            unitId: unit.id,
+            pointId: unit.reviewPoints.find((p) => p.kind === 'return').id,
+            detail: '必须对应此场景内此返回位置的真实结果。',
+            via: { flowId: f.flow.id, scenarioId: 'normal' },
+          },
+        ],
+      },
+    ],
+    dispositions: state.facts.operations
+      .filter((o) => o.id !== operation.id)
+      .map((o) => ({
+        operationId: o.id,
+        source: o.registration.file,
+        reason: '规范化函数是提交旅程的共享处理步骤，此处限定核对提交公开入口。',
+      })),
+  };
+  assert.equal((await recordBusinessModel(f.session, input, f.filename)).valid, false);
+  await runVerification(
+    f.filename,
+    'stock-receipt',
+    f.session,
+    command(
+      "import {submit} from './main.mjs';if(submit(' hello ')!=='hello')throw Error('wrong');",
+    ),
+  );
+  const checked = checkBusinessModel(f.session, f.filename);
+  assert.equal(checked.valid, true, JSON.stringify(checked.gaps));
+  assert.ok(checked.connections[0].links.some((l) => l.basis === 'observed-flow'));
+  input.capabilities[0].results[0].via.scenarioId = 'missing';
+  assert.equal((await recordBusinessModel(f.session, input, f.filename)).valid, false);
+  fs.appendFileSync(path.join(f.root, 'main.mjs'), '\n// changed');
+  assert.throws(() => checkBusinessModel(f.session, f.filename), { code: 'ANALYSIS_STALE' });
 });
 test('真实探针按完整位置绑定链式调用，内层函数不会误用外层调用编号', async (t) => {
   const f = await fixture(

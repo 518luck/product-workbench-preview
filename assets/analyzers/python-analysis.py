@@ -68,5 +68,7 @@ for source in request["files"]:
             self.generic_visit(node)
         def visit_ImportFrom(self, node):
             for name in node.names: result["imports"].append({"file": file, "module": node.module or "", "level": node.level, "name": name.name, "alias": name.asname or name.name})
+        def visit_Import(self, node):
+            for name in node.names: result["imports"].append({"file": file, "module": name.name, "level": 0, "name": "*", "alias": name.asname or name.name.split('.')[0]})
     Inspect().visit(tree)
 json.dump(result, sys.stdout, ensure_ascii=False)

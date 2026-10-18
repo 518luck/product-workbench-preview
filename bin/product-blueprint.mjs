@@ -59,9 +59,10 @@ const commands = {
       'flow',
       'verification-plan',
       'assessment',
+      'business',
     ],
     usage:
-      'schema [--changes | --analysis | --delivery | --verification | --flow | --verification-plan | --assessment]',
+      'schema [--changes | --analysis | --business | --delivery | --verification | --flow | --verification-plan | --assessment]',
     description: '输出文档、整批变更或分析记录与流程依据规范。',
   },
   'document status': {
@@ -187,12 +188,12 @@ const commands = {
     options: ['config'],
     usage: 'analysis scan [项目目录] [--config 范围.json]',
     description:
-      '索引 JS／TS（含 JSX／TSX），创建或恢复相同源码快照；配置为 include/exclude 相对路径或 glob 数组。',
+      '索引 JS／TS（含 JSX／TSX）、Python、Go 与 C++，创建或恢复源码快照并报告各语言边界；配置为 include/exclude 相对路径或 glob 数组。',
   },
   'analysis list': {
     options: ['session', 'offset', 'limit', 'status', 'kind'],
     usage:
-      'analysis list --session 会话 [--kind units|contexts|files|types|traces|entries|values|edges] [--status all|pending|recorded] [--offset 0] [--limit 50]',
+      'analysis list --session 会话 [--kind units|contexts|files|types|traces|entries|operations|values|edges] [--status all|pending|recorded] [--offset 0] [--limit 50]',
     description: '分页读取分析清单；默认每页 50 项，最大 200 项。',
   },
   'analysis read': {
@@ -202,11 +203,36 @@ const commands = {
     description:
       '读取源码并生成工具凭据；可用 reads 批次一次读取 1–32 项，批次原子保存。位置使用 UTF-16，单项最大 100000。',
   },
+  'analysis pack': {
+    options: ['session', 'offset', 'length'],
+    usage: 'analysis pack 文件相对路径 --session 会话 [--offset 0] [--length 16000]',
+    description: '按文件输出一次正文与范围内单元清单；真实凭据可复用给完整覆盖的嵌套函数。',
+  },
+  'business inventory': {
+    options: ['session', 'offset', 'limit'],
+    usage: 'business inventory --session 会话 [--offset 0] [--limit 50]',
+    description: '业务建模前读取候选外部操作及模块概览；按注册身份保留，不等同功能数量。',
+  },
+  'business record': {
+    options: ['session', 'input', 'document'],
+    usage: 'business record --session 会话 --input 地图.json|- [--document 产品书]',
+    description: '保存使用者、目标、业务结果及操作归属；可在详细分析前建模，保存后核对当前定义。',
+  },
+  'business check': {
+    options: ['session', 'document'],
+    usage: 'business check [产品书] --session 会话',
+    description: '核对操作遗漏、结果依据和功能绑定；结构有效与语义审阅分别报告。',
+  },
+  'business review': {
+    options: ['session', 'input'],
+    usage: 'business review --session 会话 --input 审阅.json|-',
+    description: '逐能力对照原始证据保存 supported/contradicted/unknown；代理审阅不宣称独立认证。',
+  },
   'analysis record': {
     options: ['session', 'input'],
     usage: 'analysis record --session 会话 --input 记录.json|-',
     description:
-      '逐项保存函数分析；须完整读取并解释每个 reviewPoint，字段规范见 schema --analysis。',
+      '逐函数保存语义；claims 可关联多个因果相关位置，仍须完整读取和覆盖，字段规范见 schema --analysis。',
   },
   'analysis trace': {
     options: ['session', 'input'],
@@ -242,6 +268,7 @@ const booleanOptions = new Set([
   'verification',
   'verification-plan',
   'assessment',
+  'business',
   'flow',
   'allow-partial-analysis',
   'require-verification',
@@ -278,6 +305,7 @@ function errorCode(error) {
   if (
     error.code === 'INVALID_ARGUMENT' ||
     error.code === 'CONFLICT' ||
+    error.code === 'ANALYSIS_STALE' ||
     error.code === 'RENDER_FAILED' ||
     error.code === 'VALIDATION_FAILED' ||
     error.code === 'ENVIRONMENT_UNAVAILABLE'
@@ -372,11 +400,11 @@ function parseArguments() {
     return [];
   }
   const top = positional.shift();
-  command = ['feature', 'document', 'analysis', 'verification', 'flow'].includes(top)
+  command = ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(top)
     ? `${top}${positional[0] ? ` ${positional.shift()}` : ''}`
     : top;
   if (
-    ['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) &&
+    ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) &&
     options.help
   ) {
     for (const key of Object.keys(options))
@@ -404,6 +432,7 @@ function parseArguments() {
       'flow',
       'verification-plan',
       'assessment',
+      'business',
     ].filter((key) => options[key]).length > 1
   )
     invalid('schema 格式选项不能同时使用。');
@@ -420,7 +449,9 @@ function checkPositionals(positional) {
     ['verification run', 'verification diagnose'].includes(command);
   const maximum = hasId
     ? 2
-    : (command.startsWith('analysis ') && !['analysis scan', 'analysis read'].includes(command)) ||
+    : (command.startsWith('business ') && command !== 'business check') ||
+        (command.startsWith('analysis ') &&
+          !['analysis scan', 'analysis read', 'analysis pack'].includes(command)) ||
         command === 'schema' ||
         ['feature', 'document', 'analysis', 'verification', 'help'].includes(command)
       ? 0
@@ -437,7 +468,7 @@ function helpText() {
   }
   const entries = Object.entries(commands).filter(
     ([key]) =>
-      !['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) ||
+      !['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) ||
       key.startsWith(`${command} `),
   );
   return `产品蓝图 CLI ${version}\n\n${entries.map(([, detail]) => `  ${detail.usage}`).join('\n')}\n\n默认文档为当前目录的 product-document.json，默认 HTML 为同目录的 index.html。\nAI 在外部梳理业务、实现及验证；CLI 负责文档维护，不调用 AI。\n${global}\n  --version  查看版本\n`;
@@ -551,7 +582,7 @@ try {
   if (command === 'version') emit({ command, version }, version);
   else if (command === 'help' || options.help) {
     if (
-      ['feature', 'document', 'analysis', 'verification', 'flow'].includes(command) &&
+      ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) &&
       positional.length
     )
       invalid('帮助命令包含多余的位置参数。');
@@ -562,25 +593,45 @@ try {
     console.log(
       fs
         .readFileSync(
-          options.assessment
-            ? new URL('../schema/implementation-assessment.schema.json', import.meta.url)
-            : options['verification-plan']
-              ? new URL('../schema/verification-plan.schema.json', import.meta.url)
-              : options.flow
-                ? new URL('../schema/flow.schema.json', import.meta.url)
-                : options.delivery
-                  ? new URL('../schema/delivery.schema.json', import.meta.url)
-                  : options.verification
-                    ? new URL('../schema/verification.schema.json', import.meta.url)
-                    : options.analysis
-                      ? analysisSchemaPath
-                      : options.changes
-                        ? changesSchemaPath
-                        : schemaPath,
+          options.business
+            ? new URL('../schema/business.schema.json', import.meta.url)
+            : options.assessment
+              ? new URL('../schema/implementation-assessment.schema.json', import.meta.url)
+              : options['verification-plan']
+                ? new URL('../schema/verification-plan.schema.json', import.meta.url)
+                : options.flow
+                  ? new URL('../schema/flow.schema.json', import.meta.url)
+                  : options.delivery
+                    ? new URL('../schema/delivery.schema.json', import.meta.url)
+                    : options.verification
+                      ? new URL('../schema/verification.schema.json', import.meta.url)
+                      : options.analysis
+                        ? analysisSchemaPath
+                        : options.changes
+                          ? changesSchemaPath
+                          : schemaPath,
           'utf8',
         )
         .trim(),
     );
+  } else if (command.startsWith('business ')) {
+    if (!options.session) invalid('业务发现需要 --session。');
+    const business = await import('../lib/business-model.mjs');
+    const filename = options.document || positional.length ? documentFile(positional) : undefined;
+    let result;
+    if (command === 'business inventory')
+      result = business.businessInventory(options.session, {
+        offset: Number(options.offset ?? 0),
+        limit: Number(options.limit ?? 50),
+      });
+    if (command === 'business record')
+      result = await business.recordBusinessModel(options.session, inputObject(), filename);
+    if (command === 'business check')
+      result = business.checkBusinessModel(options.session, filename);
+    if (command === 'business review')
+      result = await business.reviewBusinessModel(options.session, inputObject());
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+    if (result.valid === false) process.exitCode = 1;
   } else if (command === 'feature assess') {
     if (!options['analysis-session']) invalid('实现核对需要 --analysis-session。');
     const id = positional.shift();
@@ -632,6 +683,41 @@ try {
     const { workflowHostObservation } = await import('../lib/component-observation.mjs');
     const result = {
       protocol: 2,
+      business: {
+        inventory: 1,
+        model: 1,
+        delivery: 5,
+        semanticReview: 'agent-submitted',
+        linkage: 1,
+        runtimeConnections: 'snapshot-bound-flow',
+        adapters: {
+          javascript: 'registration-and-bounded-dispatch',
+          python: 'registration-and-bounded-dispatch',
+          go: 'registration-and-bounded-dispatch',
+          cpp: 'registration-and-bounded-dispatch',
+        },
+        boundaries: {
+          python: [
+            'Flask/FastAPI 静态路由、Click 直接命令及 sys.argv 等值分支',
+            'Blueprint/APIRouter 仅组件内路径；挂载、动态注册及跨文件 handler 保留候选',
+          ],
+          go: [
+            'net/http Handle/HandleFunc、NewServeMux、os.Args 等值/开关分支及 goroutine 候选',
+            '接口接收者、外部 handler、其他框架、消息和调度配置未自动穷尽',
+          ],
+          cpp: [
+            '显式 httplib::Server/SSLServer 注册和 main 的 argv 等值分支',
+            '需 httplib.h 与接收者类型；宏、模板包装、虚调用及跨文件 handler 保留未知',
+          ],
+        },
+      },
+      reading: { filePacks: true, groupedClaims: true, storage: 'sqlite-rows' },
+      incremental: {
+        exactSnapshotResume: true,
+        semanticRecords: 'verified-dependency-closure',
+        staticReindex: 'full-on-source-change',
+        conservativeLanguages: ['go', 'cpp'],
+      },
       languages: adapterProfiles(),
       runtime: {
         component: '工具探针核对声明的具体结果，不等于整条业务链路观测',
@@ -722,6 +808,13 @@ try {
             length: integer('length', 16000),
           });
         }
+      }
+      if (action === 'pack') {
+        if (!positional[0]) invalid('需要清单中的文件相对路径。');
+        result = await analysis.readAnalysisPack(options.session, positional[0], {
+          offset: integer('offset', 0),
+          length: integer('length', 16000),
+        });
       }
       if (action === 'record')
         result = await analysis.recordAnalysis(options.session, inputObject());

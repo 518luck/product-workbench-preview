@@ -19,6 +19,7 @@ import { runVerification } from '../lib/verification.mjs';
 import { checkDelivery } from '../lib/delivery.mjs';
 import { syncFlowStatus } from '../lib/flow-status.mjs';
 import { recordFlows } from '../lib/flow.mjs';
+import { recordBusinessModel, reviewBusinessModel } from '../lib/business-model.mjs';
 
 // These are independently specified tiny businesses, not names required by the CLI.
 const commerce = [
@@ -940,7 +941,7 @@ test('职责写得不同但逐位置说明全部模板化时仍原子拒绝，�
       inputMeaning: 'value 是待增加的数量。',
     })),
   );
-  const before = loadSession(f.session).state.records,
+  const before = Object.fromEntries(Object.entries(loadSession(f.session).state.records)),
     records = [];
   for (const unit of f.state.units.filter((u) => u.file === 'business.mjs')) {
     const read = await readAnalysis(f.session, unit.id),
@@ -1281,4 +1282,61 @@ test('多步骤实际结果可正常交付，交叉拼接未观测的步骤与�
   assert.ok(
     bad.gaps.some((g) => g.kind === 'verification' && g.path === `/features/${id}/acceptance`),
   );
+});
+
+test('v5 业务地图、语义审阅与分层验收闭环；旧协议不声称新业务检查通过', async (t) => {
+  const f = await fixture(t, commerce);
+  const { review } = await deliver(f);
+  const legacy = await checkDelivery(f.filename, f.session, review);
+  assert.equal(legacy.business.semanticStatus, 'legacy-unreviewed');
+  review.version = 5;
+  assert.equal((await checkDelivery(f.filename, f.session, review)).deliverable, false);
+  const { state } = loadSession(f.session);
+  const capabilities = commerce.map((s) => {
+    const unit = f.units[s.id];
+    return {
+      id: s.id,
+      title: s.title,
+      actor: '购买者',
+      goal: '确认商品能否购买',
+      outcome: s.meaning,
+      operationIds: state.facts.operations.filter((o) => o.unitId === unit.id).map((o) => o.id),
+      results: [
+        {
+          kind: 'code',
+          unitId: unit.id,
+          pointId: unit.reviewPoints.find((p) => p.kind === 'return').id,
+          detail: s.detail,
+        },
+      ],
+      featureIds: [s.id],
+    };
+  });
+  const saved = await recordBusinessModel(
+    f.session,
+    { version: 1, capabilities, dispositions: [] },
+    f.filename,
+  );
+  assert.equal(saved.valid, true, JSON.stringify(saved.gaps));
+  assert.equal(
+    (await checkDelivery(f.filename, f.session, review)).valid,
+    false,
+    '结构齐全仍需语义审阅',
+  );
+  await reviewBusinessModel(f.session, {
+    modelHash: saved.model.recordHash,
+    reviewer: 'fixture-gold-review',
+    decisions: capabilities.map((c) => ({
+      capabilityId: c.id,
+      verdict: 'supported',
+      reason: commerce.find((s) => s.id === c.id).detail,
+      evidence: c.results,
+    })),
+  });
+  const complete = await checkDelivery(f.filename, f.session, review);
+  assert.equal(complete.valid, true, JSON.stringify(complete.gaps));
+  assert.equal(complete.business.semanticStatus, 'reviewed');
+  capabilities[0].outcome = '变更后的定义需要重新审阅';
+  await recordBusinessModel(f.session, { version: 1, capabilities, dispositions: [] }, f.filename);
+  assert.equal((await checkDelivery(f.filename, f.session, review)).valid, false);
 });

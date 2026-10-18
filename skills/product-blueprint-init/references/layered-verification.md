@@ -4,7 +4,7 @@
 
 ## 执行前保存方案
 
-先读取 `schema --verification-plan`、`verification plan --help`、`schema --verification` 与 `schema --delivery`。当前分层交付为 delivery v4；v3 仍执行旧的严格流程检查，不能仅改版本号消除缺口。
+先读取 `schema --verification-plan`、`verification plan --help`、`schema --verification` 与 `schema --delivery`。当前分层交付为 delivery v5；v3 仍执行旧的严格流程检查，不能仅改版本号消除缺口。
 
 定义和流程保存后，使用 `verification plan BOOK --analysis-session SESSION --input PLAN --json`，为每个功能保存独立方案。命令省略 input 可查询方案及当前执行缺口。
 
@@ -42,7 +42,7 @@ exception 场景须包含实际业务拒绝或失败：具体 throw、表示拒�
 
 source 限制的步骤保持未运行，不添加虚构 acceptance。完整业务验收条件仍需实际证据；无法运行时保留未验证范围和具体障碍，实现状态依实现核对判断，不因没有执行而改成草稿。源文件漏读、浅记录、缺字段依据、遗漏方案、未执行的声明场景、错误映射与失败断言均是继续完成的工作，不能靠 acknowledgedGaps 获得部分交付。
 
-交付 v4 逐项核对保存的分层方案及实际执行。review.flows 只列本次声明要作严格链路判断的流程，其他流程保留范围提示。候选入口仍必须归类：当前方案／流程的真实源码引用及可达连接自动关联，剩余非业务库入口需按 flow-verification.md 的具名源码说明排除；未归类入口会阻止 ready 和 partial，不能靠 acknowledgedGaps 放过，也不要求为归类穷尽运行。已声明的端到端场景仍必须严格通过；全书不要求所有函数和所有分支都具备运行探针。
+交付 v5 逐项核对保存的分层方案及实际执行。review.flows 只列本次声明要作严格链路判断的流程，其他流程保留范围提示。候选入口仍必须归类：当前方案／流程的真实源码引用及可达连接自动关联，剩余非业务库入口需按 flow-verification.md 的具名源码说明排除；未归类入口会阻止 ready 和 partial，不能靠 acknowledgedGaps 放过，也不要求为归类穷尽运行。已声明的端到端场景仍必须严格通过；全书不要求所有函数和所有分支都具备运行探针。
 
 完整源码分析、业务内容、有效方案、当前验收与 HTML 均符合声明范围时可 ready，结论明确限定于该范围。只有真实限制有依据且在页面可见、其余可完成工作均已补齐时才可 deliverable:true、stage:partial；valid 仍为 false。初始化在严格或合法部分交付后自动启动 serve、核对 canSave 并打开实际页面，最终仍只交付编辑链接、产品定位和核心旅程。
 

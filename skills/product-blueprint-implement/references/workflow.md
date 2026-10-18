@@ -2,6 +2,8 @@
 
 先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`，并确认 `runtime.verificationPlan` 为 3、`runtime.resultScope` 为 `distinct-source-location-per-step`、`runtime.failureBinding` 为 `rejection-or-same-invocation-branch`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
 
+同时确认 `business.inventory`、`business.model` 为 1，`business.delivery` 为 5，`reading.filePacks` 与 `reading.groupedClaims` 为 true，并读取 `schema --business`。还须支持 `business.linkage:1`、`reading.storage:sqlite-rows` 和 `incremental.semanticRecords:verified-dependency-closure`。业务核对规则变化只要求重新核对地图；源码索引、源码或上下文未变时，不因此重写全部函数分析。
+
 ## 检查工具与待办
 
 先按 [产物目录](artifacts.md) 定位已有产品书并固定 WORK，后续命令显式使用同一文档路径；扫描配置、批次和辅助脚本放在 WORK，或通过标准输入提交。
@@ -16,15 +18,17 @@
 
 ## 读取源码与定位影响
 
+先按 [业务发现与核对](business-discovery.md) 核对新增/变化操作及其用户目标和结果，不从容易通过的 helper 倒推业务。
+
 `current` 只表示记录范围内指纹一致；`changed` 需要追踪影响；`unverified` 缺少基线；`unavailable` 需要解决路径或读取问题。缺少基线时先核验已有代码，不伪造一致。
 
 用变更清单定位入口、调用与依赖，再完整读取本次已确认扫描范围。`analysis scan /项目 --config 已确认范围.json --json` 后：
 
 - 分页读取 contexts，取得相应凭据；每轮 pending 从 offset 0 获取剩余项。
-- 逐项 `analysis read`，跟随 `nextOffset` 读完分段，再保存独立职责、输入输出、条件、调用、副作用、异常与未知记录，用 coverage 解释每个 reviewPoint。父函数的读取凭据不代替嵌套函数自己的位置说明。
+- 按文件 `analysis pack`，跟随 `nextOffset` 读完分段，再保存独立职责、输入输出、条件、调用、副作用、异常与未知记录，用 claims 关联因果相关的 reviewPoints。父函数的读取凭据不代替嵌套函数自己的位置说明。
 - 配置、测试和产品代码按实际用途分类；未解析或外部调用保留未知，不自动填充通用摘要换取检查通过。
 
-相同快照可以恢复，但先运行当前版本 `analysis check`，检查 reviewedCount、位置说明和具体 gaps；recordedCount 齐全或旧 valid 报告不能证明分析合格。旧浅摘要回到源码补做；源码、索引、清单或解析配置改变时重新扫描，不复用旧快照凭据。
+相同快照可以恢复，但先运行当前版本 `analysis check`，检查 reviewedCount、位置说明和具体 gaps；recordedCount 齐全或旧 valid 报告不能证明分析合格。旧浅摘要回到源码补做；源码、索引、清单或解析配置改变时重新扫描，不手工改写旧快照凭据；只有工具核对源码、位置、依赖和规则后生成的带出处复用记录可以沿用。
 
 位置清单只是最低检查：完整函数中的闭包输入、调用后果、异步边界、异常传播、部分成功与并发／清理仍须逐项审阅。不能用脚本批量填空数组、复制源码或重复通用摘要换取通过。把规则与失败路径反查到实际实现函数和分支，常量或通用辅助函数不能独自支持不相关结论；与功能有关的 Skill、HTML/CSS 等非函数材料另行读取，不把函数覆盖率当作整个仓库已理解的证明。
 
@@ -55,7 +59,7 @@ product-blueprint apply /文档 --input 批次.json --analysis-session SESSION -
 
 遵循目标项目的开发约定实现功能及必要的业务测试，使权限、存储、网络和异常行为对应蓝图要求。修改的是蓝图描述的目标项目；固定模板不承担目标业务实现。
 
-代码改变后重新扫描，完整读取当前范围所有单元与上下文并刷新分析记录；将最终实现绑定到步骤、规则、异常和验收字段，不把 requested 直接改名成 observed。
+代码改变后重新扫描，检查工具返回的 reuse 与 invalidatedFiles，补齐当前范围中未获有效复用、缺失或浅层的分析与上下文；将最终实现绑定到步骤、规则、异常和验收字段，不把 requested 直接改名成 observed。
 
 如最终行为需要改变已保存定义，先在授权范围内保存新版本，歧义先确认；整理完整流程，再用 `feature.sync` 声明流程与当前定义一致。业务变更和该功能的完成登记分批处理。
 

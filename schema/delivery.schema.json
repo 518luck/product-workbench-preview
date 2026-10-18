@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "产品书交付审阅 v4（分层验收）；v3 历史仍可检查",
+  "title": "产品书交付审阅 v5：业务地图与分层验收；历史版本保留原范围",
   "type": "object",
   "required": [
     "version",
@@ -14,7 +14,7 @@
   "additionalProperties": false,
   "properties": {
     "version": {
-      "const": 4
+      "const": 5
     },
     "documentHash": {
       "type": "string",

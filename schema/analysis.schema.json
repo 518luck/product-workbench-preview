@@ -90,8 +90,7 @@
         "calls",
         "sideEffects",
         "exceptions",
-        "unknowns",
-        "coverage"
+        "unknowns"
       ],
       "properties": {
         "unitId": {
@@ -148,8 +147,45 @@
               }
             }
           }
+        },
+        "claims": {
+          "type": "array",
+          "description": "推荐：每个真实语义断言可关联多个因果相关位置；每个审阅位置恰好覆盖一次。函数仍独立完整读取，不自动生成解释。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pointIds", "detail"],
+            "properties": {
+              "pointIds": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^p-"
+                }
+              },
+              "detail": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          }
         }
-      }
+      },
+      "oneOf": [
+        {
+          "required": ["coverage"],
+          "not": {
+            "required": ["claims"]
+          }
+        },
+        {
+          "required": ["claims"],
+          "not": {
+            "required": ["coverage"]
+          }
+        }
+      ]
     },
     "evidence": {
       "oneOf": [

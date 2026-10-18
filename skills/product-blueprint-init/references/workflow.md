@@ -2,9 +2,11 @@
 
 先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`，并确认 `runtime.verificationPlan` 为 3、`runtime.resultScope` 为 `distinct-source-location-per-step`、`runtime.failureBinding` 为 `rejection-or-same-invocation-branch`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
 
+同时确认 `business.inventory`、`business.model` 为 1，`business.delivery` 为 5，`reading.filePacks` 与 `reading.groupedClaims` 为 true，并读取 `schema --business`。还须支持 `business.linkage:1`、`reading.storage:sqlite-rows` 和 `incremental.semanticRecords:verified-dependency-closure`。业务核对规则变化只要求重新核对地图；源码索引、源码或上下文未变时，不因此重写全部函数分析。
+
 ## 选择工具与目标
 
-使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收和 delivery v4 和 verification plan；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
+使用 `product-blueprint` CLI。通过 `--help` 和 `schema` 查询当前协议，确认支持源码状态、`implementation.sourceSnapshot`、reviewPoints／coverage、严格验收、delivery v5 和 verification plan；版本号相同不代表协议相同。具体字段以 `schema --analysis`、`schema --changes`、`schema --verification`、`schema --delivery` 为准，不在 Skill 内复制另一套 Schema。
 
 全局命令缺失或协议过旧时，可使用已知工具源码的绝对入口 `node /工具目录/bin/product-blueprint.mjs`；在工具仓库内也可用 `pnpm blueprint`。无法找到可用工具时说明需更新工具，保留现有文件，不自行改模板或手填基线。
 
@@ -19,42 +21,23 @@
 
 只有目标无法确定或需要覆盖现有内容时澄清，不要求用户先解释尚不了解的产品功能。
 
-先按 [业务流程核验](flow-verification.md) 查询语言能力、声明文本上下文、恢复当前分析与建立实际连接；以该参考的 v2 分析／v4 分层交付协议为准。
+先按 [业务流程核验](flow-verification.md) 查询语言能力、声明文本上下文、恢复当前分析与建立实际连接；以该参考的 v2 分析／v5 分层交付协议为准。
 
-## 扫描与完整读取
+## 先发现业务，再完整阅读
 
-默认处理项目内全部自有源码；用户明确限定范围时按该范围处理，不擅自缩小到入口文件。JS、JSX、TS、TSX 及相关配置的实际支持范围以扫描清单为准；不支持的语言、解析失败和读取失败记录为缺口。
+先按 [业务发现与核对](business-discovery.md) 读取操作与模块概览、建立业务候选，保存 `business record`。核对使用者、目标和结果，不以函数数量或目录划分功能。随后沿业务路径读取、再按模块完整覆盖剩余函数与上下文，反查遗漏。
 
-```sh
-product-blueprint analysis scan /项目 --config 范围.json --json
-```
+使用 `analysis pack 文件相对路径 --session SESSION` 按文件读取，长文件跟随 nextOffset。工具返回一次正文、真实凭据和独立单元范围；完整覆盖的父/文件凭据可供嵌套单元复用，但嵌套函数仍独立记录。提交 `analysis record` 时优先用 claims 将因果相关的位置关联同一语义断言，所有位置恰好覆盖一次。具体格式读 `schema --analysis`，不重抄机器生成的语法事实。
 
-范围配置示例：`{"include":["."],"exclude":["明确排除的路径/**"]}`。保存返回的会话路径与快照指纹，核对 manifest 中默认及用户排除项。
+同会话由一个协调者批量提交；有限并行分析只读包，不多层并发抢锁。脚本只整理已完成的分析，不能丢弃正文后生成职责/解释，不能直接调用内部 updater 或自行构造 receipts。
 
-1. 分页读取 `analysis list --session SESSION --kind contexts --json`，通过 `analysis read` 读取清单、配置等上下文并取得凭据。
-2. 每轮从 offset 0 请求 `analysis list --session SESSION --status pending --limit 50 --json`；处理后 pending 集合缩小，不递增 offset 跳过剩余单元。
-3. 用 `analysis read ID --session SESSION --json` 实际阅读每个单元，跟随 `nextOffset` 直到 null。源码输出及凭据需进入当前分析上下文。
-4. 按当前 Schema 提交每个单元的职责、输入输出、条件、调用、副作用、异常和未知，并用 coverage 逐项说明其 reviewPoints。完整覆盖嵌套单元的凭据可复用，但嵌套函数有自己的位置与独立分析，不能沿用父函数摘要。
+恢复先检查当前快照与分析；recordedCount、fullyReadCount、reviewedCount含义不同，均不证明业务理解正确。源码、解析配置及相关上下文变化使旧依据失效。动态调用和宿主行为保留未知，不能用同名函数连接。
 
-同一分析会话默认由一个写入者协调。用 `analysis read --input` 提交 `{"reads":[{"id":"实际编号"}]}`，每批最多 32 项、合计源码最多 262144 个 UTF-16 单位；再将已经逐项分析的结果成批提交 `analysis record`。按函数长度选择批量，避免每个函数启动一个进程或让多层并发争抢同一会话。保留工具返回的结构化编号、凭据和位置，用脚本组装已完成的分析，不手抄大量 ID，也不生成套话替代分析。
+业务地图形成不等于初始化完成；继续完成约定范围阅读、记录、实现核对与运行验证。未读完、遗漏和错误映射属于待完成工作，不以时间盒或上下文不足豁免。
 
-长函数的读取凭据完整覆盖内层函数时，可直接引用同一凭据给内层函数的独立记录；不重复读取相同内容。锁冲突先等待当前写入；工具会恢复可确认持锁进程已退出的残留锁，活锁或无法辨认的锁继续报冲突，不自行批量 kill 或删除锁文件。
+## 归纳产品内容与业务地图绑定
 
-按索引中实际解析的调用追踪行为。动态调用、外部服务、未解析调用和框架宿主行为保留未知，不猜测内部路径。配置用于说明运行条件，测试用于验收；二者不能冒充产品实现。
-
-同一快照可保存进度并恢复，但先运行当前版本 `analysis check`，检查 reviewedCount、位置审阅与 gaps，不能因 recordedCount 等于 unitCount 就跳过阅读。旧浅摘要需回到源码补做，索引升级或源码／解析配置变化后重新扫描，旧凭据不能用于新快照。仍有 pending、未读完分段或未提交记录时继续处理，不能把耗时或上下文不足说成不可消除缺口。
-
-## 逐函数审阅质量
-
-reviewPoints 是最低位置清单，不是语义分析答案。先读完整函数，再逐项解释具体条件、输入与返回、调用影响、写入、抛错、捕获与最终清理；同时核对清单之外的闭包输入、异步边界、重试／并发、部分成功和异常传播。数组为空必须确实没有相应行为，不能因难以判断就填写空数组。
-
-每条位置说明都对应本函数的实际行为，不能只抄源码、把同一段职责重复到所有位置、用脚本批量生成套话，或把 unresolvedCalls 清空来隐藏未知。脚本可以整理已经完成的记录，不代替阅读和分析。工具只能拦住缺项，无法保证解释正确。
-
-把产品规则、步骤、异常反查到真正实现该行为的函数及其分支；常量、重导出、哈希或通用辅助函数不能单独支撑不相关业务结论。沿实际调用关系核对入口到结果和失败路径，必要时重读相关函数。与产品有关的 Skill／工作流、HTML/CSS、配置另行读取，不以 JS/TS 函数计数声称整个仓库已理解。
-
-## 归纳产品内容
-
-建模前读 [内容审阅](content-review.md)，整理图表时读 [图表说明](diagrams.md)。从用户入口到业务结果组织功能、规则、依赖、正常与异常路径；读取项目提供的 Skill 或文档工作流，避免只整理内部工具函数。
+建模前读 [内容审阅](content-review.md)，整理图表时读 [图表说明](diagrams.md)。从用户入口到业务结果组织功能、规则、依赖、正常与异常路径；按 business-discovery 将业务能力映射到最终 featureIds，绑定当前定义并审阅原始依据；读取项目提供的 Skill 或文档工作流，避免只整理内部工具函数。
 
 证据分为代码已有行为 `observed`、明确需求 `requested`、推断 `inferred` 与未知 `unknown`。推断和未知只放在明确标注的备注里；存在源码但未确认的行为不能写成已有实现。图表适用性逐项判断，不能因为字段可选而全部省略。
 
@@ -82,4 +65,4 @@ dry-run 是内部检查。通过后提交同一批次，无须等待内容确认
 
 ## 阅读与记录的质量边界
 
-源码正文和配置原文必须进入 AI 的当前分析上下文。脚本调用 read 后丢弃正文，再按文件名或语法类型填摘要，不算逐函数审阅。脚本只整理和提交已完成的分析，不自动生成业务解释。工具会跨记录比较模板与真实源码行为；同义包装函数可以共享准确说明，行为不同的函数不能只替换编号、函数名或源码前缀；职责和逐位置说明都会比较，无关汉字、标签及随机串不算业务解释。恢复旧记录需通过当前质量检查，位置和数量齐全仍不证明语义正确。
+按 [业务发现与核对](business-discovery.md) 区分机器事实、源码已读、逐函数语义、业务地图与运行结果。每个函数仍完整读取并独立记录；语义断言可覆盖相关位置，不能套用一条职责解释全部无关行为。结构检查是底线，最终对照原始证据核对含义。

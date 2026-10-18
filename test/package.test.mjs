@@ -54,6 +54,13 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'lib/feature-operations.mjs',
     'lib/errors.mjs',
     'lib/analysis-index.mjs',
+    'lib/business-operations.mjs',
+    'lib/business-foreign.mjs',
+    'lib/business-model.mjs',
+    'lib/business-links.mjs',
+    'lib/business-flow-evidence.mjs',
+    'lib/analysis-database.mjs',
+    'lib/analysis-incremental.mjs',
     'lib/analysis-session.mjs',
     'lib/template.mjs',
     'lib/validation.mjs',
@@ -85,6 +92,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'schema/product-document.schema.json',
     'schema/changes.schema.json',
     'schema/analysis.schema.json',
+    'schema/business.schema.json',
     'schema/verification.schema.json',
     'schema/verification-plan.schema.json',
     'schema/delivery.schema.json',
@@ -121,7 +129,10 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   const packageRoot = fs.realpathSync(path.join(install, 'node_modules', 'product-blueprint'));
   const manifest = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
-  assert.equal(manifest.version, '0.9.0');
+  assert.equal(
+    manifest.version,
+    JSON.parse(fs.readFileSync(path.join(root, 'package.json'))).version,
+  );
   assert.equal(manifest.dependencies.typescript, '6.0.2');
   const installedRequire = createRequire(path.join(packageRoot, 'package.json'));
   assert.equal(installedRequire('typescript/package.json').version, '6.0.2');
@@ -137,6 +148,17 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     command(process.execPath, [cli, 'schema', '--verification'], directory),
   );
   assert.ok(verificationSchema.$defs.environmentDiagnostic);
+  const businessSchema = JSON.parse(
+    command(process.execPath, [cli, 'schema', '--business'], directory),
+  );
+  assert.equal(businessSchema.oneOf.length, 2);
+  const capabilities = JSON.parse(
+    command(process.execPath, [cli, 'analysis', 'capabilities', '--json'], directory),
+  );
+  assert.equal(capabilities.business.delivery, 5);
+  assert.equal(capabilities.business.linkage, 1);
+  assert.equal(capabilities.reading.storage, 'sqlite-rows');
+  assert.equal(capabilities.reading.filePacks, true);
   assert.match(
     command(process.execPath, [cli, 'verification', 'diagnose', '--help'], directory),
     /TCP/,

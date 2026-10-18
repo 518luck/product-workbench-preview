@@ -1,6 +1,6 @@
 # 业务流程核验
 
-使用分析协议 v2 和分层交付审阅 v4。先按 [分层验收](layered-verification.md) 保存业务范围方案；本篇用于被选择的端到端流程观测，不强制所有组件都做全系统联调。先查询 `analysis capabilities`、`schema --flow`、`schema --verification`，不要从版本号猜协议。CLI 操作由 AI 执行。
+使用分析协议 v2 和分层交付审阅 v5。先按 [分层验收](layered-verification.md) 保存业务范围方案；本篇用于被选择的端到端流程观测，不强制所有组件都做全系统联调。先查询 `analysis capabilities`、`schema --flow`、`schema --verification`，不要从版本号猜协议。CLI 操作由 AI 执行。
 
 功能验收与严格流程核验独立推进：初始化或实现先以当前源码、字段依据和真实业务断言完成可独立验收的功能，再按下文补齐流程追踪。未核验连接和分支保留在流程状态中；不用等待全书追踪穷尽后才登记任何完成功能。需求维护仍不登记新的完成。
 
@@ -14,7 +14,7 @@
 
 去除源码片段和通用过程措辞后仍须有行为解释；换一套模板前缀不能代替理解。scan／check 的 scopeCoverage 另列自有源码遗漏，默认补齐而不缩小范围。
 
-`recordedCount` 只表示已保存；`reviewedCount`、完整读取凭据及逐位置 coverage 通过才表示分析合格。长函数读完所有分段；嵌套函数独立记录。恢复先执行当前 `analysis check`。源码、解析器、分析规则或上下文变化后重新扫描，旧记录只作历史，不搬旧摘要、凭据或旧 valid 报告。
+`recordedCount` 只表示已保存；`reviewedCount`、完整读取凭据及claims／旧 coverage 检查通过才表示分析合格。长函数读完所有分段；嵌套函数独立记录。恢复先执行当前 `analysis check`。源码、解析器、分析规则或上下文变化后重新扫描，旧记录只作历史，不搬旧摘要、凭据或旧 valid 报告。
 
 JS/TS 使用 TypeScript Compiler API；Python、Go、C++ 先用随包的 Tree-sitter WASM 解析，再按 capabilities 使用本机 Python ast、可选 Go packages/SSA、Clang 编译数据库。Go 工具需要时由 AI 执行 `analysis prepare --language go`，C++ 深度工具使用 `analysis prepare --language cpp`；缺少 LLVM 开发库时先准备环境。缺依赖时先在授权范围准备，不能只因尚未安装就结束；无法准备时保留具体环境缺口。动态调用、装饰器、接口、反射、宏、虚调用和指针不由名称确认。当前运行探针的支持范围以工具返回的 unsupported 为准；语法覆盖不等于深度核验可用。
 
@@ -44,6 +44,6 @@ JS/TS 使用 TypeScript Compiler API；Python、Go、C++ 先用随包的 Tree-si
 
 初始化或实现流程先按当前产品源码、字段依据和真实业务断言登记可独立验收的功能，再逐步补齐严格流程追踪；函数已实现并验收，不因尚未采集所有连接或分支而一律保留草稿。普通执行不证明流程通过，带 flow 的执行仍须满足流程检查。若有整体语言／语义／适配缺口，独立完成还要求工具确认它们全部在本功能核验范围外；漏读、漏记录和缺少本次验收的字段依据继续补齐。需求维护仍不登记新的完成；整体缺口和严格交付结论分别保留。
 
-交付审阅 v4 的 flows 引用本次选择严格核验的真实映射；acknowledgedGaps 按检查结果的 kind、path（无 path 时用 flowId、entryId 或 `/`）说明具体影响。先修复漏读、漏记录、漏映射等可解决问题；只有真实语言／环境／宿主能力限制且有分层方案中的证据才允许部分交付；漏做的场景不能仅填写理由便结束。`document check` 的 valid 是严格结论；deliverable 为 true、stage 为 partial 仅表示产品书可读且缺口完整可见，不能称严格通过。结论限定为已识别入口、声明场景及当前支持范围。
+交付审阅 v5 的 flows 引用本次选择严格核验的真实映射；acknowledgedGaps 按检查结果的 kind、path（无 path 时用 flowId、entryId 或 `/`）说明具体影响。先修复漏读、漏记录、漏映射等可解决问题；只有真实语言／环境／宿主能力限制且有分层方案中的证据才允许部分交付；漏做的场景不能仅填写理由便结束。`document check` 的 valid 是严格结论；deliverable 为 true、stage 为 partial 仅表示产品书可读且缺口完整可见，不能称严格通过。结论限定为已识别入口、声明场景及当前支持范围。
 
 部分交付也自动启动 serve、核对保存能力并打开页面，最终仍以链接、产品定位和核心旅程交付；必要时仅加一句未核验范围说明。技术凭据和缺口留在产品书与记录中，不转交用户执行命令。

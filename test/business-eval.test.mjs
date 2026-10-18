@@ -1,0 +1,100 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  businessCases,
+  prepareBusinessCase,
+  gradeBusinessCase,
+  evaluateBusiness,
+} from '../scripts/evaluate-business.mjs';
+import { scanAnalysis, loadSession } from '../lib/analysis-session.mjs';
+import { recordBusinessModel } from '../lib/business-model.mjs';
+
+test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改输入，不按功能名称打分', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-business-gold-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const item of businessCases) {
+    const directory = path.join(root, item.id),
+      original = prepareBusinessCase(directory, item);
+    assert.equal(gradeBusinessCase(directory, item, original).valid, false);
+    const { session } = await scanAnalysis(directory, { contexts: ['README.md'] }),
+      { state } = loadSession(session);
+    const capabilities = item.atoms.map((atom, index) => {
+      const op = state.facts.operations.find(
+        (o) =>
+          (!atom.surface || o.surface === atom.surface) &&
+          Object.entries(atom.trigger || {}).every(([k, v]) => o.trigger[k] === v),
+      );
+      const unit = atom.result.name && state.units.find((u) => u.name === atom.result.name);
+      return {
+        id: `capability-${index}`,
+        title: `用户目标 ${index}`,
+        actor: '项目使用者',
+        goal: '通过独立入口获取结果',
+        outcome: '获得规则规定的结果',
+        operationIds: [op.id],
+        results: [
+          unit
+            ? {
+                kind: 'code',
+                unitId: unit.id,
+                pointId: unit.reviewPoints.find((p) => p.code.includes(atom.result.contains)).id,
+                detail: '核对该业务操作的状态写入或返回结果。',
+              }
+            : {
+                kind: 'context',
+                contextId: state.contexts.find((c) => c.file === atom.result.file).id,
+                quote: '不得实现项目代码',
+              },
+        ],
+      };
+    });
+    const covered = new Set(capabilities.flatMap((c) => c.operationIds));
+    const input = {
+      version: 1,
+      capabilities,
+      dispositions: state.facts.operations
+        .filter((op) => !covered.has(op.id))
+        .map((op) => ({
+          operationId: op.id,
+          reason: `本夹具操作 ${JSON.stringify(op.trigger)} 的共享技术支撑，另有明确的业务目标映射。`,
+          source: op.registration.file,
+        })),
+    };
+    await recordBusinessModel(session, input);
+    assert.equal(gradeBusinessCase(directory, item, original).valid, true);
+    if (item.id === 'dispatch' || item.id.endsWith('-routes')) {
+      const unit = state.units.find((u) => u.name === 'snapshot');
+      input.capabilities[0].results = [
+        {
+          kind: 'code',
+          unitId: unit.id,
+          pointId: unit.reviewPoints[0].id,
+          detail: '错误地把状态包装当成开启订阅。',
+        },
+      ];
+      await recordBusinessModel(session, input);
+      const bad = gradeBusinessCase(directory, item, original);
+      assert.equal(bad.valid, false);
+      assert.ok(bad.errors.some((e) => e.includes('错映射')));
+    }
+    fs.appendFileSync(path.join(directory, Object.keys(original)[0]), '\n篡改');
+    assert.ok(
+      gradeBusinessCase(directory, item, original).errors.some((e) => e.includes('输入被修改')),
+    );
+  }
+});
+
+test('外部 AI 仅输出成功不通过业务评测，运行失败和结果评分分别记录', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-business-runner-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const result = await evaluateBusiness(
+    { command: process.execPath, args: ['-e', "console.log('已理解全部业务')"] },
+    { directory, timeoutMs: 1000 },
+  );
+  assert.equal(result.passed, 0);
+  assert.equal(result.total, businessCases.length);
+  assert.ok(result.results.every((r) => r.exitCode === 0 && !r.valid));
+});

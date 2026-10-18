@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "业务发现地图与语义审阅 v1",
+  "description": "操作、业务能力与结果依据独立于函数记录。结构检查不证明自然语言含义正确；审阅为代理提交，不宣称可信认证。",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "capabilities", "dispositions"],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "actor", "goal", "outcome", "operationIds", "results"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "goal": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "outcome": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "operationIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
+              },
+              "featureIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
+              },
+              "results": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "unitId", "pointId", "detail"],
+                      "properties": {
+                        "kind": {
+                          "const": "code"
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "pointId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "detail": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "operationIds": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": "可选地限定该结果支持的操作；仍须通过源码关联检查。"
+                        },
+                        "via": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["flowId", "scenarioId"],
+                          "properties": {
+                            "flowId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "scenarioId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "description": "可选的真实运行关联。仅当前产品书/源码/入口下，场景精确断言此结果位置且实际通过时接受。"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "contextId", "quote"],
+                      "properties": {
+                        "kind": {
+                          "const": "context"
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "source", "text"],
+                      "properties": {
+                        "kind": {
+                          "const": "requirement"
+                        },
+                        "source": {
+                          "enum": ["user", "document"]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "source": {
+                                "const": "document"
+                              }
+                            }
+                          },
+                          "then": {
+                            "required": ["contextId"]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "classification": {
+                "enum": ["observed", "requested", "unknown"]
+              }
+            }
+          }
+        },
+        "dispositions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "reason", "source"],
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "必须完全等于 operation.registration.file 的相对路径，例如 service.mjs；行号和说明写入 reason。"
+              }
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelHash", "reviewer", "decisions"],
+      "properties": {
+        "modelHash": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capabilityId", "verdict", "reason", "evidence"],
+            "properties": {
+              "capabilityId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "verdict": {
+                "enum": ["supported", "contradicted", "unknown"]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "unitId", "pointId", "detail"],
+                      "properties": {
+                        "kind": {
+                          "const": "code"
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "pointId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "detail": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "operationIds": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": "可选地限定该结果支持的操作；仍须通过源码关联检查。"
+                        },
+                        "via": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["flowId", "scenarioId"],
+                          "properties": {
+                            "flowId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "scenarioId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "description": "可选的真实运行关联。仅当前产品书/源码/入口下，场景精确断言此结果位置且实际通过时接受。"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "contextId", "quote"],
+                      "properties": {
+                        "kind": {
+                          "const": "context"
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "source", "text"],
+                      "properties": {
+                        "kind": {
+                          "const": "requirement"
+                        },
+                        "source": {
+                          "enum": ["user", "document"]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "source": {
+                                "const": "document"
+                              }
+                            }
+                          },
+                          "then": {
+                            "required": ["contextId"]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "exclusions": {
+          "type": "array",
+          "description": "逐项审阅非业务分类，须引用该操作的原始源码/上下文。未审阅的排除不会显示 semanticStatus:reviewed。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "verdict", "reason", "evidence"],
+            "properties": {
+              "verdict": {
+                "enum": ["supported", "contradicted", "unknown"]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "unitId", "pointId", "detail"],
+                      "properties": {
+                        "kind": {
+                          "const": "code"
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "pointId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "detail": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "operationIds": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": "可选地限定该结果支持的操作；仍须通过源码关联检查。"
+                        },
+                        "via": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["flowId", "scenarioId"],
+                          "properties": {
+                            "flowId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "scenarioId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "description": "可选的真实运行关联。仅当前产品书/源码/入口下，场景精确断言此结果位置且实际通过时接受。"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "contextId", "quote"],
+                      "properties": {
+                        "kind": {
+                          "const": "context"
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "source", "text"],
+                      "properties": {
+                        "kind": {
+                          "const": "requirement"
+                        },
+                        "source": {
+                          "enum": ["user", "document"]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "contextId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "source": {
+                                "const": "document"
+                              }
+                            }
+                          },
+                          "then": {
+                            "required": ["contextId"]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

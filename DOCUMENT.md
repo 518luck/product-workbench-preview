@@ -4,6 +4,10 @@
 
 `product-document.json` 是权威业务文档。HTML 展示和编辑它，CLI 负责读取、校验与保存；AI 在外部理解需求、实现代码和验收。生成 HTML 可独立阅读，保存到项目需要本机服务或 CLI。分析会话独立保存，不嵌入业务文档；现有写入命令可通过 `--analysis-session` 启用分析检查。
 
+## 业务发现接口
+
+初始化先使用 `business inventory/record/check/review` 建立并核对操作、用户目标和结果；格式为 `schema --business`。定义稳定后显式 `business record --document BOOK` 绑定 featureIds，新交付为 delivery v5。业务地图与审阅保存在分析会话，不自动重写用户定义、编号或历史。完整协议见 [ANALYSIS.md](ANALYSIS.md)。
+
 ## 蓝图作为产品上下文
 
 蓝图围绕人能理解的业务能力组织内容。产品背景解释为什么做、给谁用；功能定义解释功能的目的和期望行为；规则、流程、异常和依赖帮助 AI 理解如何运转以及修改会影响什么；验收要求用于判断实现是否符合已确认的定义。

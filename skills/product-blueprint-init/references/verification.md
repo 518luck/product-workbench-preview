@@ -1,3 +1,5 @@
+先完成 [业务发现与核对](business-discovery.md) 的操作对账、当前定义绑定和逐能力语义审阅。新初始化使用 delivery v5；业务地图检查不能用旧 v4 绕过，运行结果也不能代替业务含义。
+
 # 验收与交付检查
 
 ## 按功能判断实际状态
@@ -31,7 +33,7 @@
 
 1. 运行 `document status /文档 --json`，确认本次已核验功能为 `current`。旧记录缺少基线时是 `unverified`；路径或读取问题需如实保留。
 2. 用浏览器核验实际 HTML 的流程、图表、正常／异常情景及详情入口。结构与来源检查不能代替业务审阅。
-3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v4 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
+3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v5 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
 4. 运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`；只有 `valid:true` 才称严格通过。漏读、漏记录、漏映射继续补齐；真实能力限制可在缺口完整可见、deliverable:true 时部分交付，不将其称为严格通过。
 5. 按下节启动并核对本机编辑服务，打开页面。以上步骤均由 AI 内部执行，结果保存到相应记录，不要求用户验收或决定如何交付；最终回复按 SKILL.md 模板，只展示可编辑链接、产品定位与核心旅程。
 

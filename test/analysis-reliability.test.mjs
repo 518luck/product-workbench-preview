@@ -63,7 +63,7 @@ test('批量读取原子保存到增量日志，支持损坏尾部恢复并拒�
     path.join(root, 'main.mjs'),
     'export function one(x){return x;}\nexport function two(x){return x+1;}',
   );
-  const { session } = await scanAnalysis(root),
+  const { session } = await scanAnalysis(root, {}, { storage: 'journal' }),
     filename = path.join(session, 'state.json'),
     base = fs.readFileSync(filename),
     state = loadSession(session).state;
