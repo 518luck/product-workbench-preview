@@ -57,6 +57,7 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'lib/business-operations.mjs',
     'lib/business-foreign.mjs',
     'lib/business-model.mjs',
+    'lib/business-coverage.mjs',
     'lib/business-links.mjs',
     'lib/business-flow-evidence.mjs',
     'lib/analysis-database.mjs',
@@ -113,11 +114,12 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   );
   for (const name of [
     'product-blueprint-init',
-    'product-blueprint-maintain',
+    'product-blueprint-verify',
     'product-blueprint-implement',
   ])
     for (const file of ['SKILL.md', 'references/workflow.md', 'agents/openai.yaml'])
       assert.ok(paths.has(`skills/${name}/${file}`));
+  assert.ok(![...paths].some((p) => p.startsWith('skills/product-blueprint-maintain/')));
 
   const install = path.join(directory, 'independent-install');
   fs.mkdirSync(install);
@@ -157,6 +159,13 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   );
   assert.equal(capabilities.business.delivery, 5);
   assert.equal(capabilities.business.linkage, 1);
+  assert.equal(capabilities.business.coverage, 2);
+  assert.deepEqual(capabilities.delivery.modes, ['source', 'verified']);
+  assert.deepEqual(capabilities.skills, [
+    'product-blueprint-init',
+    'product-blueprint-verify',
+    'product-blueprint-implement',
+  ]);
   assert.equal(capabilities.reading.storage, 'sqlite-rows');
   assert.equal(capabilities.reading.filePacks, true);
   assert.match(
@@ -183,6 +192,43 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
       command(process.execPath, [cli, 'analysis', 'scan', '--json'], project),
     );
     assert.equal(scan.unitCount, 1);
+    const current = JSON.parse(
+      command(process.execPath, [cli, 'document', 'get', project, '--json'], directory),
+    );
+    const sourceCheck = spawnSync(
+      process.execPath,
+      [
+        cli,
+        'document',
+        'check',
+        project,
+        '--mode',
+        'source',
+        '--analysis-session',
+        scan.session,
+        '--input',
+        '-',
+        '--json',
+      ],
+      {
+        cwd: directory,
+        encoding: 'utf8',
+        input: JSON.stringify({
+          version: 5,
+          documentHash: current.documentHash,
+          features: [],
+          journeys: [],
+          diagrams: {},
+          flows: [],
+          acknowledgedGaps: [],
+        }),
+      },
+    );
+    assert.equal(sourceCheck.status, 1, sourceCheck.stdout + sourceCheck.stderr);
+    const pendingDelivery = JSON.parse(sourceCheck.stdout);
+    assert.equal(pendingDelivery.mode, 'source');
+    assert.equal(pendingDelivery.completion.canDeliver, false);
+    assert.equal(pendingDelivery.completion.claim, null);
     const units = JSON.parse(
       command(
         process.execPath,

@@ -282,5 +282,6 @@
         }
       ]
     }
-  }
+  },
+  "description": "v5 审阅由 document check --mode source 用于源码初始化交付，或默认 mode verified 用于运行验收交付。source 可使用空 acceptance，不能宣称运行通过。"
 }

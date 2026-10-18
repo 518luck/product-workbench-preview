@@ -32,7 +32,7 @@ exception 场景须包含实际业务拒绝或失败：具体 throw、表示拒�
 
 `verification run FEATURE BOOK --analysis-session SESSION --input COMMAND --json` 的输入增加 `scope:{planId,scenarioId}`。契约场景分别执行两次，scope.side 为 consumer 和 provider，两次都绑定同一份 contractContextId 的当前方案。end-to-end 同时携带方案绑定的 flow。组件和契约结果只支持声明范围，不叫整条链路已观测。
 
-执行记录能证明命令真实运行及绑定有效，不能自动证明自然语言断言充分。逐项检查测试确实调用了目标业务、核对输出和副作用、覆盖适用异常；只打印成功或空命令不能作为业务验收。使用真实 executionId 登记完成，保存后通过 flow sync 同步范围、层级和缺口。维护 Skill 不登记新完成，不清理待实现批注。
+执行记录能证明命令真实运行及绑定有效，不能自动证明自然语言断言充分。逐项检查测试确实调用了目标业务、核对输出和副作用、覆盖适用异常；只打印成功或空命令不能作为业务验收。使用真实 executionId 登记完成，保存后通过 flow sync 同步范围、层级和缺口。核验 Skill 不清理批注，实现 Skill 只清理本次已处理且核验通过的批注。
 
 功能完成与整条链路观测分开：符合当前定义并通过相应业务验收的功能可以完成；系统级联调不可用时保留具体范围限制，不把独立验收功能一律改草稿。按 [实现情况](implementation-status.md) 单独核对业务实现；当前定义已实现可以显示完成，同时如实保留运行未核验，不伪造执行记录。
 

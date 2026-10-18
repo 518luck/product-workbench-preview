@@ -59,12 +59,29 @@ test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改�
         .filter((op) => !covered.has(op.id))
         .map((op) => ({
           operationId: op.id,
-          reason: `本夹具操作 ${JSON.stringify(op.trigger)} 的共享技术支撑，另有明确的业务目标映射。`,
+          kind:
+            op.surface === 'library' ||
+            op.surface === 'cli-dispatch' ||
+            op.surface === 'registration'
+              ? 'internal'
+              : 'support',
+          capabilityIds: capabilities.map((c) => c.id),
+          reason:
+            op.trigger.name === 'enable'
+              ? '库导出把订阅标志设置为开启，公开 enable 命令已映射到该业务。'
+              : op.trigger.name === 'disable'
+                ? '库导出把订阅标志设置为关闭，对应取消订阅目标。'
+                : op.trigger.name === 'snapshot'
+                  ? '只读取内存中的订阅状态并包装为对象，不改变订阅。'
+                  : op.surface === 'cli-dispatch'
+                    ? '从进程参数选出具体命令的启动脚手架，两个实际命令已分别归属业务。'
+                    : `本夹具操作 ${JSON.stringify(op.trigger)} 的共享技术支撑，另有明确的业务目标映射。`,
           source: op.registration.file,
         })),
     };
     await recordBusinessModel(session, input);
-    assert.equal(gradeBusinessCase(directory, item, original).valid, true);
+    const grade = gradeBusinessCase(directory, item, original);
+    assert.equal(grade.valid, true, item.id + JSON.stringify(grade.errors));
     if (item.id === 'dispatch' || item.id.endsWith('-routes')) {
       const unit = state.units.find((u) => u.name === 'snapshot');
       input.capabilities[0].results = [

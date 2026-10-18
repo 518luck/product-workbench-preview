@@ -121,7 +121,7 @@ test('业务地图在详细阅读前即可形成；结构通过、语义审阅�
   assert.equal(businessInventory(f.session).total, 1);
   const input = card(f);
   const saved = await recordBusinessModel(f.session, input);
-  assert.equal(saved.valid, true);
+  assert.equal(saved.coverageValid, true);
   assert.equal(saved.semanticStatus, 'unreviewed');
   assert.equal(checkAnalysis(f.session).reviewedCount, 0, '业务草图不冒充源码阅读完成');
   await reviewBusinessModel(f.session, {
@@ -307,7 +307,7 @@ test('纯需求可以建业务草图，原文不能冒充代码已有实现', as
     ],
     dispositions: [],
   };
-  assert.equal((await recordBusinessModel(f.session, input)).valid, true);
+  assert.equal((await recordBusinessModel(f.session, input)).coverageValid, true);
   input.capabilities[0].classification = 'observed';
   await assert.rejects(recordBusinessModel(f.session, input), /操作编号/);
 });

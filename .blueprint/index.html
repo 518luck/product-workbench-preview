@@ -1,0 +1,2867 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="用自然语言记录产品背景、功能流程、业务规则和系统依赖。" />
+    <title>产品蓝图</title>
+    <script>
+      (() => {
+  let theme;
+  try {
+    theme = localStorage.getItem('product-workbench-theme');
+  } catch {}
+  if (theme !== 'light' && theme !== 'dark')
+    theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+})();
+
+    </script>
+    <style>
+      :root {
+  --bg: #fff;
+  --paper: #fff;
+  --side: #fafafa;
+  --ink: #171717;
+  --muted: #737373;
+  --line: #e5e5e5;
+  --green: #171717;
+  --green-soft: #f5f5f5;
+  --orange: #737373;
+  --theme-text: #171717;
+  --theme-muted-text: #737373;
+  --theme-paper: #fff;
+  --theme-soft-surface: #f5f5f5;
+  --theme-cool-surface: #fafafa;
+  --theme-border: #d4d4d4;
+  --theme-selected: #f0f0f0;
+  --theme-selected-border: #737373;
+  --theme-diagram-arrow: #737373;
+  --theme-warning-text: #525252;
+  --theme-primary-text: #fff;
+  --seq-request: #333;
+  --seq-return: #666;
+  --seq-lifeline: #888;
+  --seq-role-border: #ccc;
+  color-scheme: light;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.65;
+}
+:root[data-theme='dark'] {
+  --bg: #000;
+  --paper: #0a0a0a;
+  --side: #000;
+  --ink: #ededed;
+  --muted: #a3a3a3;
+  --line: #262626;
+  --green: #ededed;
+  --green-soft: #171717;
+  --theme-text: #ededed;
+  --theme-muted-text: #a3a3a3;
+  --theme-paper: #0a0a0a;
+  --theme-soft-surface: #171717;
+  --theme-cool-surface: #111;
+  --theme-border: #404040;
+  --theme-selected: #1a1a1a;
+  --theme-selected-border: #a3a3a3;
+  --theme-diagram-arrow: #a3a3a3;
+  --theme-warning-text: #d4d4d4;
+  --theme-primary-text: #000;
+  --seq-request: #dedede;
+  --seq-return: #b3b3b3;
+  --seq-lifeline: #666;
+  --seq-role-border: #555;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+}
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+}
+button svg {
+  pointer-events: none;
+}
+svg {
+  display: block;
+}
+.hidden,
+[hidden] {
+  display: none !important;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.small {
+  font-size: 11px;
+}
+.muted {
+  color: var(--muted);
+}
+.icon {
+  flex-shrink: 0;
+}
+.app {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--side);
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+.brand {
+  display: grid;
+  gap: 5px;
+  padding: 0 10px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+}
+.sidebar-top {
+  display: grid;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.overview-nav {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+.overview-nav.active,
+.overview-nav:hover {
+  background: var(--theme-selected);
+}
+.view-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  padding: 3px;
+}
+.view-tab {
+  padding: 7px 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.view-tab.active {
+  background: var(--theme-selected);
+  color: var(--ink);
+}
+.sidebar-directory {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar-directory > nav {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+.sidebar-directory > nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.nav-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.nav-label {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 0 8px;
+}
+.tree-actions {
+  display: flex;
+  gap: 6px;
+}
+.tree-actions button {
+  padding: 3px 0;
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.tree-actions button:hover:not(:disabled) {
+  color: var(--ink);
+}
+.nav-items {
+  display: grid;
+  gap: 3px;
+}
+.nav-item {
+  width: 100%;
+  text-align: left;
+  padding: 9px 8px;
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+.nav-item:hover,
+.nav-item.active {
+  background: var(--theme-selected);
+}
+.nav-end {
+  margin-left: auto;
+}
+.nav-feature-status {
+  font-size: 9px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.new-feature-nav {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 12px;
+}
+.feature-tree {
+  min-width: 0;
+}
+.feature-group > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.feature-group > summary::-webkit-details-marker {
+  display: none;
+}
+.feature-group > summary small {
+  margin-left: auto;
+  font-size: 9px;
+}
+.group-chevron {
+  display: inline-block;
+  width: 8px;
+  font-size: 16px;
+  line-height: 1;
+}
+.feature-group[open] > summary > .group-chevron {
+  transform: rotate(90deg);
+}
+.feature-group-children {
+  margin-left: 10px;
+  padding-left: 5px;
+  border-left: 1px solid var(--line);
+}
+.feature-leaf > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workspace {
+  min-width: 0;
+}
+.topbar {
+  height: 76px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 27px;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.breadcrumb strong {
+  font-weight: 500;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+#breadcrumb-section {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-actions {
+  flex-shrink: 0;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  font-size: 12px;
+  background: var(--paper);
+}
+.button:hover {
+  border-color: var(--theme-border);
+  background: var(--theme-soft-surface);
+}
+.button.primary {
+  background: var(--ink);
+  color: var(--theme-primary-text);
+  border-color: var(--ink);
+}
+.button.text {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+.page {
+  max-width: 1380px;
+  margin: auto;
+  padding: 24px 27px;
+  min-width: 0;
+}
+.page-heading {
+  margin-bottom: 22px;
+}
+.page-heading h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+.journey-canvas {
+  border: 1px solid var(--line);
+  padding: 18px 20px 16px;
+}
+.journey-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.journey-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.feature-name-editor {
+  flex-wrap: wrap;
+}
+.feature-name-field {
+  width: 180px;
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  background: none;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.feature-name-field:focus {
+  outline: 1px solid var(--muted);
+}
+.feature-name-editor > .button {
+  font-size: 10px;
+  padding: 4px 7px;
+}
+.diagram-gallery-nav {
+  display: flex;
+  border: 1px solid var(--line);
+  padding: 3px;
+  gap: 3px;
+  margin-bottom: 12px;
+}
+.diagram-tab {
+  flex: 1;
+  white-space: nowrap;
+  padding: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.diagram-tab.active {
+  background: var(--theme-selected);
+  color: var(--ink);
+}
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  background: var(--theme-soft-surface);
+  white-space: nowrap;
+}
+.document-summary {
+  padding: 12px 0 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.document-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.document-editor-heading label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.document-status {
+  font-size: 10px;
+  color: var(--muted);
+}
+.document-group-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.document-group-field > label {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.document-group-field input,
+#new-feature-group {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  background: var(--paper);
+  font-size: 11px;
+}
+.document-summary textarea,
+.feature-annotations textarea {
+  display: block;
+  width: 100%;
+  min-height: 125px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  background: var(--paper);
+  font-size: 13px;
+  line-height: 1.95;
+  resize: vertical;
+}
+.feature-annotations {
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--theme-soft-surface);
+}
+.feature-annotations p,
+.document-access p {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.feature-annotations textarea {
+  min-height: 90px;
+}
+.annotation-help {
+  font-size: 11px !important;
+}
+.annotation-history {
+  margin-top: 14px;
+  font-size: 12px;
+}
+.annotation-record-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.annotation-history article {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.annotation-history p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.annotation-history small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.document-access {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.document-access[hidden] {
+  display: none;
+}
+.document-access summary {
+  cursor: pointer;
+}
+.document-access code {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.document-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.document-editor-actions > span {
+  margin-right: auto;
+  font-size: 10px;
+  color: var(--muted);
+}
+.document-editor-actions .button {
+  font-size: 11px;
+  padding: 5px 9px;
+}
+.document-sync-note,
+.document-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.document-sync-note {
+  border-left: 2px solid var(--line);
+  padding: 6px 10px;
+}
+.flow-version-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.flow-version-bar h3 {
+  font-size: 12px;
+}
+.flow-version-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+}
+.empty-state {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 22px 12px;
+  border: 1px solid var(--line);
+}
+.empty-state h3 {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.graph-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+.flow-graph {
+  position: relative;
+  margin: auto;
+}
+.graph-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.graph-edges text {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.graph-node {
+  position: absolute;
+  top: 59px;
+  width: 170px;
+  height: 104px;
+  border: 1px solid var(--theme-border);
+  background: var(--paper);
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+.graph-node:hover,
+.graph-node.selected {
+  border-color: var(--ink);
+  background: var(--theme-selected);
+}
+.graph-node-head {
+  display: flex;
+  gap: 7px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.graph-node-head .mono {
+  margin-right: auto;
+}
+.graph-node strong {
+  font-size: 13px;
+}
+.graph-node-copy {
+  font-size: 10px;
+  color: var(--muted);
+}
+.graph-node-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: auto;
+}
+.graph-node-meta svg {
+  margin-left: auto;
+}
+.graph-failure {
+  position: absolute;
+  width: 275px;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  font-size: 10px;
+  line-height: 1.6;
+  background: var(--paper);
+  color: var(--muted);
+}
+.graph-warning-label {
+  fill: var(--muted);
+}
+.map-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.map-title > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.map-canvas {
+  width: 920px;
+}
+.map-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 5px;
+  border: 1px solid var(--theme-border);
+  padding: 10px 12px;
+  background: var(--paper);
+}
+.map-node:hover {
+  background: var(--theme-selected);
+  border-color: var(--ink);
+}
+.map-node-type {
+  font-size: 9px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.map-node strong {
+  font-size: 13px;
+}
+.map-subtitle,
+.map-fields {
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.map-fields {
+  display: grid;
+  gap: 2px;
+  border-top: 1px solid var(--line);
+  padding-top: 7px;
+}
+.diagram-footnote {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.sequence-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.sequence-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sequence-scenario {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sequence-scenario select {
+  border: 1px solid var(--line);
+  padding: 5px 9px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11px;
+}
+.sequence-step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.sequence-step-button {
+  display: flex;
+  gap: 6px;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  font-size: 10px;
+}
+.sequence-step-button.active {
+  background: var(--theme-selected);
+}
+.sequence-scroll {
+  overflow-x: auto;
+}
+.sequence-svg {
+  width: 100%;
+  min-width: 540px;
+  max-width: 880px;
+  margin: auto;
+}
+.seq-role {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.seq-message {
+  font-size: 12px;
+  fill: var(--ink);
+}
+.seq-order,
+.seq-caption {
+  font-size: 9px;
+  fill: var(--muted);
+}
+.seq-response {
+  fill: var(--muted);
+}
+.seq-lifeline {
+  stroke: var(--seq-lifeline);
+  stroke-width: 1.3;
+  vector-effect: non-scaling-stroke;
+}
+.seq-role-box {
+  stroke: var(--seq-role-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.sequence-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.sequence-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sequence-line {
+  width: 22px;
+  border-top: 2px solid var(--seq-request);
+}
+.sequence-line.return {
+  border-top: 2px dashed var(--seq-return);
+}
+.modal {
+  padding: 0;
+  border: 1px solid var(--theme-border);
+  width: 740px;
+  max-width: calc(100vw - 36px);
+  background: var(--paper);
+  color: var(--ink);
+}
+.modal::backdrop {
+  background: #0008;
+  backdrop-filter: blur(2px);
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.passport-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.modal-body {
+  padding: 14px 20px;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+}
+.passport-description {
+  font-size: 12px;
+  line-height: 1.9;
+  margin-bottom: 14px;
+}
+.passport-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+}
+.passport-section {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.passport-section h3 {
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+.passport-section h3 small {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.passport-section p {
+  font-size: 11px;
+  line-height: 1.85;
+  color: var(--muted);
+}
+.passport-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.85;
+  color: var(--muted);
+}
+.passport-dependencies {
+  display: grid;
+  gap: 6px;
+}
+.passport-dependencies button {
+  padding: 5px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  text-align: left;
+}
+.passport-dependencies button > svg {
+  margin-left: auto;
+}
+.passport-dependencies small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}
+.passport-warning {
+  background: var(--theme-soft-surface);
+  padding: 10px;
+}
+.passport-traces {
+  margin-top: 16px;
+}
+.passport-traces ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+}
+.passport-traces li {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 12px;
+  color: var(--muted);
+}
+.passport-check {
+  padding: 8px 10px;
+  background: var(--theme-soft-surface);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 12px;
+  line-height: 1.8;
+}
+.dep-document {
+  max-width: 1060px;
+}
+.dep-document-head {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.dep-document-head h1 {
+  font-size: 24px;
+}
+.dep-document-head p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.dep-document > section {
+  margin-top: 22px;
+}
+.dep-document h2 {
+  font-size: 13px;
+  margin-bottom: 9px;
+}
+.dep-document h2 small {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.dep-document section > p {
+  font-size: 12px;
+  line-height: 1.9;
+  margin-top: 5px;
+}
+.dep-function-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.dep-function-table th {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dep-function-table th:first-child {
+  width: 140px;
+}
+.dep-function-table td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.dep-function-table td:first-child {
+  padding-right: 15px;
+}
+.dep-function-table td:last-child {
+  color: var(--muted);
+}
+.dep-text-link {
+  padding: 0;
+  text-align: left;
+}
+.dep-text-link:hover {
+  text-decoration: underline;
+}
+.dep-text-status {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+}
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 30px;
+}
+.overview-intro {
+  font-size: 14px;
+  line-height: 1.95;
+  margin-bottom: 24px;
+}
+.section-heading {
+  margin-bottom: 12px;
+}
+.section-heading h2 {
+  font-size: 14px;
+}
+.overview-list {
+  display: grid;
+  gap: 16px;
+}
+.overview-group h3 {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-bottom: 4px;
+}
+.overview-group .overview-feature {
+  display: block;
+  width: 100%;
+}
+.overview-feature {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  text-align: left;
+}
+.overview-feature-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.overview-feature-description {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.85;
+}
+.aside-heading {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+.person-row {
+  font-size: 12px;
+  padding: 4px 0;
+}
+.new-feature-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+#new-feature-title {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 13px;
+}
+.new-feature-group-field {
+  margin-top: 16px;
+}
+.new-feature-document .document-summary {
+  margin-top: 20px;
+}
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--theme-primary-text);
+  padding: 10px 18px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.toast.show {
+  opacity: 1;
+}
+@media (max-width: 1170px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+  .aside {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .page {
+    padding: 22px 24px;
+  }
+}
+@media (max-width: 650px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: relative;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    gap: 12px;
+    padding: 16px;
+  }
+  .sidebar > nav {
+    max-height: 230px;
+  }
+  .brand {
+    padding: 0 0 12px;
+  }
+  .topbar {
+    height: 58px;
+    padding: 0 16px;
+  }
+  .page {
+    padding: 18px 16px;
+  }
+  .journey-canvas {
+    padding: 14px 12px;
+  }
+  .diagram-gallery-nav {
+    flex-wrap: wrap;
+  }
+  .diagram-tab {
+    flex: 1 1 100px;
+  }
+  .passport-grid {
+    grid-template-columns: 1fr;
+  }
+  .passport-traces li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .document-summary textarea,
+  input {
+    font-size: 16px;
+  }
+  .document-editor-actions {
+    flex-wrap: wrap;
+  }
+  .document-editor-actions > span {
+    flex-basis: 100%;
+  }
+  .dep-function-table th:first-child {
+    width: 112px;
+  }
+}
+.graph-scroll {
+  overflow-x: hidden;
+}
+.graph-node-head > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.graph-node strong,
+.graph-node-copy,
+.map-subtitle,
+.map-node strong {
+  overflow-wrap: anywhere;
+}
+.graph-node strong,
+.graph-node-copy {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.map-node {
+  gap: 4px;
+}
+.map-fields {
+  font-size: 11px;
+}
+.flow-exception {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  padding: 10px 0 0;
+}
+.map-relations {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: 12px;
+  text-align: left;
+}
+.map-relations th,
+.map-relations td {
+  padding: 7px 5px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.map-relations th {
+  color: var(--muted);
+  font-weight: 400;
+}
+.map-relations th:first-child {
+  width: 42px;
+}
+.map-relations th:nth-child(2) {
+  width: 48%;
+}
+.sequence-compact {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.sequence-compact li {
+  border-bottom: 1px solid var(--line);
+}
+.sequence-compact button {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  text-align: left;
+  width: 100%;
+}
+.sequence-compact strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.sequence-svg {
+  min-width: 0;
+  max-width: none;
+}
+.map-node .map-fields span {
+  overflow-wrap: anywhere;
+}
+
+.source-status {
+  margin: 18px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.source-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-status p,
+.source-status li {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.source-status p {
+  margin: 8px 0;
+}
+.source-status summary {
+  cursor: pointer;
+}
+.source-status li {
+  overflow-wrap: anywhere;
+}
+
+.implementation-status {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line, #888);
+}
+.implementation-status p,
+.implementation-status li {
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.verification-details {
+  margin-top: 20px;
+}
+.implementation-targets {
+  font-size: 12px;
+  color: var(--muted);
+}
+.verification-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.flow-verification {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line, #888);
+}
+.flow-verification p,
+.flow-verification li {
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.flow-verification summary {
+  cursor: pointer;
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="项目导航">
+        <div class="brand">
+          <div class="brand-name"></div>
+          <div class="brand-subtitle">产品蓝图</div>
+        </div>
+        <div class="sidebar-top">
+          <button class="overview-nav" id="overview-button" type="button"></button>
+          <div class="view-tabs" role="tablist" aria-label="产品视角">
+            <button
+              class="view-tab active"
+              id="business-tab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="workspace"
+              type="button"
+              data-mode="business"
+            >
+              业务功能
+            </button>
+            <button
+              class="view-tab"
+              id="dependencies-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="workspace"
+              type="button"
+              data-mode="dependencies"
+            >
+              系统依赖
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-directory">
+          <div class="nav-heading">
+            <div class="nav-label" id="nav-label">功能目录</div>
+            <div class="tree-actions" id="tree-actions" role="group" aria-label="目录展开控制">
+              <button
+                type="button"
+                id="tree-expand"
+                data-tree-open="true"
+                aria-controls="navigation"
+              >
+                全部展开</button
+              ><button
+                type="button"
+                id="tree-collapse"
+                data-tree-open="false"
+                aria-controls="navigation"
+              >
+                全部折叠
+              </button>
+            </div>
+          </div>
+          <nav id="directory-scroll" aria-label="功能目录" tabindex="0">
+            <div class="nav-items" id="navigation"></div>
+          </nav>
+        </div>
+      </aside>
+      <main class="workspace" id="workspace" role="tabpanel" aria-labelledby="business-tab">
+        <header class="topbar">
+          <div class="breadcrumb">
+            <strong></strong><span>/</span><span id="breadcrumb-section">业务功能</span>
+          </div>
+          <div class="topbar-actions">
+            <button class="button theme-toggle" id="theme-toggle" type="button"></button>
+          </div>
+        </header>
+        <div id="document-access" class="document-access" role="status"></div>
+        <section
+          id="source-status"
+          class="source-status"
+          aria-label="源码核验"
+          role="status"
+        ></section>
+        <div class="page" id="page"></div>
+      </main>
+    </div>
+    <dialog class="modal step-modal" id="step-modal" aria-labelledby="step-title">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title" id="step-title">步骤详情</h2>
+          <div class="passport-context" id="step-context"></div>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          data-close="step-modal"
+          aria-label="关闭步骤详情"
+        ></button>
+      </div>
+      <div class="modal-body" id="step-content"></div>
+    </dialog>
+    <div class="toast" role="status" aria-live="polite" id="toast"></div>
+    <script id="product-data" type="application/json">
+      {"schemaVersion":1,"product":{"name":"产品蓝图","background":"产品蓝图面向 AI 辅助开发，是人与 AI 共享的产品上下文。通过 Skills 快速初始化一本产品书，让人理解项目的功能和作用，再通过自然语言提出需求，让 AI 根据蓝图更新已有功能或新增功能，并同步蓝图。CLI、网页编辑、版本控制和验收是整条流程的支撑能力。","actors":["人类开发者：通过阅读产品书快速理解项目结构与功能定位，使用自然语言提出需求与修改建议，核验 AI 生成的代码与文档改动。","AI 协作代理：使用专属 Skill 自动化读取源码、理解产品上下文、维护蓝图业务定义、执行功能实现与分层验收并保持蓝图同步。","产品设计人员：通过可视化界面查阅产品能力地图、业务流程、时序图与数据流图，提出业务批注与需求调整。"]},"features":{"blueprint-init-skill":{"rules":["首次初始化固定在目标项目的 .blueprint 目录下生成产品书 JSON 与独立 HTML。","源码分析必须完整读取函数并独立记录语义，逐项核对已实现功能，不以空数组或批量套话代替。","必须启动本机 serve 服务并验证保存能力，交付带可编辑链接的产品书阅读入口。"],"flow":[["扫描项目与建立分析会话","扫描目标项目源码与上下文，建立 SQLite 分析会话。"],["完整读取源码与业务发现","分批读取源码与上下文，梳理操作清单并构建业务地图。"],["记录语义与生成图表","逐函数分析业务语义，依据业务规则生成时序图与数据流图。"],["保存定义与交付检查","应用变更批次写入产品书，执行交付检查验证结构与语义完整性。"],["启动编辑服务并交付","启动本机随机端口 HTTP 服务，验证保存能力并输出纯净交付链接。"]],"stepDetails":[{"actor":"AI 协作代理","description":"调用 analysis scan 扫描项目自有源码与上下文文档，生成 SQLite 会话。","rules":["必须覆盖约定自有源码范围，正确识别文件与上下文类型。"],"dependencies":["dep-sqlite3"],"result":"分析会话创建成功，输出 session 文件路径与初始 snapshotHash。","exception":"目录不存在或配置错误时抛出 INVALID_ARGUMENT 异常并终止。","interactions":[["AI 协作代理","蓝图 CLI","执行 analysis scan 扫描目标项目"]],"acceptance":"会话目录生成有效的 SQLite 数据库文件且包含单元与上下文清单。"},{"actor":"AI 协作代理","description":"分批执行 analysis pack 与 analysis read，完整读取源码，运行 business inventory 建立业务地图。","rules":["所有自有源码与上下文必须完整读取生成 receipts，业务能力按用户目标划分。"],"dependencies":["dep-sqlite3"],"result":"所有代码单元与上下文读取完成，业务地图 business-model.json 成功持久化。","exception":"源码读取失败或未覆盖范围时触发 checkDelivery 缺口报警。","interactions":[["AI 协作代理","分析引擎","调用 analysis pack/read 与 business record"]],"acceptance":"business record 返回 valid: true 且 coverageValid: true。"},{"actor":"AI 协作代理","description":"基于代码 AST 与语义分析，逐函数提取业务规则，生成时序图与数据流图定义。","rules":["时序图角色需包含完整参与者，数据流图需包含核心处理节点与流向。"],"dependencies":["dep-agent-skills"],"result":"功能时序图（sequence）与数据流图（dataflow）定义就绪。","exception":"缺少必要角色或步骤索引越界时 schema 校验拒绝。","interactions":[["AI 协作代理","蓝图 CLI","构造图表定义与节点连接"]],"acceptance":"生成的图表结构符合 schema 规范且各步骤编号与 flow 一一对应。"},{"actor":"AI 协作代理","description":"调用 apply 保存产品书定义并编译 index.html，执行 document check 校验交付完整性。","rules":["变更批次必须带 expectedHash，交付检查通过方可进入交付环节。"],"dependencies":["dep-sqlite3"],"result":"product-document.json 与 index.html 更新完成，document check 返回 valid: true。","exception":"存在未归类操作、缺少依据或哈希冲突时拒绝保存并报错。","interactions":[["AI 协作代理","文档存储","执行 apply 与 document check"]],"acceptance":"产品书 JSON 写入磁盘，index.html 成功生成且无校验错误。"},{"actor":"AI 协作代理","description":"启动 serve 服务监听本机随机端口，核验保存能力，向用户交付标准版式链接。","rules":["服务必须保持后台运行，核验 canSave: true，按 SKILL.md 规定版式输出。"],"dependencies":["dep-node-http"],"result":"HTTP 服务正常运行，交付包含已验证链接与核心业务旅程的纯净回复。","exception":"端口绑定失败或能力接口异常时如实说明服务不可用。","interactions":[["AI 协作代理","本地编辑服务","发起 /document/capabilities 核验请求"]],"acceptance":"通过 HTTP 请求返回正确的 JSON 响应且 canSave 字段为 true。"}],"dependencies":["dep-agent-skills","dep-sqlite3","dep-node-http"],"actors":["人类开发者","AI 协作代理"],"checks":["分析会话完整读取约定范围源码并完成八项语义分析。","产品书 JSON 与独立 HTML 成功生成且校验通过。","本机编辑服务成功启动且 /document/capabilities 返回 canSave: true。"],"impact":["为人类开发者提供清晰直观的产品功能书与可视化浏览入口。","为后续 AI 需求维护与代码实现提供权威的人机共享业务上下文。"],"overview":"为目标项目首次生成可阅读、可交互、可保存的产品书。从现有源码梳理产品功能，建立分析会话与业务地图，核对已有实现与验收并交付可编辑服务入口。","title":"产品书首次初始化（Init Skill）","groupPath":["Skill 协作"],"description":"将目标项目的定位、功能、规则与流程整理为人与 AI 共享的产品书，保存产品 JSON 并编译独立 HTML。初始化包含核验已有功能，不包含开发新功能。通过扫描源码、建立分析会话、分批读取并提取业务语义，生成时序图与数据流图，并最终启动本机编辑服务交付访问入口。","notes":"","sequence":{"roles":["人类开发者","AI 协作代理","蓝图 CLI","本地编辑服务"],"base":[[0,1,"发起 /product-blueprint-init 请求",0],[1,2,"执行 scan / pack / read 构建分析会话",1],[1,2,"提交业务地图与变更批次写入蓝图",3],[1,3,"启动后台服务并核验 /document/capabilities",4]],"normal":[[2,1,"分析会话就绪且读取覆盖率 100%",1,"return"],[2,1,"产品书更新成功且 document check 通过",3,"return"],[3,1,"服务启动成功且 canSave 为 true",4,"return"],[1,0,"交付可编辑链接与核心旅程总结",4,"return"]],"error":[[2,1,"存在未分析单元或校验错误",3,"error"],[3,1,"服务端口占用或无保存权限",4,"error"]]},"dataflow":{"title":"产品书初始化数据流","nodes":[{"id":"df-source","title":"项目源代码与上下文","type":"source","description":"代码库原始输入"},{"id":"df-session","title":"SQLite 分析会话","type":"store","description":"事实库与分析记录"},{"id":"df-model","title":"业务地图 (Model)","type":"process","description":"能力与操作映射"},{"id":"df-doc","title":"产品书 JSON","type":"artifact","description":"权威产品定义"},{"id":"df-html","title":"独立 index.html","type":"artifact","description":"离线可交互页面"},{"id":"df-service","title":"本地服务端点","type":"service","description":"可编辑保存支持"}],"edges":[{"from":"df-source","to":"df-session","label":"扫描与抽取"},{"from":"df-session","to":"df-model","label":"业务发现"},{"from":"df-model","to":"df-doc","label":"变更批次"},{"from":"df-doc","to":"df-html","label":"内联编译"},{"from":"df-doc","to":"df-service","label":"服务加载"}]},"id":"blueprint-init-skill","revision":1,"flowRevision":0,"implementedRevision":null,"updatedAt":"2026-10-18T06:37:05.057Z","implementationAssessment":{"revision":1,"definitionHash":"5f8f97085dd3e02e195540fa009940ae1728e8e6518293db38bdfe2ceabd72b8","assessedAt":"2026-10-18T06:37:05.057Z","items":[{"target":"/description","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /description 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"将项目的产品定位、功能、规则和流程整理为人与 AI 共享的产品书，保存产品 JSON 并生成独立 HTML。初始化包含核验已有功能，不包含开发新功能。","detail":"上下文原文精确声明并核验了 /description 的行为准则。"}],"unitIds":[]},{"target":"/rules/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/0 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"开始前读取 [产物目录](references/artifacts.md)，固定产品书、分析记录和本次工作文件的位置；首次生成默认使用目标项目的 `.blueprint/`，已有产品书继续使用原路径。","detail":"上下文原文精确声明并核验了 /rules/0 的行为准则。"}],"unitIds":[]},{"target":"/rules/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/1 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"3. 按 [初始化流程](references/workflow.md) 沿业务入口展开，再按模块完整读取约定范围源码和上下文，逐函数记录语义并反查遗漏。按 [内容审阅](references/content-review.md) 核对业务、规则和来源，生成 [适用图表](references/diagrams.md)，保存定义，绑定业务地图并完成语义审阅。","detail":"上下文原文精确声明并核验了 /rules/1 的行为准则。"}],"unitIds":[]},{"target":"/rules/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/2 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"检查通过后，按 [验收参考中的“启动可编辑页面”](references/verification.md) 用持久任务运行 `serve /文档目录 --port 0 --json`，确认服务连接到本次产品文档且支持保存，再用宿主的浏览器或页面打开能力打开实际返回的网址。提供服务网址，不以直接打开 HTML 文件代替可编辑入口。","detail":"上下文原文精确声明并核验了 /rules/2 的行为准则。"}],"unitIds":[]},{"target":"/checks/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/0 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"3. 按 [初始化流程](references/workflow.md) 沿业务入口展开，再按模块完整读取约定范围源码和上下文，逐函数记录语义并反查遗漏。按 [内容审阅](references/content-review.md) 核对业务、规则和来源，生成 [适用图表](references/diagrams.md)，保存定义，绑定业务地图并完成语义审阅。","detail":"上下文原文精确声明并核验了 /checks/0 的行为准则。"}],"unitIds":[]},{"target":"/checks/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/1 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"将项目的产品定位、功能、规则和流程整理为人与 AI 共享的产品书，保存产品 JSON 并生成独立 HTML。初始化包含核验已有功能，不包含开发新功能。","detail":"上下文原文精确声明并核验了 /checks/1 的行为准则。"}],"unitIds":[]},{"target":"/checks/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/2 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"检查通过后，按 [验收参考中的“启动可编辑页面”](references/verification.md) 用持久任务运行 `serve /文档目录 --port 0 --json`，确认服务连接到本次产品文档且支持保存，再用宿主的浏览器或页面打开能力打开实际返回的网址。提供服务网址，不以直接打开 HTML 文件代替可编辑入口。","detail":"上下文原文精确声明并核验了 /checks/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/0 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"1. 确定目标项目与输出目录，读取项目介绍及配置。保留其他产品的示例；同一任务恢复时先按“完成与恢复”核对进度，其他已有目标蓝图先检查源码状态并转为维护，不覆盖重建。","detail":"上下文原文精确声明并核验了 /flow/0 的行为准则。"}],"unitIds":[]},{"target":"/flow/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/1 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"2. 按 [业务发现与核对](references/business-discovery.md) 建立分析会话，先读取候选操作、模块与上下文，归纳使用者、目标和业务结果，保存早期业务地图。操作与能力不按函数或固定数量划分。","detail":"上下文原文精确声明并核验了 /flow/1 的行为准则。"}],"unitIds":[]},{"target":"/flow/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/2 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"3. 按 [初始化流程](references/workflow.md) 沿业务入口展开，再按模块完整读取约定范围源码和上下文，逐函数记录语义并反查遗漏。按 [内容审阅](references/content-review.md) 核对业务、规则和来源，生成 [适用图表](references/diagrams.md)，保存定义，绑定业务地图并完成语义审阅。","detail":"上下文原文精确声明并核验了 /flow/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/3","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/3 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"4. 按 [验收与交付检查](references/verification.md) 逐功能核验。逐项对照当前定义保存实现核对；已实现显示完成，实际缺失显示草稿并列出未实现内容，无法判断显示待确认。验收结论单独登记。","detail":"上下文原文精确声明并核验了 /flow/3 的行为准则。"}],"unitIds":[]},{"target":"/flow/4","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/4 的业务定义。","contextIds":["c-9cef920b1f57e97323af3b65"],"basis":[{"kind":"context","contextId":"c-9cef920b1f57e97323af3b65","quote":"5. 完成严格或明确的部分交付检查后自动启动本机 `serve`，打开可编辑、可保存的产品书，按下述格式交付。用户明确只要预览时停在预览；正常首次初始化直接保存，不等待用户确认陌生项目的内容。","detail":"上下文原文精确声明并核验了 /flow/4 的行为准则。"}],"unitIds":[]}],"sourceSnapshot":{"version":2,"root":"/Users/duoyun/work/idea/production/product-workbench-preview","snapshotHash":"f18b5409e7b67ef0d7bd91f6f91ba3248059a8c786e3d6dc18832f1d9d12f5cd","parserVersion":"6.0.2","indexVersion":11,"analyzers":{"javascript":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"typescript@6.0.2","syntax":true,"calls":"static-conservative","data":"def-use","runtime":"node-free-function-probes"},"python":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-python@0.25.0","grammarHash":"16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"python-free-scalar-probes","tool":{"command":"python3","available":true,"version":"Python 3.14.7"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"python-ast-scope","available":true},"boundaries":["装饰器、反射、动态导入及动态参数不能凭名称确认","运行探针暂不支持异步、生成器及已有装饰器"]},"go":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-go@0.25.0","grammarHash":"9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"go-free-scalar-probes","tool":{"command":"go","available":true,"version":"go version go1.27.1 darwin/arm64"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"go-packages-ssa","available":true},"boundaries":["SSA 静态目标与接口动态分派分别报告","运行探针限标量参数和单返回值自由函数、同包直接调用"]},"cpp":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-cpp@0.23.4","grammarHash":"174eb0deb75b2ec7881bcacda9f995648d8e683956e5c2267e69ab6dc503fcbf","syntax":true,"calls":"clang-or-runtime","data":"def-use-conservative","runtime":"cpp-free-scalar-probes","tool":{"command":"clang++","available":true,"version":"Apple clang version 21.0.0 (clang-2100.3.34.2)"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"clang-libtooling","available":true},"boundaries":["需要 arguments 形式的编译数据库；宏、虚调用及指针关系保留未知","LibTooling 使用当前编译数据库；未确认的宏和虚调用保留未知","运行探针限无宏、非 constexpr 的标量自由函数"]}},"scope":{"include":["."],"exclude":[".blueprint",".blueprint-analysis"],"contexts":["AGENTS.md","ANALYSIS.md","DOCUMENT.md","FLOW.md","README.md","assets/styles.css","assets/template.html","package.json","skills/product-blueprint-implement/SKILL.md","skills/product-blueprint-init/SKILL.md","skills/product-blueprint-maintain/SKILL.md"]},"manifest":[{"file":"AGENTS.md","kind":"context","hash":"58c51ff32374eb3376aa19664763c11207a6ad8cdcad2bef5379bf621b3058af","utf16Length":4098},{"file":"ANALYSIS.md","kind":"context","hash":"8445c189cc4cf71ecab3caf626003df8a6e8782af64f2aabdb406ba6e443eb82","utf16Length":13136},{"file":"assets/analyzers/cpp/main.cpp","kind":"source","hash":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","utf16Length":2740,"language":"cpp"},{"file":"assets/analyzers/go/go.mod","kind":"context","hash":"12172205d6b11f8eb0f68045e42e30c4bce3e0bf9f6de7eae33bca83acc6af82","utf16Length":171},{"file":"assets/analyzers/go/go.sum","kind":"context","hash":"9a901e50cdbf554874b8c79acb6ca4341c16aa148110b5e703ff7ec23414991c","utf16Length":632},{"file":"assets/analyzers/go/main.go","kind":"source","hash":"9ed1a087951afb7ef080af30536850b0fd3294041023936ae8a2f58da65f00c2","utf16Length":3046,"language":"go"},{"file":"assets/analyzers/python-analysis.py","kind":"source","hash":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","utf16Length":3801,"language":"python"},{"file":"assets/analyzers/python-instrument.py","kind":"source","hash":"302f9c5e342844070135b4995ef3c250578eede4666433cb7b5f4f39bec58284","utf16Length":5064,"language":"python"},{"file":"assets/client.js","kind":"source","hash":"8ce3eafee12360b2af1edeab4d914a64ec8cf64a6278f06ce7c5590f16eb8413","utf16Length":70496},{"file":"assets/runtime/browser-probe.js","kind":"source","hash":"02fde9b9e26498f77c0df54c812e212cdeafdbd026a005c4affec828ac39a34a","utf16Length":7578},{"file":"assets/runtime/cpp-probe.hpp","kind":"source","hash":"31b9b4f99bfac8f5f178f663eb7f31e67aeedbcb3ebcae99f1652f69aeb2dba7","utf16Length":4719,"language":"cpp"},{"file":"assets/runtime/node-probe.mjs","kind":"source","hash":"eb0ceae53bfedc7c4f856c159cb9c53f95383f7c130d0b2570045e5289d722e6","utf16Length":6898},{"file":"assets/runtime/python-probe.py","kind":"source","hash":"53e7ce7ef9a8669c24d9e1ac770c63f0a144f11b5b055f2d7f28bd4296b4947e","utf16Length":5090,"language":"python"},{"file":"assets/styles.css","kind":"context","hash":"89b4eb4982282c8c35444d0656023f4592c0b79ba37a78341fca9a95dd18173a","utf16Length":23538},{"file":"assets/template.html","kind":"context","hash":"59f711e048e4407e7f484b9b118b2f7ba2740b5677e10d2beb5f888e7447d7d5","utf16Length":3752},{"file":"assets/theme.js","kind":"source","hash":"762c38853c989ef61e3d49d76308d636f2efb4e23493bd287d2c145336609000","utf16Length":288},{"file":"bin/product-blueprint.mjs","kind":"source","hash":"a5c27c0d950faa41686b19512836071f9dfedd00810d9cfd50907e97e44df2e7","utf16Length":36498},{"file":"DOCUMENT.md","kind":"context","hash":"362fa417169eebd49507be59bf6c4d48911dfb3003a297a8397d4356479e2588","utf16Length":16209},{"file":"FLOW.md","kind":"context","hash":"e6a0af0c5f5b7ad2adf77facd625c70a14e982500b20edbe2d21b94b2137e69b","utf16Length":8956},{"file":"lib/analysis-adapters.mjs","kind":"source","hash":"b12495e8e0353d91a98fe3c2224126598f532c63102e2557a3c822cc44ac993e","utf16Length":4901},{"file":"lib/analysis-database.mjs","kind":"source","hash":"bf1c9b1d70cd4d559df2366198e322a3af91f1804d198ca763dfb5a8310934f1","utf16Length":13521},{"file":"lib/analysis-facts.mjs","kind":"source","hash":"a94452c5b76f1e1845b724236665860b09690e506b51aa999f8c61d81ff7bf88","utf16Length":12430},{"file":"lib/analysis-foreign-worker.mjs","kind":"source","hash":"b175e2b730f60fa7e0d58583d83047a6eb6fc107b260d43c3e386d2dca81a3ce","utf16Length":14075},{"file":"lib/analysis-incremental.mjs","kind":"source","hash":"320f398b8b4bee4d709f633d5231d7ea43fed5957ef7fe5550ff8af3c84b20ed","utf16Length":4922},{"file":"lib/analysis-index.mjs","kind":"source","hash":"ec18f1d2e5eb577aca0701973166052539d2a1ab8df296c78787b744daacfe13","utf16Length":29449},{"file":"lib/analysis-native.mjs","kind":"source","hash":"ca47b06a6a27d145a494b124aa37aa7e8ecf8d5690a13ef2209e4d49fcf9c86e","utf16Length":18650},{"file":"lib/analysis-review.mjs","kind":"source","hash":"e2ae86dd94e887130a867a402b6863f5308ee2018d2fcead2e80efb16991d80e","utf16Length":6837},{"file":"lib/analysis-scope.mjs","kind":"source","hash":"cac2b0f9e36f6e5774eb8cbf088295f24564819cb48c54a96f21ba9555c28e18","utf16Length":1265},{"file":"lib/analysis-session.mjs","kind":"source","hash":"fb08fd089d2b9cc395fb5ebf8a6b66af4db0b60ec895eac33fb7ada2c9ebf473","utf16Length":40387},{"file":"lib/analysis-store.mjs","kind":"source","hash":"99c727afb95500739f95a9cfb091c7d0be3bfe8cd69994eddf475bf35821c13e","utf16Length":5591},{"file":"lib/artifact-layout.mjs","kind":"source","hash":"a290d3df139465e82c0a7c8586e0dac56a923cbf10ffa084172577dedc76e04d","utf16Length":1310},{"file":"lib/business-flow-evidence.mjs","kind":"source","hash":"8e0eebea5fad2c1d02cf0cea04810b489fe8ab5f33790ad6be40d625362bf664","utf16Length":3123},{"file":"lib/business-foreign.mjs","kind":"source","hash":"e68548e6bc1e2b2922467d2c59d0f8f91547a8e9928072768f96afa8125c5ed2","utf16Length":18043},{"file":"lib/business-links.mjs","kind":"source","hash":"62537f89bdc87b61f12f2b8575b7f18c246d04bdbb0acf469f261b9c0b4240e3","utf16Length":3505},{"file":"lib/business-model.mjs","kind":"source","hash":"371d7d1c51bab8518c45faa47e1e4377c3242130a6cc039a67c2a49ba6aa8376","utf16Length":16970},{"file":"lib/business-operations.mjs","kind":"source","hash":"9a296ed733f13add35527688a11ad02bd2b0542114ba2e75378c6397c7f935ef","utf16Length":18263},{"file":"lib/component-observation.mjs","kind":"source","hash":"ea223e14bd86d4bc0a8a62173750c42b7436d242e75ecc48b4af953298bd31ec","utf16Length":10533},{"file":"lib/delivery-content.mjs","kind":"source","hash":"5bdd2bc23b39cd0ff440cdccc2dd62d29c5e1e4ca711e91fe6a76dfacdaf056b","utf16Length":8047},{"file":"lib/delivery.mjs","kind":"source","hash":"033797a5f9979fae034f2dac81a02c8bef83c01abff86bad85bea5dc045142e7","utf16Length":15130},{"file":"lib/document-operations.mjs","kind":"source","hash":"5a950ab30c802b1ca815d958221dda856f3e0ae434d8db3dd1c383f35cc03ba3","utf16Length":28918},{"file":"lib/document-server.mjs","kind":"source","hash":"a9bf241f2b7bd4ddd8056e82fadce1daaefde72016c31bd040fc95375192c170","utf16Length":9135},{"file":"lib/document-store.mjs","kind":"source","hash":"0766754faad639ff581c5c5dd9aed2dab5aa831cfa6c60747c4c51d672d8e0da","utf16Length":2659},{"file":"lib/document.mjs","kind":"source","hash":"c52bb23d18a7e56073418561b78e10ff85fbbc2b30e783a1d307ba04ffa36a80","utf16Length":2067},{"file":"lib/entry-coverage.mjs","kind":"source","hash":"7f5dd871ff3f0f572c126af44e6e95420d56ebc5167f453eabfd9fab16326598","utf16Length":4859},{"file":"lib/environment-probe.mjs","kind":"source","hash":"3c082d11a960de162fff044cc376f4b06adecfb76b98785d0d6e0acc14725f2f","utf16Length":3374},{"file":"lib/errors.mjs","kind":"source","hash":"55bdccb56310fb4cc770d19e0188ad2237d43a4877aaca1a9922dd6227512335","utf16Length":312},{"file":"lib/evidence-quality.mjs","kind":"source","hash":"39ed6df27fee57479ec6259280378b2dafb14ab7109df019df9fcdf7c6e0c908","utf16Length":6936},{"file":"lib/feature-operations.mjs","kind":"source","hash":"8e9e94a49853bf38afc0400a03c7d333e6579c245d1ea3c626c926dcba3dca24","utf16Length":11974},{"file":"lib/file-lock.mjs","kind":"source","hash":"f84c4916c3184186566cd4ab968729c5312b3621482e2b0207032d2b6983a9ee","utf16Length":2998},{"file":"lib/flow-browser.mjs","kind":"source","hash":"4062770a06814c7a978de721d017ea85f59c5889086811ebc54c7b806f8d9069","utf16Length":7188},{"file":"lib/flow-instrument-foreign.mjs","kind":"source","hash":"fe8e00a44a391ebdb11fce130aa7d2f2a8aa69f5701eec768570cc8b66b838c7","utf16Length":9791},{"file":"lib/flow-instrument-javascript.mjs","kind":"source","hash":"310015c2ba9176a72385dff1570fe018e14a7b01ffe486ddccbf6af6d8403ab5","utf16Length":16558},{"file":"lib/flow-protocol.mjs","kind":"source","hash":"a1040f29ef5ccc275622d39ba840befbb460017cbd465072d259ff113c44d44d","utf16Length":693},{"file":"lib/flow-runtime.mjs","kind":"source","hash":"338046126100f6390737eef2bb7bf432e4044a04faf5a90ae40cb367a61818da","utf16Length":18825},{"file":"lib/flow-status.mjs","kind":"source","hash":"f033cd6dc4d6769daec63909d1b4aee9c37555a86d431ca9d341260d7df9e7a9","utf16Length":8729},{"file":"lib/flow.mjs","kind":"source","hash":"7d0564d572d8c0fadf37453b9e318d25be0eedf1b2e4afc4bbc0a17b0a983b8e","utf16Length":29279},{"file":"lib/implementation-assessment.mjs","kind":"source","hash":"7388782544d4897f42737d0df7f646062cd6a0293a35aa252f7ef3c4d7668fb7","utf16Length":8788},{"file":"lib/source-evidence.mjs","kind":"source","hash":"da97ea28b018e32a96c1db3d5a57a05a097bd14ddb8f921de935ebfc9247cc39","utf16Length":4787},{"file":"lib/source-status.mjs","kind":"source","hash":"3a9ada9822bdcee81c231bd584263324650064d673b0d5361fe816db862baf70","utf16Length":6017},{"file":"lib/template.mjs","kind":"source","hash":"add013c7f46f0bf6c966ca9c0bff3ef56f0a95c73e1417a268626eccfd3b2b11","utf16Length":931},{"file":"lib/validation.mjs","kind":"source","hash":"156abb5ecc8ca13ebd1fe48495c8d681a171a71cc5c6f5a9afbcbd28d833245b","utf16Length":15826},{"file":"lib/verification-plan.mjs","kind":"source","hash":"329ea9a1850eacc42233d0d0c2c07b388cc365de744dc96571501d1c9b3f223e","utf16Length":19710},{"file":"lib/verification.mjs","kind":"source","hash":"f816622c821b6c6ad87fbc9010f14e43d20630100c1bc4474dab41655a812332","utf16Length":13063},{"file":"package.json","kind":"context","hash":"d348b1a88d0d82ccf6813795973b33d7a62d65feaff407873a9cdae03419e3ab","utf16Length":870},{"file":"pnpm-workspace.yaml","kind":"context","hash":"01abfcb8dc3c463e2fff8779d0cc75c498e7e2ee8c62f24dfee0488189674e46","utf16Length":113},{"file":"preview.mjs","kind":"source","hash":"535fbc8889d7c328d6c7f81ca48e41a5e105218a1d42bf11fea0580fd41b6d67","utf16Length":754},{"file":"README.md","kind":"context","hash":"d5a44c89c40e1800901b4b39ce76375743a012a2cac365491fbe0cb7a5d72bef","utf16Length":10000},{"file":"scripts/benchmark-analysis.mjs","kind":"source","hash":"95990840c029142798c829af2ae25718bc90cecfd758a8f372c85f2fc7f0bc05","utf16Length":3640},{"file":"scripts/evaluate-business.mjs","kind":"source","hash":"dc1b8904e75337ed590765b9e46d43f3c39ceaf006ad8104bf79bc3dace0edc4","utf16Length":11147},{"file":"scripts/evaluate-init.mjs","kind":"source","hash":"9f5cb59489c5ce5302d239e26e5e63d20fb04b24b072d981fb2ad804b457d89c","utf16Length":13632},{"file":"scripts/evaluate-workflows.mjs","kind":"source","hash":"4dab8b94205ba6b5fdb5e45136d3bbe5b52477f39c027f53009f6ac0ad17f05a","utf16Length":9218},{"file":"skills/product-blueprint-implement/SKILL.md","kind":"context","hash":"efa59c90dd6b2e4f3de14cbdbb25cb1e53b0c29dd70fcf264f67070a24be94a8","utf16Length":1648},{"file":"skills/product-blueprint-init/SKILL.md","kind":"context","hash":"50fa33db83429ace8dbb79ac48a94ff820d98486b49a77c6279565e62978d8c6","utf16Length":2714},{"file":"skills/product-blueprint-maintain/SKILL.md","kind":"context","hash":"c43c2b8575c49723121dbcfae95749811cb8150b9b625285837e745ec66a00d3","utf16Length":1548},{"file":"test/analysis-database.test.mjs","kind":"source","hash":"07055fe0760c9d88b66c0a273c62b9b7c88188984fdf0faf8c16fd9051c68bf2","utf16Length":3469},{"file":"test/analysis-incremental.test.mjs","kind":"source","hash":"378586b4ec816edd4178c526512d9448314a4138c6ada26d01a0bee565ef8219","utf16Length":6809},{"file":"test/analysis-index.test.mjs","kind":"source","hash":"f0f10e5fc2c39817a2d54927dfdc0ae70a0e59fd201b938c041714935a4ca2d7","utf16Length":8120},{"file":"test/analysis-record.test.mjs","kind":"source","hash":"5a45e5ed155217a24e64f14f2519da9e822878747ad933551163272161141f52","utf16Length":14959},{"file":"test/analysis-reliability.test.mjs","kind":"source","hash":"662303747668d86788fe72f70026635081bcde380fb732b6a9151569f95263fd","utf16Length":8331},{"file":"test/analysis-review.test.mjs","kind":"source","hash":"fd325b538d2d9ec541d2b9fe14c35c1c5ecb5f17ed6e0650fd247cc436049e8e","utf16Length":11884},{"file":"test/analysis-v2.test.mjs","kind":"source","hash":"c0afa8a533793517a3a8ac6247dd5ac07fdf7ea73447bc39368a56ec05ba951c","utf16Length":7257},{"file":"test/blueprint.test.mjs","kind":"source","hash":"d756f3fc3b22c0e8de60315833767dfba4c144ae56bf7b816dd69324d4b3daaf","utf16Length":9204},{"file":"test/business-eval.test.mjs","kind":"source","hash":"3ac06e268edaf7cddae635bd2a850344e6f4966c543c72e1f5eb9deba9a761b9","utf16Length":3844},{"file":"test/business-languages.test.mjs","kind":"source","hash":"e3f9bd5d913e04472a8cc1830b3f07ffc76844f97537f8d9981458a6b01ead19","utf16Length":15317},{"file":"test/business-links.test.mjs","kind":"source","hash":"c3206e3e96e5a4ef3b47ae76d3ca0aff9945ff616a7b05fba5ac82b009f339de","utf16Length":4162},{"file":"test/business.test.mjs","kind":"source","hash":"74fb0fac73e9bd04c8956c7ce9ca8acc63fa3d81ea8e5c677b06b410fa18898d","utf16Length":14519},{"file":"test/cli-operations.test.mjs","kind":"source","hash":"40b116c3349b93d598665411a40f4750810804ee6163cb1fa1478cb5d8dabe25","utf16Length":19366},{"file":"test/cli.test.mjs","kind":"source","hash":"b1db598562d8a9f3736864bb51dd7bfa84b44f59c68803594951f18d80c4f10a","utf16Length":2434},{"file":"test/completion.test.mjs","kind":"source","hash":"2f138ad01797c97f9bfe4c3a17b713e4f4bdaf4b2d6c9057c725619db6f414b8","utf16Length":8971},{"file":"test/cross-validation.test.mjs","kind":"source","hash":"2510d617963146aa57ed2f2c3421fc019277bc3f1222bdad7ba63f8a5ccb53b1","utf16Length":9815},{"file":"test/delivery-content.test.mjs","kind":"source","hash":"47ffcf56163e87a0eac6e0088db5448694c982dfd611fe11baa39964703d768d","utf16Length":5294},{"file":"test/delivery.test.mjs","kind":"source","hash":"98c5982279c64d30689520c8e736f84f4e269f2aaced8cb6950d7fc2bc11614a","utf16Length":18591},{"file":"test/document-operations.test.mjs","kind":"source","hash":"a53148f0f3ec2d000870e3da377775edd0543997666d0eb95d9f05b1db89840c","utf16Length":10874},{"file":"test/eval-init.test.mjs","kind":"source","hash":"6e2d79e2faf64d48ad70d655d49a4a841ee6f15f9fc0dac933b67c1a83e8d1ed","utf16Length":4834},{"file":"test/feature-operations.test.mjs","kind":"source","hash":"6337818a3cadf531d9cbb144094ae0b8f8065e9b17a2fea41c4fe73ccd24ddeb","utf16Length":6819},{"file":"test/flow-languages.test.mjs","kind":"source","hash":"6af30c2d5a205c1f14033c9ee7cef618d2bd5da58d329758d3abfd081b9607bc","utf16Length":13144},{"file":"test/flow.test.mjs","kind":"source","hash":"0e226ed6879564c7fd4c0eed5a0112910358b8821c92a652187d442ae598f0ed","utf16Length":21449},{"file":"test/foundation.test.mjs","kind":"source","hash":"21d37e239792c7dc798b6377895e6113c7ec592e8fdb61026a811cad2878a105","utf16Length":12177},{"file":"test/implementation-assessment.test.mjs","kind":"source","hash":"d45fefb084acf1d027517fc4d7f566daccf3d0ab909955fa588d640ced5488da","utf16Length":10678},{"file":"test/package.test.mjs","kind":"source","hash":"f720c01646b6eec7deb2f3284ea828ba2df7b13dacad06db1c6d4ae74f4894ff","utf16Length":10403},{"file":"test/quality-gates.test.mjs","kind":"source","hash":"d06b2ee13dc7e389d307be82da7a2d9048e3dce73832a7f14ba8c93697cb27ec","utf16Length":44971},{"file":"test/render-commit.test.mjs","kind":"source","hash":"e1fe91f000edf2d9d64764d97c81a97d379262c5cb58d276eebd2aaddd91640a","utf16Length":5093},{"file":"test/server.test.mjs","kind":"source","hash":"916317056fe67e3d466ab9626166eff352a67140c20f90dee59bd9bff0b09e1f","utf16Length":17882},{"file":"test/skill-workflows.test.mjs","kind":"source","hash":"50887633cd77bafba38f82afcddf1fa3336126ff7f0c83ee02600ef99aef0584","utf16Length":14814},{"file":"test/source-status.test.mjs","kind":"source","hash":"5d15f055958a135cc54005f353d64ed7e541e055b81818c6857238bcaf172287","utf16Length":6647},{"file":"test/template.test.mjs","kind":"source","hash":"2e1c81b7e666f97f0d690a54949536fc3f5c655060f1f443fdba9c36bf6d8b01","utf16Length":2158},{"file":"test/validation.test.mjs","kind":"source","hash":"bb3c1a696ecafad1808003843eb49f05a2455ebedfb8faa4f58a7509d70d23b7","utf16Length":5416},{"file":"test/verification-plan.test.mjs","kind":"source","hash":"f45e146d4fef560af606a15329c47a112546a2325999c075c75394f672ecef2c","utf16Length":22056}]}},"editRevision":2},"blueprint-maintain-skill":{"rules":["仅更新蓝图定义与图表，不执行项目代码实现。","需求维护更新必须使用版本号（revision）与预期哈希（expectedHash）保护，防止并发覆盖。","评估需求变更对已有功能、依赖及流程的影响，更新受影响功能的描述与规则。"],"flow":[["读取现有蓝图与状态核对","检查现有产品文档与源码基线，定位需要更新的功能。"],["整理需求变更与影响评估","根据自然语言需求梳理受影响的业务规则、依赖和步骤。"],["构造并提交变更批次","生成包含 expectedHash 的变更批次，通过 apply 安全写入。"],["更新图表与重新渲染","同步更新受影响的时序图与数据流图，重新渲染 HTML。"]],"stepDetails":[{"actor":"AI 协作代理","description":"读取 product-document.json 获取当前 revision 与功能列表，检查源码变动提示。","rules":["核对现有文档是否存在未合并的批注或冲突。"],"dependencies":["dep-agent-skills"],"result":"获取权威文档快照与最新 expectedHash。","exception":"文档损坏或 JSON 解析失败时报错终止。","interactions":[["AI 协作代理","蓝图 CLI","调用 document get 读取当前产品状态"]],"acceptance":"成功解析文档对象并提取出全部功能定义。"},{"actor":"AI 协作代理","description":"分析人类提出的自然语言需求，评估对现有业务流程、实体关系与规则的扩散影响。","rules":["明确需求边界，涉及新功能时分配新 featureId，修改已有功能时保持 id 稳定。"],"dependencies":["dep-agent-skills"],"result":"输出清晰的需求变更说明与受影响功能列表。","exception":"需求存在歧义时暂停并向人类开发者提问澄清。","interactions":[["人类开发者","AI 协作代理","提出自然语言需求或修改建议"]],"acceptance":"产出结构化的变更计划并列出需要修改的字段路径。"},{"actor":"AI 协作代理","description":"组装 batch 变更对象，包含 product.update 或 feature.update 操作，调用 apply 执行保存。","rules":["必须携带 expectedHash 防止覆盖其他并发编辑。"],"dependencies":["dep-agent-skills"],"result":"变更原子写入 product-document.json，更新 revision。","exception":"哈希不匹配时抛出 CONFLICT 并提示重新读取。","interactions":[["AI 协作代理","文档存储","提交 apply 命令写入变更"]],"acceptance":"返回更新后的 documentHash 且本地 JSON 内容生效。"},{"actor":"AI 协作代理","description":"重新编译生成单文件 index.html，确保前端页面呈现最新的图表与内容。","rules":["渲染产物必须保持离线可用，不引入外部 CDN 依赖。"],"dependencies":["dep-node-http"],"result":"index.html 重新生成完毕，展示最新定义。","exception":"模板解析或内嵌资源丢失时报错。","interactions":[["AI 协作代理","蓝图 CLI","执行 render 生成最新 HTML"]],"acceptance":"index.html 文件体积正常且包含最新更新的业务文本。"}],"dependencies":["dep-agent-skills","dep-node-http"],"actors":["人类开发者","AI 协作代理"],"checks":["准确识别受需求变更影响的功能与流程。","变更批次完整更新相关字段，并通过 apply 写入产品书。","重新渲染 HTML 确保可视化呈现与最新定义一致。"],"impact":["保持产品定义与人类业务意图时刻同步，作为后续代码实现的唯一依据。","防止未经评审的代码直接流入生产环境，确保变更影响可知可控。"],"overview":"更新已有产品蓝图。当产品需求发生变化或需要评估业务影响时，更新产品文档的业务定义与流程，不直接修改项目代码。","title":"产品蓝图需求维护（Maintain Skill）","groupPath":["Skill 协作"],"description":"当产品需求发生演进、业务规则调整或评估技术影响时，读取现有蓝图并更新对应功能的定义、流程与图表。维护流程仅修改产品书，不进行代码实现，通过严格的 expectedHash 机制防止并发保存冲突。","notes":"","sequence":{"roles":["人类开发者","AI 协作代理","蓝图 CLI","文档存储"],"base":[[0,1,"提出自然语言业务需求变更",0],[1,2,"读取现有蓝图并评估受影响功能",1],[1,3,"构造包含 expectedHash 的批次提交保存",2],[1,2,"重新渲染 HTML 页面",3]],"normal":[[2,1,"返回现有功能列表与当前哈希",0,"return"],[3,1,"批次写入成功，更新 revision",2,"return"],[2,1,"HTML 重新编译完成",3,"return"],[1,0,"交付更新后的蓝图概要与变更说明",3,"return"]],"error":[[3,1,"预期哈希不匹配 (CONFLICT)",2,"error"]]},"dataflow":{"title":"需求维护数据流","nodes":[{"id":"mf-user-req","title":"自然语言需求","type":"input","description":"用户输入或变更说明"},{"id":"mf-diff-planner","title":"变更规划器","type":"process","description":"梳理受影响的业务字段"},{"id":"mf-batch-file","title":"变更批次 JSON","type":"artifact","description":"待应用操作列表"},{"id":"mf-doc-store","title":"产品书存储","type":"store","description":"product-document.json"},{"id":"mf-web-view","title":"可视化界面","type":"view","description":"最新产品书页面"}],"edges":[{"from":"mf-user-req","to":"mf-diff-planner","label":"解析意图"},{"from":"mf-diff-planner","to":"mf-batch-file","label":"构造批次"},{"from":"mf-batch-file","to":"mf-doc-store","label":"安全写入"},{"from":"mf-doc-store","to":"mf-web-view","label":"渲染展示"}]},"id":"blueprint-maintain-skill","revision":1,"flowRevision":0,"implementedRevision":null,"updatedAt":"2026-10-18T06:37:23.301Z","implementationAssessment":{"revision":1,"definitionHash":"61cf471f674fd7e62412f62c3ef0efb115f649d603ba9ab79f0768623d73c2ac","assessedAt":"2026-10-18T06:37:23.300Z","items":[{"target":"/description","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /description 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"将用户需求和源码变化整理到现有产品书，保留用户原文、稳定编号与历史。本流程可在更新文档后结束，不默认进入代码实现。","detail":"上下文原文精确声明并核验了 /description 的行为准则。"}],"unitIds":[]},{"target":"/rules/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/0 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"- 不实现项目代码、不登记新完成记录、不清理待实现批注。可在临时副本核验本次声明场景，流程检查不改写已有完成历史。","detail":"上下文原文精确声明并核验了 /rules/0 的行为准则。"}],"unitIds":[]},{"target":"/rules/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/1 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"4. 用明确变更批次做 dry-run，展示业务差异、受影响范围和待确认问题。确认后提交；已有授权明确覆盖相同变更时直接继续，不重复确认。只要求预览时不保存。","detail":"上下文原文精确声明并核验了 /rules/1 的行为准则。"}],"unitIds":[]},{"target":"/rules/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/2 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"3. 区分代码已有行为与未来需求，整理规则、流程、依赖和受影响功能。保留原始定义；只有用户明确要求改写时才修改定义原文。","detail":"上下文原文精确声明并核验了 /rules/2 的行为准则。"}],"unitIds":[]},{"target":"/checks/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/0 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"2. 运行 `document status`，核对当前源码与已有验收基线；已完成功能没有批注时也检查代码变化。按 [维护流程](references/workflow.md) 读取相关材料并完成当前分析范围的记录。","detail":"上下文原文精确声明并核验了 /checks/0 的行为准则。"}],"unitIds":[]},{"target":"/checks/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/1 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"4. 用明确变更批次做 dry-run，展示业务差异、受影响范围和待确认问题。确认后提交；已有授权明确覆盖相同变更时直接继续，不重复确认。只要求预览时不保存。","detail":"上下文原文精确声明并核验了 /checks/1 的行为准则。"}],"unitIds":[]},{"target":"/checks/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/2 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"5. 读回保存结果并生成 HTML，交付阅读链接与简短变更说明。尚有歧义或缺口时说明具体影响。","detail":"上下文原文精确声明并核验了 /checks/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/0 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"1. 读取产品背景、相关功能与依赖，确定本次需求和授权范围。文档位置不清楚时先定位，不创建另一份蓝图代替现有内容。","detail":"上下文原文精确声明并核验了 /flow/0 的行为准则。"}],"unitIds":[]},{"target":"/flow/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/1 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"3. 区分代码已有行为与未来需求，整理规则、流程、依赖和受影响功能。保留原始定义；只有用户明确要求改写时才修改定义原文。","detail":"上下文原文精确声明并核验了 /flow/1 的行为准则。"}],"unitIds":[]},{"target":"/flow/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/2 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"4. 用明确变更批次做 dry-run，展示业务差异、受影响范围和待确认问题。确认后提交；已有授权明确覆盖相同变更时直接继续，不重复确认。只要求预览时不保存。","detail":"上下文原文精确声明并核验了 /flow/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/3","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/3 的业务定义。","contextIds":["c-bcac67d7df405b9528c05fcc"],"basis":[{"kind":"context","contextId":"c-bcac67d7df405b9528c05fcc","quote":"5. 读回保存结果并生成 HTML，交付阅读链接与简短变更说明。尚有歧义或缺口时说明具体影响。","detail":"上下文原文精确声明并核验了 /flow/3 的行为准则。"}],"unitIds":[]}],"sourceSnapshot":{"version":2,"root":"/Users/duoyun/work/idea/production/product-workbench-preview","snapshotHash":"f18b5409e7b67ef0d7bd91f6f91ba3248059a8c786e3d6dc18832f1d9d12f5cd","parserVersion":"6.0.2","indexVersion":11,"analyzers":{"javascript":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"typescript@6.0.2","syntax":true,"calls":"static-conservative","data":"def-use","runtime":"node-free-function-probes"},"python":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-python@0.25.0","grammarHash":"16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"python-free-scalar-probes","tool":{"command":"python3","available":true,"version":"Python 3.14.7"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"python-ast-scope","available":true},"boundaries":["装饰器、反射、动态导入及动态参数不能凭名称确认","运行探针暂不支持异步、生成器及已有装饰器"]},"go":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-go@0.25.0","grammarHash":"9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"go-free-scalar-probes","tool":{"command":"go","available":true,"version":"go version go1.27.1 darwin/arm64"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"go-packages-ssa","available":true},"boundaries":["SSA 静态目标与接口动态分派分别报告","运行探针限标量参数和单返回值自由函数、同包直接调用"]},"cpp":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-cpp@0.23.4","grammarHash":"174eb0deb75b2ec7881bcacda9f995648d8e683956e5c2267e69ab6dc503fcbf","syntax":true,"calls":"clang-or-runtime","data":"def-use-conservative","runtime":"cpp-free-scalar-probes","tool":{"command":"clang++","available":true,"version":"Apple clang version 21.0.0 (clang-2100.3.34.2)"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"clang-libtooling","available":true},"boundaries":["需要 arguments 形式的编译数据库；宏、虚调用及指针关系保留未知","LibTooling 使用当前编译数据库；未确认的宏和虚调用保留未知","运行探针限无宏、非 constexpr 的标量自由函数"]}},"scope":{"include":["."],"exclude":[".blueprint",".blueprint-analysis"],"contexts":["AGENTS.md","ANALYSIS.md","DOCUMENT.md","FLOW.md","README.md","assets/styles.css","assets/template.html","package.json","skills/product-blueprint-implement/SKILL.md","skills/product-blueprint-init/SKILL.md","skills/product-blueprint-maintain/SKILL.md"]},"manifest":[{"file":"AGENTS.md","kind":"context","hash":"58c51ff32374eb3376aa19664763c11207a6ad8cdcad2bef5379bf621b3058af","utf16Length":4098},{"file":"ANALYSIS.md","kind":"context","hash":"8445c189cc4cf71ecab3caf626003df8a6e8782af64f2aabdb406ba6e443eb82","utf16Length":13136},{"file":"assets/analyzers/cpp/main.cpp","kind":"source","hash":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","utf16Length":2740,"language":"cpp"},{"file":"assets/analyzers/go/go.mod","kind":"context","hash":"12172205d6b11f8eb0f68045e42e30c4bce3e0bf9f6de7eae33bca83acc6af82","utf16Length":171},{"file":"assets/analyzers/go/go.sum","kind":"context","hash":"9a901e50cdbf554874b8c79acb6ca4341c16aa148110b5e703ff7ec23414991c","utf16Length":632},{"file":"assets/analyzers/go/main.go","kind":"source","hash":"9ed1a087951afb7ef080af30536850b0fd3294041023936ae8a2f58da65f00c2","utf16Length":3046,"language":"go"},{"file":"assets/analyzers/python-analysis.py","kind":"source","hash":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","utf16Length":3801,"language":"python"},{"file":"assets/analyzers/python-instrument.py","kind":"source","hash":"302f9c5e342844070135b4995ef3c250578eede4666433cb7b5f4f39bec58284","utf16Length":5064,"language":"python"},{"file":"assets/client.js","kind":"source","hash":"8ce3eafee12360b2af1edeab4d914a64ec8cf64a6278f06ce7c5590f16eb8413","utf16Length":70496},{"file":"assets/runtime/browser-probe.js","kind":"source","hash":"02fde9b9e26498f77c0df54c812e212cdeafdbd026a005c4affec828ac39a34a","utf16Length":7578},{"file":"assets/runtime/cpp-probe.hpp","kind":"source","hash":"31b9b4f99bfac8f5f178f663eb7f31e67aeedbcb3ebcae99f1652f69aeb2dba7","utf16Length":4719,"language":"cpp"},{"file":"assets/runtime/node-probe.mjs","kind":"source","hash":"eb0ceae53bfedc7c4f856c159cb9c53f95383f7c130d0b2570045e5289d722e6","utf16Length":6898},{"file":"assets/runtime/python-probe.py","kind":"source","hash":"53e7ce7ef9a8669c24d9e1ac770c63f0a144f11b5b055f2d7f28bd4296b4947e","utf16Length":5090,"language":"python"},{"file":"assets/styles.css","kind":"context","hash":"89b4eb4982282c8c35444d0656023f4592c0b79ba37a78341fca9a95dd18173a","utf16Length":23538},{"file":"assets/template.html","kind":"context","hash":"59f711e048e4407e7f484b9b118b2f7ba2740b5677e10d2beb5f888e7447d7d5","utf16Length":3752},{"file":"assets/theme.js","kind":"source","hash":"762c38853c989ef61e3d49d76308d636f2efb4e23493bd287d2c145336609000","utf16Length":288},{"file":"bin/product-blueprint.mjs","kind":"source","hash":"a5c27c0d950faa41686b19512836071f9dfedd00810d9cfd50907e97e44df2e7","utf16Length":36498},{"file":"DOCUMENT.md","kind":"context","hash":"362fa417169eebd49507be59bf6c4d48911dfb3003a297a8397d4356479e2588","utf16Length":16209},{"file":"FLOW.md","kind":"context","hash":"e6a0af0c5f5b7ad2adf77facd625c70a14e982500b20edbe2d21b94b2137e69b","utf16Length":8956},{"file":"lib/analysis-adapters.mjs","kind":"source","hash":"b12495e8e0353d91a98fe3c2224126598f532c63102e2557a3c822cc44ac993e","utf16Length":4901},{"file":"lib/analysis-database.mjs","kind":"source","hash":"bf1c9b1d70cd4d559df2366198e322a3af91f1804d198ca763dfb5a8310934f1","utf16Length":13521},{"file":"lib/analysis-facts.mjs","kind":"source","hash":"a94452c5b76f1e1845b724236665860b09690e506b51aa999f8c61d81ff7bf88","utf16Length":12430},{"file":"lib/analysis-foreign-worker.mjs","kind":"source","hash":"b175e2b730f60fa7e0d58583d83047a6eb6fc107b260d43c3e386d2dca81a3ce","utf16Length":14075},{"file":"lib/analysis-incremental.mjs","kind":"source","hash":"320f398b8b4bee4d709f633d5231d7ea43fed5957ef7fe5550ff8af3c84b20ed","utf16Length":4922},{"file":"lib/analysis-index.mjs","kind":"source","hash":"ec18f1d2e5eb577aca0701973166052539d2a1ab8df296c78787b744daacfe13","utf16Length":29449},{"file":"lib/analysis-native.mjs","kind":"source","hash":"ca47b06a6a27d145a494b124aa37aa7e8ecf8d5690a13ef2209e4d49fcf9c86e","utf16Length":18650},{"file":"lib/analysis-review.mjs","kind":"source","hash":"e2ae86dd94e887130a867a402b6863f5308ee2018d2fcead2e80efb16991d80e","utf16Length":6837},{"file":"lib/analysis-scope.mjs","kind":"source","hash":"cac2b0f9e36f6e5774eb8cbf088295f24564819cb48c54a96f21ba9555c28e18","utf16Length":1265},{"file":"lib/analysis-session.mjs","kind":"source","hash":"fb08fd089d2b9cc395fb5ebf8a6b66af4db0b60ec895eac33fb7ada2c9ebf473","utf16Length":40387},{"file":"lib/analysis-store.mjs","kind":"source","hash":"99c727afb95500739f95a9cfb091c7d0be3bfe8cd69994eddf475bf35821c13e","utf16Length":5591},{"file":"lib/artifact-layout.mjs","kind":"source","hash":"a290d3df139465e82c0a7c8586e0dac56a923cbf10ffa084172577dedc76e04d","utf16Length":1310},{"file":"lib/business-flow-evidence.mjs","kind":"source","hash":"8e0eebea5fad2c1d02cf0cea04810b489fe8ab5f33790ad6be40d625362bf664","utf16Length":3123},{"file":"lib/business-foreign.mjs","kind":"source","hash":"e68548e6bc1e2b2922467d2c59d0f8f91547a8e9928072768f96afa8125c5ed2","utf16Length":18043},{"file":"lib/business-links.mjs","kind":"source","hash":"62537f89bdc87b61f12f2b8575b7f18c246d04bdbb0acf469f261b9c0b4240e3","utf16Length":3505},{"file":"lib/business-model.mjs","kind":"source","hash":"371d7d1c51bab8518c45faa47e1e4377c3242130a6cc039a67c2a49ba6aa8376","utf16Length":16970},{"file":"lib/business-operations.mjs","kind":"source","hash":"9a296ed733f13add35527688a11ad02bd2b0542114ba2e75378c6397c7f935ef","utf16Length":18263},{"file":"lib/component-observation.mjs","kind":"source","hash":"ea223e14bd86d4bc0a8a62173750c42b7436d242e75ecc48b4af953298bd31ec","utf16Length":10533},{"file":"lib/delivery-content.mjs","kind":"source","hash":"5bdd2bc23b39cd0ff440cdccc2dd62d29c5e1e4ca711e91fe6a76dfacdaf056b","utf16Length":8047},{"file":"lib/delivery.mjs","kind":"source","hash":"033797a5f9979fae034f2dac81a02c8bef83c01abff86bad85bea5dc045142e7","utf16Length":15130},{"file":"lib/document-operations.mjs","kind":"source","hash":"5a950ab30c802b1ca815d958221dda856f3e0ae434d8db3dd1c383f35cc03ba3","utf16Length":28918},{"file":"lib/document-server.mjs","kind":"source","hash":"a9bf241f2b7bd4ddd8056e82fadce1daaefde72016c31bd040fc95375192c170","utf16Length":9135},{"file":"lib/document-store.mjs","kind":"source","hash":"0766754faad639ff581c5c5dd9aed2dab5aa831cfa6c60747c4c51d672d8e0da","utf16Length":2659},{"file":"lib/document.mjs","kind":"source","hash":"c52bb23d18a7e56073418561b78e10ff85fbbc2b30e783a1d307ba04ffa36a80","utf16Length":2067},{"file":"lib/entry-coverage.mjs","kind":"source","hash":"7f5dd871ff3f0f572c126af44e6e95420d56ebc5167f453eabfd9fab16326598","utf16Length":4859},{"file":"lib/environment-probe.mjs","kind":"source","hash":"3c082d11a960de162fff044cc376f4b06adecfb76b98785d0d6e0acc14725f2f","utf16Length":3374},{"file":"lib/errors.mjs","kind":"source","hash":"55bdccb56310fb4cc770d19e0188ad2237d43a4877aaca1a9922dd6227512335","utf16Length":312},{"file":"lib/evidence-quality.mjs","kind":"source","hash":"39ed6df27fee57479ec6259280378b2dafb14ab7109df019df9fcdf7c6e0c908","utf16Length":6936},{"file":"lib/feature-operations.mjs","kind":"source","hash":"8e9e94a49853bf38afc0400a03c7d333e6579c245d1ea3c626c926dcba3dca24","utf16Length":11974},{"file":"lib/file-lock.mjs","kind":"source","hash":"f84c4916c3184186566cd4ab968729c5312b3621482e2b0207032d2b6983a9ee","utf16Length":2998},{"file":"lib/flow-browser.mjs","kind":"source","hash":"4062770a06814c7a978de721d017ea85f59c5889086811ebc54c7b806f8d9069","utf16Length":7188},{"file":"lib/flow-instrument-foreign.mjs","kind":"source","hash":"fe8e00a44a391ebdb11fce130aa7d2f2a8aa69f5701eec768570cc8b66b838c7","utf16Length":9791},{"file":"lib/flow-instrument-javascript.mjs","kind":"source","hash":"310015c2ba9176a72385dff1570fe018e14a7b01ffe486ddccbf6af6d8403ab5","utf16Length":16558},{"file":"lib/flow-protocol.mjs","kind":"source","hash":"a1040f29ef5ccc275622d39ba840befbb460017cbd465072d259ff113c44d44d","utf16Length":693},{"file":"lib/flow-runtime.mjs","kind":"source","hash":"338046126100f6390737eef2bb7bf432e4044a04faf5a90ae40cb367a61818da","utf16Length":18825},{"file":"lib/flow-status.mjs","kind":"source","hash":"f033cd6dc4d6769daec63909d1b4aee9c37555a86d431ca9d341260d7df9e7a9","utf16Length":8729},{"file":"lib/flow.mjs","kind":"source","hash":"7d0564d572d8c0fadf37453b9e318d25be0eedf1b2e4afc4bbc0a17b0a983b8e","utf16Length":29279},{"file":"lib/implementation-assessment.mjs","kind":"source","hash":"7388782544d4897f42737d0df7f646062cd6a0293a35aa252f7ef3c4d7668fb7","utf16Length":8788},{"file":"lib/source-evidence.mjs","kind":"source","hash":"da97ea28b018e32a96c1db3d5a57a05a097bd14ddb8f921de935ebfc9247cc39","utf16Length":4787},{"file":"lib/source-status.mjs","kind":"source","hash":"3a9ada9822bdcee81c231bd584263324650064d673b0d5361fe816db862baf70","utf16Length":6017},{"file":"lib/template.mjs","kind":"source","hash":"add013c7f46f0bf6c966ca9c0bff3ef56f0a95c73e1417a268626eccfd3b2b11","utf16Length":931},{"file":"lib/validation.mjs","kind":"source","hash":"156abb5ecc8ca13ebd1fe48495c8d681a171a71cc5c6f5a9afbcbd28d833245b","utf16Length":15826},{"file":"lib/verification-plan.mjs","kind":"source","hash":"329ea9a1850eacc42233d0d0c2c07b388cc365de744dc96571501d1c9b3f223e","utf16Length":19710},{"file":"lib/verification.mjs","kind":"source","hash":"f816622c821b6c6ad87fbc9010f14e43d20630100c1bc4474dab41655a812332","utf16Length":13063},{"file":"package.json","kind":"context","hash":"d348b1a88d0d82ccf6813795973b33d7a62d65feaff407873a9cdae03419e3ab","utf16Length":870},{"file":"pnpm-workspace.yaml","kind":"context","hash":"01abfcb8dc3c463e2fff8779d0cc75c498e7e2ee8c62f24dfee0488189674e46","utf16Length":113},{"file":"preview.mjs","kind":"source","hash":"535fbc8889d7c328d6c7f81ca48e41a5e105218a1d42bf11fea0580fd41b6d67","utf16Length":754},{"file":"README.md","kind":"context","hash":"d5a44c89c40e1800901b4b39ce76375743a012a2cac365491fbe0cb7a5d72bef","utf16Length":10000},{"file":"scripts/benchmark-analysis.mjs","kind":"source","hash":"95990840c029142798c829af2ae25718bc90cecfd758a8f372c85f2fc7f0bc05","utf16Length":3640},{"file":"scripts/evaluate-business.mjs","kind":"source","hash":"dc1b8904e75337ed590765b9e46d43f3c39ceaf006ad8104bf79bc3dace0edc4","utf16Length":11147},{"file":"scripts/evaluate-init.mjs","kind":"source","hash":"9f5cb59489c5ce5302d239e26e5e63d20fb04b24b072d981fb2ad804b457d89c","utf16Length":13632},{"file":"scripts/evaluate-workflows.mjs","kind":"source","hash":"4dab8b94205ba6b5fdb5e45136d3bbe5b52477f39c027f53009f6ac0ad17f05a","utf16Length":9218},{"file":"skills/product-blueprint-implement/SKILL.md","kind":"context","hash":"efa59c90dd6b2e4f3de14cbdbb25cb1e53b0c29dd70fcf264f67070a24be94a8","utf16Length":1648},{"file":"skills/product-blueprint-init/SKILL.md","kind":"context","hash":"50fa33db83429ace8dbb79ac48a94ff820d98486b49a77c6279565e62978d8c6","utf16Length":2714},{"file":"skills/product-blueprint-maintain/SKILL.md","kind":"context","hash":"c43c2b8575c49723121dbcfae95749811cb8150b9b625285837e745ec66a00d3","utf16Length":1548},{"file":"test/analysis-database.test.mjs","kind":"source","hash":"07055fe0760c9d88b66c0a273c62b9b7c88188984fdf0faf8c16fd9051c68bf2","utf16Length":3469},{"file":"test/analysis-incremental.test.mjs","kind":"source","hash":"378586b4ec816edd4178c526512d9448314a4138c6ada26d01a0bee565ef8219","utf16Length":6809},{"file":"test/analysis-index.test.mjs","kind":"source","hash":"f0f10e5fc2c39817a2d54927dfdc0ae70a0e59fd201b938c041714935a4ca2d7","utf16Length":8120},{"file":"test/analysis-record.test.mjs","kind":"source","hash":"5a45e5ed155217a24e64f14f2519da9e822878747ad933551163272161141f52","utf16Length":14959},{"file":"test/analysis-reliability.test.mjs","kind":"source","hash":"662303747668d86788fe72f70026635081bcde380fb732b6a9151569f95263fd","utf16Length":8331},{"file":"test/analysis-review.test.mjs","kind":"source","hash":"fd325b538d2d9ec541d2b9fe14c35c1c5ecb5f17ed6e0650fd247cc436049e8e","utf16Length":11884},{"file":"test/analysis-v2.test.mjs","kind":"source","hash":"c0afa8a533793517a3a8ac6247dd5ac07fdf7ea73447bc39368a56ec05ba951c","utf16Length":7257},{"file":"test/blueprint.test.mjs","kind":"source","hash":"d756f3fc3b22c0e8de60315833767dfba4c144ae56bf7b816dd69324d4b3daaf","utf16Length":9204},{"file":"test/business-eval.test.mjs","kind":"source","hash":"3ac06e268edaf7cddae635bd2a850344e6f4966c543c72e1f5eb9deba9a761b9","utf16Length":3844},{"file":"test/business-languages.test.mjs","kind":"source","hash":"e3f9bd5d913e04472a8cc1830b3f07ffc76844f97537f8d9981458a6b01ead19","utf16Length":15317},{"file":"test/business-links.test.mjs","kind":"source","hash":"c3206e3e96e5a4ef3b47ae76d3ca0aff9945ff616a7b05fba5ac82b009f339de","utf16Length":4162},{"file":"test/business.test.mjs","kind":"source","hash":"74fb0fac73e9bd04c8956c7ce9ca8acc63fa3d81ea8e5c677b06b410fa18898d","utf16Length":14519},{"file":"test/cli-operations.test.mjs","kind":"source","hash":"40b116c3349b93d598665411a40f4750810804ee6163cb1fa1478cb5d8dabe25","utf16Length":19366},{"file":"test/cli.test.mjs","kind":"source","hash":"b1db598562d8a9f3736864bb51dd7bfa84b44f59c68803594951f18d80c4f10a","utf16Length":2434},{"file":"test/completion.test.mjs","kind":"source","hash":"2f138ad01797c97f9bfe4c3a17b713e4f4bdaf4b2d6c9057c725619db6f414b8","utf16Length":8971},{"file":"test/cross-validation.test.mjs","kind":"source","hash":"2510d617963146aa57ed2f2c3421fc019277bc3f1222bdad7ba63f8a5ccb53b1","utf16Length":9815},{"file":"test/delivery-content.test.mjs","kind":"source","hash":"47ffcf56163e87a0eac6e0088db5448694c982dfd611fe11baa39964703d768d","utf16Length":5294},{"file":"test/delivery.test.mjs","kind":"source","hash":"98c5982279c64d30689520c8e736f84f4e269f2aaced8cb6950d7fc2bc11614a","utf16Length":18591},{"file":"test/document-operations.test.mjs","kind":"source","hash":"a53148f0f3ec2d000870e3da377775edd0543997666d0eb95d9f05b1db89840c","utf16Length":10874},{"file":"test/eval-init.test.mjs","kind":"source","hash":"6e2d79e2faf64d48ad70d655d49a4a841ee6f15f9fc0dac933b67c1a83e8d1ed","utf16Length":4834},{"file":"test/feature-operations.test.mjs","kind":"source","hash":"6337818a3cadf531d9cbb144094ae0b8f8065e9b17a2fea41c4fe73ccd24ddeb","utf16Length":6819},{"file":"test/flow-languages.test.mjs","kind":"source","hash":"6af30c2d5a205c1f14033c9ee7cef618d2bd5da58d329758d3abfd081b9607bc","utf16Length":13144},{"file":"test/flow.test.mjs","kind":"source","hash":"0e226ed6879564c7fd4c0eed5a0112910358b8821c92a652187d442ae598f0ed","utf16Length":21449},{"file":"test/foundation.test.mjs","kind":"source","hash":"21d37e239792c7dc798b6377895e6113c7ec592e8fdb61026a811cad2878a105","utf16Length":12177},{"file":"test/implementation-assessment.test.mjs","kind":"source","hash":"d45fefb084acf1d027517fc4d7f566daccf3d0ab909955fa588d640ced5488da","utf16Length":10678},{"file":"test/package.test.mjs","kind":"source","hash":"f720c01646b6eec7deb2f3284ea828ba2df7b13dacad06db1c6d4ae74f4894ff","utf16Length":10403},{"file":"test/quality-gates.test.mjs","kind":"source","hash":"d06b2ee13dc7e389d307be82da7a2d9048e3dce73832a7f14ba8c93697cb27ec","utf16Length":44971},{"file":"test/render-commit.test.mjs","kind":"source","hash":"e1fe91f000edf2d9d64764d97c81a97d379262c5cb58d276eebd2aaddd91640a","utf16Length":5093},{"file":"test/server.test.mjs","kind":"source","hash":"916317056fe67e3d466ab9626166eff352a67140c20f90dee59bd9bff0b09e1f","utf16Length":17882},{"file":"test/skill-workflows.test.mjs","kind":"source","hash":"50887633cd77bafba38f82afcddf1fa3336126ff7f0c83ee02600ef99aef0584","utf16Length":14814},{"file":"test/source-status.test.mjs","kind":"source","hash":"5d15f055958a135cc54005f353d64ed7e541e055b81818c6857238bcaf172287","utf16Length":6647},{"file":"test/template.test.mjs","kind":"source","hash":"2e1c81b7e666f97f0d690a54949536fc3f5c655060f1f443fdba9c36bf6d8b01","utf16Length":2158},{"file":"test/validation.test.mjs","kind":"source","hash":"bb3c1a696ecafad1808003843eb49f05a2455ebedfb8faa4f58a7509d70d23b7","utf16Length":5416},{"file":"test/verification-plan.test.mjs","kind":"source","hash":"f45e146d4fef560af606a15329c47a112546a2325999c075c75394f672ecef2c","utf16Length":22056}]}},"editRevision":2},"blueprint-implement-skill":{"rules":["仅在明确需求且已获实现授权时修改项目代码，有歧义时先向用户确认。","验收必须在临时副本中运行真实测试获取 executionId，严禁向原项目源码散放测试数据。","完成批次带 --require-verification 提交 feature.complete，严格绑定源码快照与验收证据。","验收完成后仅删除本次已处理批注，保留其他待确认事项。"],"flow":[["查找待实现定义与批注","扫描产品书中状态为 draft 或存在批注的功能。"],["确认需求与实施代码修改","在目标项目中进行代码编写或调整，确保满足定义规则。"],["配置分层验收方案","编写 verification plan，声明组件/契约/端到端验收场景与断言。"],["隔离运行验收与获取凭据","执行 verification run 运行真实测试套件，获取 executionId。"],["提交完成批次与同步蓝图","携带 executionId 提交 feature.complete，更新实现状态并渲染。"]],"stepDetails":[{"actor":"AI 协作代理","description":"检索 product-document.json 中未完成的功能或未处理的批注事项。","rules":["优先处理高优先级批注，识别需要新增或修改的代码范围。"],"dependencies":["dep-agent-skills"],"result":"输出明确的待实现功能列表与批注上下文。","exception":"无待实现功能时提示无需代码改动。","interactions":[["AI 协作代理","蓝图 CLI","调用 feature list 查询草稿功能"]],"acceptance":"成功识别出待处理功能及其关联的设计细节。"},{"actor":"AI 协作代理","description":"遵循项目的工程规范与技术约定，编写或重构业务代码。","rules":["代码修改必须覆盖功能定义的全部规则与异常处理，保留既有注释。"],"dependencies":["dep-agent-skills"],"result":"项目代码编写完成并通过基础静态检查。","exception":"代码存在语法错误或类型不匹配时立即修复。","interactions":[["AI 协作代理","目标项目代码库","创建或修改源文件"]],"acceptance":"本地 pnpm check 或等价命令无静态错误。"},{"actor":"AI 协作代理","description":"编写分层验收方案 verification plan，按业务步骤关联场景、断言与观测探针。","rules":["正常路径与异常路径均须覆盖，观测点必须绑定真实函数与返回值。"],"dependencies":["dep-sqlite3"],"result":"verification-plan.json 编写并保存完毕。","exception":"探针字段不合法或断言缺少场景时 schema 拒绝。","interactions":[["AI 协作代理","蓝图 CLI","执行 verification plan 保存方案"]],"acceptance":"方案成功录入且包含完整的 steps 与 scenarios 映射。"},{"actor":"AI 协作代理","description":"调用 verification run 在临时隔离环境中运行测试套件，核验各步骤断言。","rules":["必须在临时隔离目录运行，不得向原项目写入临时测试文档。"],"dependencies":["dep-sqlite3"],"result":"测试全部通过，获得以 v- 开头的真实 executionId。","exception":"测试断言失败或超时时输出错误诊断并阻断完成登记。","interactions":[["AI 协作代理","分析引擎","执行 verification run 隔离运行测试"]],"acceptance":"命令返回 valid: true 并附带真实的 executionId。"},{"actor":"AI 协作代理","description":"构造包含 executionId 的 feature.complete 批次，带 --require-verification 安全提交。","rules":["必须绑定当前源码快照基线，删除已处理批注，重新渲染 index.html。"],"dependencies":["dep-node-http"],"result":"功能实现状态标记为 complete，源码快照指纹更新，蓝图完成同步。","exception":"快照指纹不一致或执行编号无效时拒绝登记。","interactions":[["AI 协作代理","文档存储","执行 apply --require-verification 完成登记"]],"acceptance":"功能状态在产品书中显示为已完成，index.html 渲染展示最新验收凭据。"}],"dependencies":["dep-agent-skills","dep-sqlite3","dep-node-http"],"actors":["人类开发者","AI 协作代理"],"checks":["项目代码修改符合蓝图定义的规则与步骤。","在隔离临时副本中执行 verification run 且返回 valid: true。","通过 feature.complete 登记完成状态并绑定最新源码快照基线。"],"impact":["确保所有代码实现均有蓝图定义作为依据，实现人机协同闭环。","通过真实分层验收与源码基线比对，防止代码与文档长期脱节或产生漂移。"],"overview":"按产品蓝图新增或修改项目代码，执行分层验收并同步蓝图。自动查找待实现定义和已保存批注，完成代码修改、真实测试执行与完成状态登记。","title":"按蓝图实现与核验（Implement Skill）","groupPath":["Skill 协作"],"description":"在人机对齐的产品蓝图指导下，自动识别待实现功能与已保存批注，编写或调整项目代码。在隔离临时副本中执行分层验收，获取真实 executionId 凭据，更新功能完成状态并自动绑定源码快照指纹。","notes":"","sequence":{"roles":["人类开发者","AI 协作代理","目标代码库","蓝图 CLI","文档存储"],"base":[[0,1,"授权并指派特定功能实现任务",0],[1,2,"实施代码编写与重构修改",1],[1,3,"保存 verification plan 并执行 verification run",3],[1,4,"携带 executionId 提交 feature.complete",4]],"normal":[[2,1,"代码编写完成，本地静态检查通过",1,"return"],[3,1,"隔离测试运行通过，获取真实 executionId",3,"return"],[4,1,"功能登记为 complete，源码快照绑定完成",4,"return"],[1,0,"交付实现结果与验收证据",4,"return"]],"error":[[3,1,"业务断言失败或运行异常",3,"error"],[4,1,"验证未通过或快照冲突拒绝登记",4,"error"]]},"dataflow":{"title":"实现与核验数据流","nodes":[{"id":"if-blueprint","title":"待实现功能定义","type":"input","description":"规则与验收条件"},{"id":"if-source-code","title":"项目源码文件","type":"code","description":"实际功能实现"},{"id":"if-verif-plan","title":"分层验收方案","type":"plan","description":"场景与探针定义"},{"id":"if-runner","title":"隔离运行环境","type":"runtime","description":"临时副本与测试"},{"id":"if-complete-batch","title":"完成登记批次","type":"artifact","description":"绑定 executionId"},{"id":"if-doc-store","title":"产品书存储","type":"store","description":"更新完成状态与快照"}],"edges":[{"from":"if-blueprint","to":"if-source-code","label":"代码实现"},{"from":"if-blueprint","to":"if-verif-plan","label":"规划断言"},{"from":"if-source-code","to":"if-runner","label":"挂载运行"},{"from":"if-verif-plan","to":"if-runner","label":"执行核验"},{"from":"if-runner","to":"if-complete-batch","label":"产出 executionId"},{"from":"if-complete-batch","to":"if-doc-store","label":"持久化登记"}]},"id":"blueprint-implement-skill","revision":1,"flowRevision":0,"implementedRevision":null,"updatedAt":"2026-10-18T06:37:24.639Z","implementationAssessment":{"revision":1,"definitionHash":"f76003128f8bc739ff33778ed2bb59db12979eb320b51e7959c3765d1ed987ad","assessedAt":"2026-10-18T06:37:24.639Z","items":[{"target":"/description","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /description 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"在用户授权的项目与功能范围内，将蓝图中的明确需求落实到代码，核验实际行为并同步产品书。已有代码符合需求时核验即可，不重复开发。","detail":"上下文原文精确声明并核验了 /description 的行为准则。"}],"unitIds":[]},{"target":"/rules/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/0 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"3. 遵循目标项目自身约定修改代码。源码已实现且符合需求时进入核验；发现源码变化时先判断业务影响，不把每次提交都当作新功能。","detail":"上下文原文精确声明并核验了 /rules/0 的行为准则。"}],"unitIds":[]},{"target":"/rules/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/1 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"4. 按 [验收与完成登记](references/verification.md) 刷新当前源码分析与流程依据，执行真实验收，并对当前定义版本登记完成。","detail":"上下文原文精确声明并核验了 /rules/1 的行为准则。"}],"unitIds":[]},{"target":"/rules/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/2 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"- 用 CLI 的哈希、版本和实际执行记录保存；分析或验收失败时不伪造验收通过、不另行删除批注；实现情况按当前定义单独核对。","detail":"上下文原文精确声明并核验了 /rules/2 的行为准则。"}],"unitIds":[]},{"target":"/rules/3","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /rules/3 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"5. 与完成登记一起删除本次已处理且验收通过的批注；保留失败、未明确、未处理及处理期间新增的批注。读回源码状态与 HTML，交付阅读链接、实现结果及必要的剩余事项。","detail":"上下文原文精确声明并核验了 /rules/3 的行为准则。"}],"unitIds":[]},{"target":"/checks/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/0 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"3. 遵循目标项目自身约定修改代码。源码已实现且符合需求时进入核验；发现源码变化时先判断业务影响，不把每次提交都当作新功能。","detail":"上下文原文精确声明并核验了 /checks/0 的行为准则。"}],"unitIds":[]},{"target":"/checks/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/1 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"4. 按 [验收与完成登记](references/verification.md) 刷新当前源码分析与流程依据，执行真实验收，并对当前定义版本登记完成。","detail":"上下文原文精确声明并核验了 /checks/1 的行为准则。"}],"unitIds":[]},{"target":"/checks/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /checks/2 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"5. 与完成登记一起删除本次已处理且验收通过的批注；保留失败、未明确、未处理及处理期间新增的批注。读回源码状态与 HTML，交付阅读链接、实现结果及必要的剩余事项。","detail":"上下文原文精确声明并核验了 /checks/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/0","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/0 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"1. 运行 `document status`，读取蓝图及相关依赖。检查所有授权功能的定义、已保存批注和源码变化，不只筛选草稿。用户无须逐条复制批注或手动列出功能编号。","detail":"上下文原文精确声明并核验了 /flow/0 的行为准则。"}],"unitIds":[]},{"target":"/flow/1","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/1 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"2. 按 [实现流程](references/workflow.md) 将批注、当前定义与实际代码对照，确定本次目标。需求明确且已授权时整理定义并直接实现；有歧义、冲突或需要扩大范围时先确认，保留相应批注。","detail":"上下文原文精确声明并核验了 /flow/1 的行为准则。"}],"unitIds":[]},{"target":"/flow/2","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/2 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"3. 遵循目标项目自身约定修改代码。源码已实现且符合需求时进入核验；发现源码变化时先判断业务影响，不把每次提交都当作新功能。","detail":"上下文原文精确声明并核验了 /flow/2 的行为准则。"}],"unitIds":[]},{"target":"/flow/3","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/3 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"4. 按 [验收与完成登记](references/verification.md) 刷新当前源码分析与流程依据，执行真实验收，并对当前定义版本登记完成。","detail":"上下文原文精确声明并核验了 /flow/3 的行为准则。"}],"unitIds":[]},{"target":"/flow/4","state":"implemented","detail":"在工作流与对应代码实现中已完整满足 /flow/4 的业务定义。","contextIds":["c-549b567b1caaee1b96dedac2"],"basis":[{"kind":"context","contextId":"c-549b567b1caaee1b96dedac2","quote":"5. 与完成登记一起删除本次已处理且验收通过的批注；保留失败、未明确、未处理及处理期间新增的批注。读回源码状态与 HTML，交付阅读链接、实现结果及必要的剩余事项。","detail":"上下文原文精确声明并核验了 /flow/4 的行为准则。"}],"unitIds":[]}],"sourceSnapshot":{"version":2,"root":"/Users/duoyun/work/idea/production/product-workbench-preview","snapshotHash":"f18b5409e7b67ef0d7bd91f6f91ba3248059a8c786e3d6dc18832f1d9d12f5cd","parserVersion":"6.0.2","indexVersion":11,"analyzers":{"javascript":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"typescript@6.0.2","syntax":true,"calls":"static-conservative","data":"def-use","runtime":"node-free-function-probes"},"python":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-python@0.25.0","grammarHash":"16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"python-free-scalar-probes","tool":{"command":"python3","available":true,"version":"Python 3.14.7"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"python-ast-scope","available":true},"boundaries":["装饰器、反射、动态导入及动态参数不能凭名称确认","运行探针暂不支持异步、生成器及已有装饰器"]},"go":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-go@0.25.0","grammarHash":"9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7","syntax":true,"calls":"lexical-conservative","data":"def-use-conservative","runtime":"go-free-scalar-probes","tool":{"command":"go","available":true,"version":"go version go1.27.1 darwin/arm64"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"go-packages-ssa","available":true},"boundaries":["SSA 静态目标与接口动态分派分别报告","运行探针限标量参数和单返回值自由函数、同包直接调用"]},"cpp":{"version":1,"rulesHash":"5f5c6fa1bec7162f4be30f38600d31c3f314cc7eb411a50ab2a2e9743f19c388","parser":"tree-sitter-cpp@0.23.4","grammarHash":"174eb0deb75b2ec7881bcacda9f995648d8e683956e5c2267e69ab6dc503fcbf","syntax":true,"calls":"clang-or-runtime","data":"def-use-conservative","runtime":"cpp-free-scalar-probes","tool":{"command":"clang++","available":true,"version":"Apple clang version 21.0.0 (clang-2100.3.34.2)"},"native":{"pythonHelper":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","goHelper":"3d650d390f3c028ea851","goBinary":"7e4e36fd7207a779fbb5ca47c537945b173a2de3d40a9538c7b4d6eb02cce68c","cppHelper":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","cppBinary":"9cb77edffe49d2c5b6d2845a90f844fbc2db824a73dc3ac6dd45d1b3cac8c68a","clang":"ast-json-compile-db-v1"},"semantic":{"backend":"clang-libtooling","available":true},"boundaries":["需要 arguments 形式的编译数据库；宏、虚调用及指针关系保留未知","LibTooling 使用当前编译数据库；未确认的宏和虚调用保留未知","运行探针限无宏、非 constexpr 的标量自由函数"]}},"scope":{"include":["."],"exclude":[".blueprint",".blueprint-analysis"],"contexts":["AGENTS.md","ANALYSIS.md","DOCUMENT.md","FLOW.md","README.md","assets/styles.css","assets/template.html","package.json","skills/product-blueprint-implement/SKILL.md","skills/product-blueprint-init/SKILL.md","skills/product-blueprint-maintain/SKILL.md"]},"manifest":[{"file":"AGENTS.md","kind":"context","hash":"58c51ff32374eb3376aa19664763c11207a6ad8cdcad2bef5379bf621b3058af","utf16Length":4098},{"file":"ANALYSIS.md","kind":"context","hash":"8445c189cc4cf71ecab3caf626003df8a6e8782af64f2aabdb406ba6e443eb82","utf16Length":13136},{"file":"assets/analyzers/cpp/main.cpp","kind":"source","hash":"d574ce49a561b6fd05d86d59a5f099988658a9e7a8145eba417df6a72d18cb83","utf16Length":2740,"language":"cpp"},{"file":"assets/analyzers/go/go.mod","kind":"context","hash":"12172205d6b11f8eb0f68045e42e30c4bce3e0bf9f6de7eae33bca83acc6af82","utf16Length":171},{"file":"assets/analyzers/go/go.sum","kind":"context","hash":"9a901e50cdbf554874b8c79acb6ca4341c16aa148110b5e703ff7ec23414991c","utf16Length":632},{"file":"assets/analyzers/go/main.go","kind":"source","hash":"9ed1a087951afb7ef080af30536850b0fd3294041023936ae8a2f58da65f00c2","utf16Length":3046,"language":"go"},{"file":"assets/analyzers/python-analysis.py","kind":"source","hash":"4454959cfc82558523540797081dbaa6bc971274fca96cfca2afbdc0cfbcf1f9","utf16Length":3801,"language":"python"},{"file":"assets/analyzers/python-instrument.py","kind":"source","hash":"302f9c5e342844070135b4995ef3c250578eede4666433cb7b5f4f39bec58284","utf16Length":5064,"language":"python"},{"file":"assets/client.js","kind":"source","hash":"8ce3eafee12360b2af1edeab4d914a64ec8cf64a6278f06ce7c5590f16eb8413","utf16Length":70496},{"file":"assets/runtime/browser-probe.js","kind":"source","hash":"02fde9b9e26498f77c0df54c812e212cdeafdbd026a005c4affec828ac39a34a","utf16Length":7578},{"file":"assets/runtime/cpp-probe.hpp","kind":"source","hash":"31b9b4f99bfac8f5f178f663eb7f31e67aeedbcb3ebcae99f1652f69aeb2dba7","utf16Length":4719,"language":"cpp"},{"file":"assets/runtime/node-probe.mjs","kind":"source","hash":"eb0ceae53bfedc7c4f856c159cb9c53f95383f7c130d0b2570045e5289d722e6","utf16Length":6898},{"file":"assets/runtime/python-probe.py","kind":"source","hash":"53e7ce7ef9a8669c24d9e1ac770c63f0a144f11b5b055f2d7f28bd4296b4947e","utf16Length":5090,"language":"python"},{"file":"assets/styles.css","kind":"context","hash":"89b4eb4982282c8c35444d0656023f4592c0b79ba37a78341fca9a95dd18173a","utf16Length":23538},{"file":"assets/template.html","kind":"context","hash":"59f711e048e4407e7f484b9b118b2f7ba2740b5677e10d2beb5f888e7447d7d5","utf16Length":3752},{"file":"assets/theme.js","kind":"source","hash":"762c38853c989ef61e3d49d76308d636f2efb4e23493bd287d2c145336609000","utf16Length":288},{"file":"bin/product-blueprint.mjs","kind":"source","hash":"a5c27c0d950faa41686b19512836071f9dfedd00810d9cfd50907e97e44df2e7","utf16Length":36498},{"file":"DOCUMENT.md","kind":"context","hash":"362fa417169eebd49507be59bf6c4d48911dfb3003a297a8397d4356479e2588","utf16Length":16209},{"file":"FLOW.md","kind":"context","hash":"e6a0af0c5f5b7ad2adf77facd625c70a14e982500b20edbe2d21b94b2137e69b","utf16Length":8956},{"file":"lib/analysis-adapters.mjs","kind":"source","hash":"b12495e8e0353d91a98fe3c2224126598f532c63102e2557a3c822cc44ac993e","utf16Length":4901},{"file":"lib/analysis-database.mjs","kind":"source","hash":"bf1c9b1d70cd4d559df2366198e322a3af91f1804d198ca763dfb5a8310934f1","utf16Length":13521},{"file":"lib/analysis-facts.mjs","kind":"source","hash":"a94452c5b76f1e1845b724236665860b09690e506b51aa999f8c61d81ff7bf88","utf16Length":12430},{"file":"lib/analysis-foreign-worker.mjs","kind":"source","hash":"b175e2b730f60fa7e0d58583d83047a6eb6fc107b260d43c3e386d2dca81a3ce","utf16Length":14075},{"file":"lib/analysis-incremental.mjs","kind":"source","hash":"320f398b8b4bee4d709f633d5231d7ea43fed5957ef7fe5550ff8af3c84b20ed","utf16Length":4922},{"file":"lib/analysis-index.mjs","kind":"source","hash":"ec18f1d2e5eb577aca0701973166052539d2a1ab8df296c78787b744daacfe13","utf16Length":29449},{"file":"lib/analysis-native.mjs","kind":"source","hash":"ca47b06a6a27d145a494b124aa37aa7e8ecf8d5690a13ef2209e4d49fcf9c86e","utf16Length":18650},{"file":"lib/analysis-review.mjs","kind":"source","hash":"e2ae86dd94e887130a867a402b6863f5308ee2018d2fcead2e80efb16991d80e","utf16Length":6837},{"file":"lib/analysis-scope.mjs","kind":"source","hash":"cac2b0f9e36f6e5774eb8cbf088295f24564819cb48c54a96f21ba9555c28e18","utf16Length":1265},{"file":"lib/analysis-session.mjs","kind":"source","hash":"fb08fd089d2b9cc395fb5ebf8a6b66af4db0b60ec895eac33fb7ada2c9ebf473","utf16Length":40387},{"file":"lib/analysis-store.mjs","kind":"source","hash":"99c727afb95500739f95a9cfb091c7d0be3bfe8cd69994eddf475bf35821c13e","utf16Length":5591},{"file":"lib/artifact-layout.mjs","kind":"source","hash":"a290d3df139465e82c0a7c8586e0dac56a923cbf10ffa084172577dedc76e04d","utf16Length":1310},{"file":"lib/business-flow-evidence.mjs","kind":"source","hash":"8e0eebea5fad2c1d02cf0cea04810b489fe8ab5f33790ad6be40d625362bf664","utf16Length":3123},{"file":"lib/business-foreign.mjs","kind":"source","hash":"e68548e6bc1e2b2922467d2c59d0f8f91547a8e9928072768f96afa8125c5ed2","utf16Length":18043},{"file":"lib/business-links.mjs","kind":"source","hash":"62537f89bdc87b61f12f2b8575b7f18c246d04bdbb0acf469f261b9c0b4240e3","utf16Length":3505},{"file":"lib/business-model.mjs","kind":"source","hash":"371d7d1c51bab8518c45faa47e1e4377c3242130a6cc039a67c2a49ba6aa8376","utf16Length":16970},{"file":"lib/business-operations.mjs","kind":"source","hash":"9a296ed733f13add35527688a11ad02bd2b0542114ba2e75378c6397c7f935ef","utf16Length":18263},{"file":"lib/component-observation.mjs","kind":"source","hash":"ea223e14bd86d4bc0a8a62173750c42b7436d242e75ecc48b4af953298bd31ec","utf16Length":10533},{"file":"lib/delivery-content.mjs","kind":"source","hash":"5bdd2bc23b39cd0ff440cdccc2dd62d29c5e1e4ca711e91fe6a76dfacdaf056b","utf16Length":8047},{"file":"lib/delivery.mjs","kind":"source","hash":"033797a5f9979fae034f2dac81a02c8bef83c01abff86bad85bea5dc045142e7","utf16Length":15130},{"file":"lib/document-operations.mjs","kind":"source","hash":"5a950ab30c802b1ca815d958221dda856f3e0ae434d8db3dd1c383f35cc03ba3","utf16Length":28918},{"file":"lib/document-server.mjs","kind":"source","hash":"a9bf241f2b7bd4ddd8056e82fadce1daaefde72016c31bd040fc95375192c170","utf16Length":9135},{"file":"lib/document-store.mjs","kind":"source","hash":"0766754faad639ff581c5c5dd9aed2dab5aa831cfa6c60747c4c51d672d8e0da","utf16Length":2659},{"file":"lib/document.mjs","kind":"source","hash":"c52bb23d18a7e56073418561b78e10ff85fbbc2b30e783a1d307ba04ffa36a80","utf16Length":2067},{"file":"lib/entry-coverage.mjs","kind":"source","hash":"7f5dd871ff3f0f572c126af44e6e95420d56ebc5167f453eabfd9fab16326598","utf16Length":4859},{"file":"lib/environment-probe.mjs","kind":"source","hash":"3c082d11a960de162fff044cc376f4b06adecfb76b98785d0d6e0acc14725f2f","utf16Length":3374},{"file":"lib/errors.mjs","kind":"source","hash":"55bdccb56310fb4cc770d19e0188ad2237d43a4877aaca1a9922dd6227512335","utf16Length":312},{"file":"lib/evidence-quality.mjs","kind":"source","hash":"39ed6df27fee57479ec6259280378b2dafb14ab7109df019df9fcdf7c6e0c908","utf16Length":6936},{"file":"lib/feature-operations.mjs","kind":"source","hash":"8e9e94a49853bf38afc0400a03c7d333e6579c245d1ea3c626c926dcba3dca24","utf16Length":11974},{"file":"lib/file-lock.mjs","kind":"source","hash":"f84c4916c3184186566cd4ab968729c5312b3621482e2b0207032d2b6983a9ee","utf16Length":2998},{"file":"lib/flow-browser.mjs","kind":"source","hash":"4062770a06814c7a978de721d017ea85f59c5889086811ebc54c7b806f8d9069","utf16Length":7188},{"file":"lib/flow-instrument-foreign.mjs","kind":"source","hash":"fe8e00a44a391ebdb11fce130aa7d2f2a8aa69f5701eec768570cc8b66b838c7","utf16Length":9791},{"file":"lib/flow-instrument-javascript.mjs","kind":"source","hash":"310015c2ba9176a72385dff1570fe018e14a7b01ffe486ddccbf6af6d8403ab5","utf16Length":16558},{"file":"lib/flow-protocol.mjs","kind":"source","hash":"a1040f29ef5ccc275622d39ba840befbb460017cbd465072d259ff113c44d44d","utf16Length":693},{"file":"lib/flow-runtime.mjs","kind":"source","hash":"338046126100f6390737eef2bb7bf432e4044a04faf5a90ae40cb367a61818da","utf16Length":18825},{"file":"lib/flow-status.mjs","kind":"source","hash":"f033cd6dc4d6769daec63909d1b4aee9c37555a86d431ca9d341260d7df9e7a9","utf16Length":8729},{"file":"lib/flow.mjs","kind":"source","hash":"7d0564d572d8c0fadf37453b9e318d25be0eedf1b2e4afc4bbc0a17b0a983b8e","utf16Length":29279},{"file":"lib/implementation-assessment.mjs","kind":"source","hash":"7388782544d4897f42737d0df7f646062cd6a0293a35aa252f7ef3c4d7668fb7","utf16Length":8788},{"file":"lib/source-evidence.mjs","kind":"source","hash":"da97ea28b018e32a96c1db3d5a57a05a097bd14ddb8f921de935ebfc9247cc39","utf16Length":4787},{"file":"lib/source-status.mjs","kind":"source","hash":"3a9ada9822bdcee81c231bd584263324650064d673b0d5361fe816db862baf70","utf16Length":6017},{"file":"lib/template.mjs","kind":"source","hash":"add013c7f46f0bf6c966ca9c0bff3ef56f0a95c73e1417a268626eccfd3b2b11","utf16Length":931},{"file":"lib/validation.mjs","kind":"source","hash":"156abb5ecc8ca13ebd1fe48495c8d681a171a71cc5c6f5a9afbcbd28d833245b","utf16Length":15826},{"file":"lib/verification-plan.mjs","kind":"source","hash":"329ea9a1850eacc42233d0d0c2c07b388cc365de744dc96571501d1c9b3f223e","utf16Length":19710},{"file":"lib/verification.mjs","kind":"source","hash":"f816622c821b6c6ad87fbc9010f14e43d20630100c1bc4474dab41655a812332","utf16Length":13063},{"file":"package.json","kind":"context","hash":"d348b1a88d0d82ccf6813795973b33d7a62d65feaff407873a9cdae03419e3ab","utf16Length":870},{"file":"pnpm-workspace.yaml","kind":"context","hash":"01abfcb8dc3c463e2fff8779d0cc75c498e7e2ee8c62f24dfee0488189674e46","utf16Length":113},{"file":"preview.mjs","kind":"source","hash":"535fbc8889d7c328d6c7f81ca48e41a5e105218a1d42bf11fea0580fd41b6d67","utf16Length":754},{"file":"README.md","kind":"context","hash":"d5a44c89c40e1800901b4b39ce76375743a012a2cac365491fbe0cb7a5d72bef","utf16Length":10000},{"file":"scripts/benchmark-analysis.mjs","kind":"source","hash":"95990840c029142798c829af2ae25718bc90cecfd758a8f372c85f2fc7f0bc05","utf16Length":3640},{"file":"scripts/evaluate-business.mjs","kind":"source","hash":"dc1b8904e75337ed590765b9e46d43f3c39ceaf006ad8104bf79bc3dace0edc4","utf16Length":11147},{"file":"scripts/evaluate-init.mjs","kind":"source","hash":"9f5cb59489c5ce5302d239e26e5e63d20fb04b24b072d981fb2ad804b457d89c","utf16Length":13632},{"file":"scripts/evaluate-workflows.mjs","kind":"source","hash":"4dab8b94205ba6b5fdb5e45136d3bbe5b52477f39c027f53009f6ac0ad17f05a","utf16Length":9218},{"file":"skills/product-blueprint-implement/SKILL.md","kind":"context","hash":"efa59c90dd6b2e4f3de14cbdbb25cb1e53b0c29dd70fcf264f67070a24be94a8","utf16Length":1648},{"file":"skills/product-blueprint-init/SKILL.md","kind":"context","hash":"50fa33db83429ace8dbb79ac48a94ff820d98486b49a77c6279565e62978d8c6","utf16Length":2714},{"file":"skills/product-blueprint-maintain/SKILL.md","kind":"context","hash":"c43c2b8575c49723121dbcfae95749811cb8150b9b625285837e745ec66a00d3","utf16Length":1548},{"file":"test/analysis-database.test.mjs","kind":"source","hash":"07055fe0760c9d88b66c0a273c62b9b7c88188984fdf0faf8c16fd9051c68bf2","utf16Length":3469},{"file":"test/analysis-incremental.test.mjs","kind":"source","hash":"378586b4ec816edd4178c526512d9448314a4138c6ada26d01a0bee565ef8219","utf16Length":6809},{"file":"test/analysis-index.test.mjs","kind":"source","hash":"f0f10e5fc2c39817a2d54927dfdc0ae70a0e59fd201b938c041714935a4ca2d7","utf16Length":8120},{"file":"test/analysis-record.test.mjs","kind":"source","hash":"5a45e5ed155217a24e64f14f2519da9e822878747ad933551163272161141f52","utf16Length":14959},{"file":"test/analysis-reliability.test.mjs","kind":"source","hash":"662303747668d86788fe72f70026635081bcde380fb732b6a9151569f95263fd","utf16Length":8331},{"file":"test/analysis-review.test.mjs","kind":"source","hash":"fd325b538d2d9ec541d2b9fe14c35c1c5ecb5f17ed6e0650fd247cc436049e8e","utf16Length":11884},{"file":"test/analysis-v2.test.mjs","kind":"source","hash":"c0afa8a533793517a3a8ac6247dd5ac07fdf7ea73447bc39368a56ec05ba951c","utf16Length":7257},{"file":"test/blueprint.test.mjs","kind":"source","hash":"d756f3fc3b22c0e8de60315833767dfba4c144ae56bf7b816dd69324d4b3daaf","utf16Length":9204},{"file":"test/business-eval.test.mjs","kind":"source","hash":"3ac06e268edaf7cddae635bd2a850344e6f4966c543c72e1f5eb9deba9a761b9","utf16Length":3844},{"file":"test/business-languages.test.mjs","kind":"source","hash":"e3f9bd5d913e04472a8cc1830b3f07ffc76844f97537f8d9981458a6b01ead19","utf16Length":15317},{"file":"test/business-links.test.mjs","kind":"source","hash":"c3206e3e96e5a4ef3b47ae76d3ca0aff9945ff616a7b05fba5ac82b009f339de","utf16Length":4162},{"file":"test/business.test.mjs","kind":"source","hash":"74fb0fac73e9bd04c8956c7ce9ca8acc63fa3d81ea8e5c677b06b410fa18898d","utf16Length":14519},{"file":"test/cli-operations.test.mjs","kind":"source","hash":"40b116c3349b93d598665411a40f4750810804ee6163cb1fa1478cb5d8dabe25","utf16Length":19366},{"file":"test/cli.test.mjs","kind":"source","hash":"b1db598562d8a9f3736864bb51dd7bfa84b44f59c68803594951f18d80c4f10a","utf16Length":2434},{"file":"test/completion.test.mjs","kind":"source","hash":"2f138ad01797c97f9bfe4c3a17b713e4f4bdaf4b2d6c9057c725619db6f414b8","utf16Length":8971},{"file":"test/cross-validation.test.mjs","kind":"source","hash":"2510d617963146aa57ed2f2c3421fc019277bc3f1222bdad7ba63f8a5ccb53b1","utf16Length":9815},{"file":"test/delivery-content.test.mjs","kind":"source","hash":"47ffcf56163e87a0eac6e0088db5448694c982dfd611fe11baa39964703d768d","utf16Length":5294},{"file":"test/delivery.test.mjs","kind":"source","hash":"98c5982279c64d30689520c8e736f84f4e269f2aaced8cb6950d7fc2bc11614a","utf16Length":18591},{"file":"test/document-operations.test.mjs","kind":"source","hash":"a53148f0f3ec2d000870e3da377775edd0543997666d0eb95d9f05b1db89840c","utf16Length":10874},{"file":"test/eval-init.test.mjs","kind":"source","hash":"6e2d79e2faf64d48ad70d655d49a4a841ee6f15f9fc0dac933b67c1a83e8d1ed","utf16Length":4834},{"file":"test/feature-operations.test.mjs","kind":"source","hash":"6337818a3cadf531d9cbb144094ae0b8f8065e9b17a2fea41c4fe73ccd24ddeb","utf16Length":6819},{"file":"test/flow-languages.test.mjs","kind":"source","hash":"6af30c2d5a205c1f14033c9ee7cef618d2bd5da58d329758d3abfd081b9607bc","utf16Length":13144},{"file":"test/flow.test.mjs","kind":"source","hash":"0e226ed6879564c7fd4c0eed5a0112910358b8821c92a652187d442ae598f0ed","utf16Length":21449},{"file":"test/foundation.test.mjs","kind":"source","hash":"21d37e239792c7dc798b6377895e6113c7ec592e8fdb61026a811cad2878a105","utf16Length":12177},{"file":"test/implementation-assessment.test.mjs","kind":"source","hash":"d45fefb084acf1d027517fc4d7f566daccf3d0ab909955fa588d640ced5488da","utf16Length":10678},{"file":"test/package.test.mjs","kind":"source","hash":"f720c01646b6eec7deb2f3284ea828ba2df7b13dacad06db1c6d4ae74f4894ff","utf16Length":10403},{"file":"test/quality-gates.test.mjs","kind":"source","hash":"d06b2ee13dc7e389d307be82da7a2d9048e3dce73832a7f14ba8c93697cb27ec","utf16Length":44971},{"file":"test/render-commit.test.mjs","kind":"source","hash":"e1fe91f000edf2d9d64764d97c81a97d379262c5cb58d276eebd2aaddd91640a","utf16Length":5093},{"file":"test/server.test.mjs","kind":"source","hash":"916317056fe67e3d466ab9626166eff352a67140c20f90dee59bd9bff0b09e1f","utf16Length":17882},{"file":"test/skill-workflows.test.mjs","kind":"source","hash":"50887633cd77bafba38f82afcddf1fa3336126ff7f0c83ee02600ef99aef0584","utf16Length":14814},{"file":"test/source-status.test.mjs","kind":"source","hash":"5d15f055958a135cc54005f353d64ed7e541e055b81818c6857238bcaf172287","utf16Length":6647},{"file":"test/template.test.mjs","kind":"source","hash":"2e1c81b7e666f97f0d690a54949536fc3f5c655060f1f443fdba9c36bf6d8b01","utf16Length":2158},{"file":"test/validation.test.mjs","kind":"source","hash":"bb3c1a696ecafad1808003843eb49f05a2455ebedfb8faa4f58a7509d70d23b7","utf16Length":5416},{"file":"test/verification-plan.test.mjs","kind":"source","hash":"f45e146d4fef560af606a15329c47a112546a2325999c075c75394f672ecef2c","utf16Length":22056}]}},"editRevision":2}},"dependencies":[{"id":"dep-sqlite3","name":"better-sqlite3 本地分析数据库","category":"本地存储","purpose":"用于分析会话的行存储与增量事实持久化","description":"嵌入式 SQLite 引擎，存储代码扫描单元、上下文、事实和业务语义","responsibility":"快速读写 AST 节点、语义记录、分析依据与映射关系","failure":"数据库文件损坏或锁定会导致分析记录无法写入或读取","relations":[],"openQuestions":[]},{"id":"dep-node-http","name":"Node.js 原生 HTTP 服务","category":"网络服务","purpose":"在本地启动无外部依赖的可编辑、可保存文档服务器","description":"Node.js 运行时内置 http 模块，提供随机端口监听与 API 处理","responsibility":"处理文档静态资源请求、能力查询、保存与批注接口","failure":"端口冲突或无网络权限会导致本地文档服务无法启动","relations":[],"openQuestions":[]},{"id":"dep-agent-skills","name":"AI Agent 宿主环境与协作 Skills","category":"AI 协作框架","purpose":"提供产品蓝图初始化、需求维护与功能实现的 AI 自动化驱动环境","description":"基于 Antigravity 等 AI 代理环境的 Skill 扩展规范","responsibility":"解析自然语言指令，调用产品蓝图 CLI 工具与分析能力","failure":"缺少宿主环境会导致 AI 自动化流程无法驱动，退化为人工 CLI 操作","relations":["blueprint-init-skill","blueprint-maintain-skill","blueprint-implement-skill"],"openQuestions":[]}],"diagrams":{"architecture":{"title":"产品蓝图整体架构","nodes":[{"id":"arch-ai-agent","title":"AI 协作代理","type":"actor","description":"理解人机共享蓝图，自动化驱动初始化、维护与实现"},{"id":"arch-skills","title":"产品蓝图 Skills 协作层","type":"component","description":"提供 init / maintain / implement 三大业务工作流规范"},{"id":"arch-cli","title":"产品蓝图 CLI & API","type":"interface","description":"执行文档操作、分析扫描、验收验证与服务启动"},{"id":"arch-analysis-engine","title":"分析引擎与 SQLite 会话","type":"service","description":"增量代码扫描、事实抽取、业务地图构建与证据核验"},{"id":"arch-document-store","title":"文档存储与独立 HTML","type":"store","description":"持久化 product-document.json 并内联编译单文件 HTML"},{"id":"arch-web-server","title":"本地编辑服务","type":"server","description":"监听本机端口，提供可视化交互、批注管理与防并发保存"}],"edges":[{"from":"arch-ai-agent","to":"arch-skills","label":"遵循"},{"from":"arch-skills","to":"arch-cli","label":"调用"},{"from":"arch-cli","to":"arch-analysis-engine","label":"驱动分析"},{"from":"arch-cli","to":"arch-document-store","label":"安全读写"},{"from":"arch-cli","to":"arch-web-server","label":"启动托管"},{"from":"arch-web-server","to":"arch-document-store","label":"读写更新"}]},"entities":{"title":"产品蓝图核心领域实体关系","nodes":[{"id":"ent-product","title":"Product 产品","type":"entity","description":"产品根实体，包含产品定位、背景、参与者及元数据"},{"id":"ent-feature","title":"Feature 业务功能","type":"entity","description":"具有独立用户目标、步骤、规则、时序图与验收条件的业务能力"},{"id":"ent-dependency","title":"Dependency 依赖项","type":"entity","description":"系统外部或底层技术依赖及故障模式说明"},{"id":"ent-diagram","title":"Diagram 业务与架构图表","type":"entity","description":"架构图、实体关系图、时序图与数据流图的节点和边定义"},{"id":"ent-verification-plan","title":"VerificationPlan 验收方案","type":"entity","description":"按业务步骤定义分层验收级别、场景断言与探针观测"},{"id":"ent-source-snapshot","title":"SourceSnapshot 源码快照基线","type":"entity","description":"记录各功能验收完成时的真实源码文件清单、范围与指纹哈希"}],"edges":[{"from":"ent-product","to":"ent-feature","label":"包含多个"},{"from":"ent-product","to":"ent-dependency","label":"声明依赖"},{"from":"ent-product","to":"ent-diagram","label":"拥有全局图"},{"from":"ent-feature","to":"ent-diagram","label":"包含时序与数据流"},{"from":"ent-feature","to":"ent-dependency","label":"关联具体"},{"from":"ent-feature","to":"ent-verification-plan","label":"配置"},{"from":"ent-feature","to":"ent-source-snapshot","label":"绑定验收"}]}}}
+    </script>
+    <script>
+      (() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const paths = {
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+    moon: '<path d="M20.5 13A8.7 8.7 0 0 1 11 3.5a9 9 0 1 0 9.5 9.5Z"/>',
+    chevron: '<path d="m9 5 7 7-7 7"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  };
+  const icon = (name, size = 18) =>
+    `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:${size}px;height:${size}px">${paths[name] || ''}</svg>`;
+  const esc = (value) =>
+    String(value).replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+    );
+  const embeddedDocument = JSON.parse($('product-data').textContent);
+  const features = [];
+  const dependencies = [];
+  const initial = {
+    mode: 'business',
+    view: 'feature',
+    feature: Object.keys(embeddedDocument.features)[0] || '',
+    dependency: embeddedDocument.dependencies?.[0]?.id || '',
+    selectedStep: 0,
+    diagramView: 'flow',
+    projectDiagram: 'summary',
+    sequenceCase: 'success',
+  };
+  let state = { ...initial };
+  let productDocument = { features: {} };
+  let documentAvailable = false;
+  let documentLoading = true;
+  let sourceStatus = null;
+  let savedWarning = '';
+  async function readSaveResponse(response, fallback) {
+    const result = await response.json();
+    if (response.ok) return result;
+    if (result.documentSaved && result.feature) {
+      savedWarning = result.error || '内容已保存，阅读快照待恢复。';
+      return result.feature;
+    }
+    throw new Error(result.error || fallback);
+  }
+  let flowStatus = embeddedDocument.flowVerification || null;
+  let checkingSource = false;
+  let sourceCheckError = '';
+  const annotationDrafts = new Map();
+  let savingAnnotation = false;
+  let annotationRemoval = null;
+  const descriptionEdits = new Map();
+  const groupEdits = new Map();
+  const titleEdits = new Map();
+  let savingTitle = false;
+  function updateTitleEditor() {
+    const f = featureById(state.feature),
+      field = $('feature-name');
+    if (!field) return;
+    const changed = field.value.trim() !== f.title.trim(),
+      valid = field.value.trim().length > 0 && field.value.trim().length <= 80;
+    $('feature-name-save').hidden = !changed && !savingTitle;
+    $('feature-name-cancel').hidden = !changed && !savingTitle;
+    $('feature-name-save').disabled = !documentAvailable || savingTitle || !changed || !valid;
+    $('feature-name-cancel').disabled = savingTitle;
+    $('feature-name-save').textContent = savingTitle ? '保存中…' : '保存名称';
+    $('feature-name-status').textContent =
+      changed && !valid ? '名称为 1–80 字' : changed ? '名称未保存' : '';
+  }
+  async function saveFeatureTitle() {
+    const f = featureById(state.feature),
+      title = $('feature-name').value;
+    if (!title.trim() || title.trim().length > 80 || savingTitle || !documentAvailable) return;
+    savingTitle = true;
+    updateTitleEditor();
+    try {
+      const r = documentRecord(f),
+        response = await fetch('/document/features/' + encodeURIComponent(f.id), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: activeContent(f).description,
+            expectedRevision: r?.revision ?? 0,
+            expectedEditRevision: r?.editRevision ?? 0,
+          }),
+        });
+      const result = await readSaveResponse(response, '保存名称失败，请重试。');
+      productDocument.features[f.id] = result;
+      applyProductDocument(productDocument);
+      if (titleEdits.get(f.id) === title) titleEdits.delete(f.id);
+      if (state.feature === f.id && state.mode === 'business') render();
+      toast('名称已保存。');
+    } catch (error) {
+      toast(error.message || '名称未保存，输入内容仍保留。');
+    } finally {
+      savingTitle = false;
+      updateTitleEditor();
+    }
+  }
+  const expandedGroups = new Map();
+  const parseGroupPath = (value) =>
+    String(value || '')
+      .split(/[\/／>]/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  const validGroupPath = (parts) => parts.length <= 5 && parts.every((part) => part.length <= 40);
+  const featureGroups = (f) =>
+    Array.isArray(documentRecord(f)?.groupPath) ? documentRecord(f).groupPath : [];
+  const groupPathText = (f) => featureGroups(f).join(' / ');
+  function groupOptions() {
+    const paths = new Set();
+    for (const f of documentFeatures()) {
+      const parts = featureGroups(f);
+      for (let i = 1; i <= parts.length; i++) paths.add(parts.slice(0, i).join(' / '));
+    }
+    return `<datalist id="feature-group-options">${[...paths].map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`;
+  }
+  function openFeatureGroups(f) {
+    const parts = [...featureGroups(f)];
+    if (!parts.length) parts.push('未分组');
+    for (let i = 1; i <= parts.length; i++)
+      expandedGroups.set(JSON.stringify(parts.slice(0, i)), true);
+  }
+  function renderFeatureTree() {
+    const tree = { groups: new Map(), features: [] };
+    for (const f of documentFeatures()) {
+      const parts = featureGroups(f).length ? featureGroups(f) : ['未分组'];
+      let node = tree;
+      for (const part of parts) {
+        if (!node.groups.has(part))
+          node.groups.set(part, { groups: new Map(), features: [], count: 0 });
+        node = node.groups.get(part);
+        node.count++;
+      }
+      node.features.push(f);
+    }
+    function branch(node, path = []) {
+      const groups = [...node.groups]
+        .map(([title, child]) => {
+          const parts = [...path, title],
+            key = JSON.stringify(parts),
+            active =
+              state.view === 'feature' &&
+              JSON.stringify(
+                (featureGroups(featureById(state.feature)).length
+                  ? featureGroups(featureById(state.feature))
+                  : ['未分组']
+                ).slice(0, parts.length),
+              ) === key;
+          const open = expandedGroups.has(key)
+            ? expandedGroups.get(key)
+            : path.length === 0 || active;
+          return `<details class="feature-group" data-feature-group="${esc(key)}" ${open ? 'open' : ''}><summary aria-label="分组 ${esc(parts.join(' / '))}"><span class="group-chevron" aria-hidden="true">›</span><span>${esc(title)}</span><small>${child.count}</small></summary><div class="feature-group-children">${branch(child, parts)}</div></details>`;
+        })
+        .join('');
+      const leaves = node.features
+        .map(
+          (f) =>
+            `<button type="button" class="nav-item feature-leaf ${state.view === 'feature' && state.feature === f.id ? 'active' : ''}" data-feature="${esc(f.id)}" ${state.view === 'feature' && state.feature === f.id ? 'aria-current="page"' : ''}><span>${esc(documentRecord(f)?.title || f.title)}</span><span class="nav-end nav-feature-status">${featureStatus(f)}</span></button>`,
+        )
+        .join('');
+      return groups + leaves;
+    }
+    return `<div class="feature-tree">${branch(tree)}</div><button type="button" class="nav-item new-feature-nav" data-new-feature>＋ 新增功能</button>`;
+  }
+  function updateTreeControls() {
+    const groups = [...$('navigation').querySelectorAll('details.feature-group')];
+    $('tree-actions').hidden = state.mode !== 'business' || groups.length === 0;
+    $('tree-expand').disabled = groups.length === 0 || groups.every((group) => group.open);
+    $('tree-collapse').disabled = !groups.some((group) => group.open);
+  }
+  function setAllFeatureGroups(open) {
+    for (const group of $('navigation').querySelectorAll('details.feature-group')) {
+      expandedGroups.set(group.dataset.featureGroup, open);
+      group.open = open;
+    }
+    updateTreeControls();
+  }
+  let savingDescription = false;
+  let newFeatureDraft = { id: '', title: '', description: '', groupPathText: '' };
+  let creatingFeature = false;
+  function openNewFeature() {
+    state.mode = 'business';
+    state.view = 'new-feature';
+    render();
+    $('new-feature-title').focus();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function updateNewFeatureForm() {
+    const button = $('new-feature-save');
+    if (!button) return;
+    button.disabled =
+      !documentAvailable ||
+      creatingFeature ||
+      !newFeatureDraft.title.trim() ||
+      !newFeatureDraft.description.trim() ||
+      !validGroupPath(parseGroupPath(newFeatureDraft.groupPathText));
+    button.textContent = creatingFeature ? '保存中…' : '保存草稿';
+  }
+  function renderNewFeature() {
+    $('page').innerHTML =
+      `<article class="journey-canvas new-feature-document"><div class="journey-head"><h2>新增功能</h2><span class="document-status">草稿</span></div><form id="new-feature-form"><label class="new-feature-label" for="new-feature-title">功能名称</label><input id="new-feature-title" aria-label="功能名称" type="text" required maxlength="80" placeholder="填写功能名称" value="${esc(newFeatureDraft.title)}"><div class="new-feature-group-field"><label class="new-feature-label" for="new-feature-group">所属分组</label><input id="new-feature-group" aria-label="所属分组" list="feature-group-options" maxlength="215" placeholder="模块 / 子模块；留空为未分组" value="${esc(newFeatureDraft.groupPathText)}">${groupOptions()}</div><section class="document-summary"><div class="document-editor-heading"><label for="new-feature-definition">功能定义</label></div><textarea id="new-feature-definition" aria-label="新功能定义" required maxlength="5000" rows="6" placeholder="写下这个功能应当怎样运转。">${esc(newFeatureDraft.description)}</textarea></section><div class="document-editor-actions"><button class="button" type="button" data-cancel-new-feature>取消</button><button class="button" id="new-feature-save" type="submit" disabled>保存草稿</button></div></form></article>`;
+    updateNewFeatureForm();
+  }
+  async function createDocumentFeature() {
+    if (
+      creatingFeature ||
+      !documentAvailable ||
+      !newFeatureDraft.title.trim() ||
+      !newFeatureDraft.description.trim() ||
+      !validGroupPath(parseGroupPath(newFeatureDraft.groupPathText))
+    )
+      return;
+    if (!newFeatureDraft.id) newFeatureDraft.id = 'new-' + crypto.randomUUID();
+    const sent = { ...newFeatureDraft };
+    creatingFeature = true;
+    updateNewFeatureForm();
+    try {
+      const context = { title: sent.title.trim() };
+      const response = await fetch('/document/features/' + encodeURIComponent(sent.id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          create: true,
+          description: sent.description,
+          groupPath: parseGroupPath(sent.groupPathText),
+          expectedRevision: 0,
+          expectedEditRevision: 0,
+          context,
+        }),
+      });
+      const record = await readSaveResponse(response, '保存失败，请重试。');
+      productDocument.features[sent.id] = record;
+      applyProductDocument(productDocument);
+      newFeatureDraft = { id: '', title: '', description: '', groupPathText: '' };
+      state.diagramView = 'flow';
+      setFeature(sent.id);
+      toast('新功能已保存，等待 AI 核对实现情况。');
+    } catch (error) {
+      toast(error.message || '保存失败，输入内容仍保留。');
+    } finally {
+      creatingFeature = false;
+      updateNewFeatureForm();
+    }
+  }
+  const documentRecord = (f) => productDocument.features[f.id];
+  const featureStatus = (f) => {
+    if (descriptionEdits.has(f.id)) return '待确认';
+    const r = documentRecord(f);
+    const assessment = r?.implementationAssessment;
+    if (assessment?.revision === r?.revision && !descriptionEdits.has(f.id)) {
+      if (assessment.items.some((item) => item.state === 'missing')) return '草稿';
+      return assessment.items.every((item) => item.state === 'implemented') ? '完成' : '待确认';
+    }
+    return r && Number.isInteger(r.implementedRevision) && r.implementedRevision === r.revision
+      ? '完成'
+      : '待确认';
+  };
+  function implementationStatusMarkup(f) {
+    const r = documentRecord(f),
+      label = featureStatus(f);
+    const assessment =
+      r?.implementationAssessment?.revision === r?.revision && !descriptionEdits.has(f.id)
+        ? r.implementationAssessment
+        : null;
+    const items = assessment?.items || [];
+    const title = (target) => {
+      const [key, index] = target.slice(1).split('/');
+      if (key === 'description') return '功能定义';
+      if (key === 'flow') return '业务步骤：' + (r.flow[Number(index)]?.[0] || Number(index) + 1);
+      return (
+        (key === 'rules' ? '规则：' : '验收条件：') + (r[key]?.[Number(index)] || Number(index) + 1)
+      );
+    };
+    const list = (state, heading) => {
+      const entries = items.filter((item) => item.state === state);
+      const grouped = new Map();
+      for (const item of entries) {
+        if (!grouped.has(item.detail)) grouped.set(item.detail, []);
+        grouped.get(item.detail).push(title(item.target));
+      }
+      return grouped.size
+        ? `<h4>${heading}</h4><ul>${[...grouped].map(([detail, targets]) => `<li>${esc(detail)}<div class="implementation-targets">涉及：${targets.map(esc).join('、')}</div></li>`).join('')}</ul>`
+        : '';
+    };
+    return `<section class="implementation-status" aria-label="功能实现情况"><h3>实现情况：${label}</h3>${
+      label === '完成'
+        ? '<p>当前功能定义已实现。测试结果与未验证范围在验收详情中单独记录。</p>'
+        : label === '草稿'
+          ? '<p>以下内容尚未实现。</p>'
+          : '<p>当前定义的实现情况尚未确认；不能据此判断功能尚未实现。</p>'
+    }${list('missing', '尚未实现')}${list('unknown', '待确认的内容')}</section>`;
+  }
+  function applyProductDocument(doc) {
+    productDocument = doc;
+    features.splice(
+      0,
+      features.length,
+      ...Object.entries(doc.features || {})
+        .filter(
+          ([, r]) =>
+            r &&
+            typeof r.title === 'string' &&
+            typeof r.description === 'string' &&
+            Array.isArray(r.flow) &&
+            Array.isArray(r.rules),
+        )
+        .map(([id, r]) => ({
+          actors: [],
+          dependencies: [],
+          checks: [],
+          impact: [],
+          overview: r.description,
+          stepDetails: [],
+          ...r,
+          id,
+        })),
+    );
+    dependencies.splice(0, dependencies.length, ...(doc.dependencies || []));
+    if (!featureById(state.feature)) state.feature = features[0]?.id || '';
+    if (!depById(state.dependency)) state.dependency = dependencies[0]?.id || '';
+    if (!features.length) state.view = 'overview';
+    const name = doc.product?.name || '产品蓝图';
+    document.title = '产品蓝图 · ' + name;
+    document.querySelector('.brand-name').textContent = name;
+    document.querySelector('.breadcrumb strong').textContent = name;
+    document.querySelector('meta[name="description"]').content =
+      '用自然语言记录产品背景、功能流程、业务规则和系统依赖。';
+  }
+  async function loadProductDocument() {
+    if (location.protocol === 'file:') {
+      documentLoading = false;
+      render();
+      return;
+    }
+    try {
+      const response = await fetch('/product-document.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error();
+      const doc = await response.json();
+      if (!doc.features || typeof doc.features !== 'object') throw new Error();
+      applyProductDocument(doc);
+      const responseAccess = await fetch('/document/capabilities', { cache: 'no-store' });
+      const access = responseAccess.ok ? await responseAccess.json() : null;
+      documentAvailable = access?.canSave === true;
+    } catch {
+      documentAvailable = false;
+    }
+    documentLoading = false;
+    render();
+    if (documentAvailable) await refreshSourceStatus();
+  }
+  async function refreshFlowStatus() {
+    try {
+      const response = await fetch('/document/flow-status', { cache: 'no-store' });
+      if (response.ok) flowStatus = await response.json();
+    } catch {
+      flowStatus = null;
+    }
+    if (state.view === 'feature') renderFeature();
+  }
+  function flowStatusMarkup(f) {
+    const record = flowStatus?.features?.[f.id];
+    const changed =
+      record && (record.revision !== documentRecord(f)?.revision || descriptionEdits.has(f.id));
+    const status = changed
+      ? 'stale'
+      : record?.status === 'passed' &&
+          (!record.coverage || record.coverage.observedSteps.length < record.coverage.totalSteps)
+        ? 'partial'
+        : record?.status || 'unverified';
+    const labels = {
+      passed: '已核验',
+      partial: '部分核验',
+      unverified: '未核验',
+      failed: '失败',
+      stale: '已过期',
+    };
+    const gaps = changed
+      ? [{ message: '功能定义已变化，需要重新核验流程。' }]
+      : record?.gaps || [{ message: '尚无此功能的业务流程与运行证据。' }];
+    const globalGaps = flowStatus?.globalGaps || [];
+    const coverage = record?.coverage;
+    const layers = record?.verification?.steps || [];
+    const layerLabels = {
+      source: '源码核对',
+      component: '组件验收',
+      contract: '契约两端验收',
+      'end-to-end': '端到端观测',
+    };
+    const scope = `${coverage ? `<p>链路观测覆盖 ${coverage.observedSteps.length}/${coverage.totalSteps} 个业务步骤；组件与契约验收另列，各层结论分别计算。</p>` : '<p>当前记录未提供完整业务步骤覆盖，不能据此认定整条链路已核验。</p>'}${
+      layers.length
+        ? `<p>${Object.entries(layerLabels)
+            .filter(([key]) => layers.some((s) => s.level === key))
+            .map(
+              ([key, label]) =>
+                `${label}：${layers.filter((s) => s.level === key && s.valid).length}/${layers.filter((s) => s.level === key).length} 步`,
+            )
+            .join(
+              ' · ',
+            )}</p><p>组件与契约执行支持已声明的业务断言，不代表整条链路已观测。断言的业务充分性须单独审阅。</p>`
+        : ''
+    }`;
+    const plan = record?.verification;
+    const planDetails = plan
+      ? `<details><summary>分层验收范围与执行证据</summary><p>${esc(plan.goal)}</p><ul>${plan.scenarios.map((s) => `<li>${esc(layerLabels[s.level])} · ${s.kind === 'exception' ? '异常' : '正常'}：${esc(s.assertion)}（${s.valid ? '执行记录有效' : '尚缺有效执行'}）${s.executionIds.length ? `<ul>${s.executionIds.map((id) => `<li><code>${esc(id)}</code></li>`).join('')}</ul>` : ''}</li>`).join('')}</ul></details>`
+      : '';
+    const flows = (record?.flows || [])
+      .map((flow) => {
+        const scenarios = flow.scenarios || [];
+        return `<p>${esc(flow.title)}：${esc(labels[flow.status] || labels.unverified)}</p>${scenarios.length ? `<details><summary>执行证据（${scenarios.length} 个场景）</summary>${flow.scope ? `<p>入口：<code>${esc(flow.scope.entryId)}</code> · ${esc(flow.scope.sourceUnits)} 个源码单元 · ${esc(flow.scope.edges)} 项连接</p>` : ''}<ul>${scenarios.map((scenario) => `<li>${esc(scenario.id)}（${scenario.kind === 'exception' ? '异常' : '正常'}）：${scenario.valid ? '观测成立' : '未通过'}${scenario.executionId ? ` · <code>${esc(scenario.executionId)}</code>` : ' · 尚无执行记录'}</li>`).join('')}</ul></details>` : ''}`;
+      })
+      .join('');
+    return `<details class="verification-details"><summary>验收与技术详情</summary><section class="flow-verification" aria-label="流程核验"><div class="flow-version-bar"><h3>流程核验：${esc(labels[status] || labels.unverified)}</h3></div><p>${location.protocol === 'file:' ? '这是保存时的核验记录；当前源码尚未实时比较。' : '结论涵盖已识别入口、声明场景和当前支持范围。'} 实现情况与验收情况分别记录。</p>${scope}${planDetails}<details><summary>核验范围与缺口（${gaps.length}）</summary>${gaps.length ? `<ul>${gaps.map((gap) => `<li>${esc(gap.message || gap.kind)}${gap.edgeId ? `（连接 ${esc(gap.edgeId)}）` : ''}</li>`).join('')}</ul>` : '<p>所列场景已有对应证据；完整链路结论以步骤覆盖与连接检查为准。</p>'}${flows}</details>${globalGaps.length ? `<details><summary>项目级诊断（${globalGaps.length}）</summary><p>这是整个项目的检查清单，条数不等于本功能未实现的数量。</p><ul>${globalGaps.map((gap) => `<li>${esc(gap.message || gap.kind)}</li>`).join('')}</ul></details>` : ''}</section></details>`;
+  }
+  function renderDocumentAccess() {
+    const panel = $('document-access');
+    panel.hidden = documentAvailable;
+    if (documentAvailable) return;
+    panel.innerHTML = documentLoading
+      ? '正在连接本机文档服务…'
+      : `<strong>只读快照，无法写回项目</strong><p>${location.protocol === 'file:' ? '您正在直接打开 HTML 文件。保存定义和批注需要通过本机文档服务打开页面。' : '当前地址没有可用的本机保存服务。已显示的内容仍可阅读。'} 批注需要保存到产品文档，实现 Skill 才能读取。</p><details><summary>如何启用保存</summary><p>请让当前 AI 为这份产品书启动本机编辑服务并打开可保存的链接，无需手动输入命令。</p></details>`;
+  }
+  async function refreshSourceStatus() {
+    if (!documentAvailable || checkingSource) return;
+    checkingSource = true;
+    sourceCheckError = '';
+    renderSourceStatus();
+    try {
+      const response = await fetch('/document/source-status', { cache: 'no-store' });
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (!result.features || typeof result.features !== 'object') throw new Error();
+      sourceStatus = result;
+    } catch {
+      sourceStatus = null;
+      sourceCheckError = '无法核验当前源码，请稍后重试。';
+    } finally {
+      checkingSource = false;
+      renderSourceStatus();
+      await refreshFlowStatus();
+    }
+  }
+  function renderSourceStatus() {
+    const panel = $('source-status');
+    if (!panel) return;
+    if (!documentAvailable) {
+      panel.innerHTML = `<strong>源码状态尚未实时核验</strong><p>${documentLoading ? '正在连接本机文档服务…' : '独立 HTML 仅展示保存时的记录；通过本机服务打开后可比较当前源码。'}功能“完成”表示已保存定义对应的验收记录。</p>`;
+      return;
+    }
+    const checks =
+      state.view === 'feature'
+        ? [sourceStatus?.features?.[state.feature]].filter(Boolean)
+        : Object.values(sourceStatus?.features || {});
+    const statuses = checks.map((item) => item.status);
+    const changed = statuses.includes('changed'),
+      unavailable = statuses.includes('unavailable'),
+      unverified = statuses.includes('unverified');
+    const title = checkingSource
+      ? '正在核验当前源码…'
+      : sourceCheckError
+        ? '源码状态尚未核验'
+        : changed
+          ? '源码已变化，蓝图待核验'
+          : unavailable
+            ? '当前源码无法核验'
+            : unverified || !checks.length
+              ? '尚未建立源码核验基线'
+              : '源码与上次核对快照一致';
+    const message =
+      sourceCheckError ||
+      (changed
+        ? '项目源码发生了变化，受影响功能需要 AI 判断；不会自动改写定义或重置完成状态。'
+        : unavailable
+          ? '项目目录无法访问或扫描有读取缺口，请核对路径与扫描范围。'
+          : unverified || !checks.length
+            ? '当前记录没有源码基线。使用实现 Skill 核对已有代码并实际验收后，工具会记录基线。'
+            : '仅比较记录的扫描范围；源码指纹一致不代替实际业务验收。');
+    const files = new Map(
+      checks.flatMap((item) => item.changes || []).map((item) => [item.file, item]),
+    );
+    const changes = [...files.values()];
+    panel.innerHTML = `<div class="source-status-heading"><strong>${esc(title)}</strong><button class="button" type="button" data-source-check ${checkingSource ? 'disabled' : ''}>重新核验源码</button></div><p>${esc(message)}</p>${
+      changes.length
+        ? `<details><summary>变更文件（${changes.length}）</summary><ul>${changes
+            .slice(0, 12)
+            .map(
+              (item) =>
+                `<li>${esc({ added: '新增', deleted: '删除', modified: '修改' }[item.change] || '变化')} · ${esc(item.file)}</li>`,
+            )
+            .join(
+              '',
+            )}</ul>${changes.length > 12 ? '<p>完整清单可通过 CLI document status 读取。</p>' : ''}</details>`
+        : ''
+    }`;
+  }
+  const annotationKey = (id) =>
+    'product-blueprint-annotation:' + location.origin + location.pathname + ':' + id;
+  function annotationDraft(id) {
+    if (!annotationDrafts.has(id)) {
+      let text = '',
+        editingId = '';
+      try {
+        text = localStorage.getItem(annotationKey(id)) || '';
+        editingId = localStorage.getItem(annotationKey(id) + ':editing') || '';
+      } catch {}
+      annotationDrafts.set(id, { id: '', text, editingId, stored: Boolean(text) });
+    }
+    return annotationDrafts.get(id);
+  }
+  function rememberAnnotation(id, text) {
+    const draft = annotationDraft(id);
+    draft.text = text;
+    draft.id = '';
+    try {
+      if (text) {
+        localStorage.setItem(annotationKey(id), text);
+        if (draft.editingId) localStorage.setItem(annotationKey(id) + ':editing', draft.editingId);
+        else localStorage.removeItem(annotationKey(id) + ':editing');
+      } else {
+        localStorage.removeItem(annotationKey(id));
+        if (draft.editingId) localStorage.setItem(annotationKey(id) + ':editing', draft.editingId);
+        else localStorage.removeItem(annotationKey(id) + ':editing');
+      }
+      draft.stored = true;
+    } catch {
+      draft.stored = false;
+    }
+  }
+  function annotationMarkup(f) {
+    const draft = annotationDraft(f.id),
+      records = documentRecord(f)?.annotations || [];
+    const disabled = !documentAvailable || savingAnnotation;
+    const recordsMarkup = records
+      .map((record) => {
+        const removing =
+          annotationRemoval?.featureId === f.id && annotationRemoval?.annotationId === record.id;
+        return `<article><p>${esc(record.text)}</p><small>定义版本 ${record.definitionRevision} · ${esc(record.updatedAt ? '修改于 ' + record.updatedAt : record.createdAt)}</small><div class="annotation-record-actions">${removing ? `<span>删除这条批注？</span><button class="button" type="button" data-annotation-remove-confirm="${esc(record.id)}" ${disabled ? 'disabled' : ''}>确认删除</button><button class="button" type="button" data-annotation-remove-cancel ${savingAnnotation ? 'disabled' : ''}>取消删除</button>` : `<button class="button" type="button" data-annotation-edit="${esc(record.id)}" ${disabled ? 'disabled' : ''}>编辑批注</button><button class="button" type="button" data-annotation-remove="${esc(record.id)}" ${disabled ? 'disabled' : ''}>删除批注</button>`}</div></article>`;
+      })
+      .join('');
+    return `<section class="feature-annotations" aria-label="批注"><div class="document-editor-heading"><label for="feature-annotation">批注</label></div><p>${draft.editingId ? '正在修改已保存批注，保存修改后会更新原记录。' : '写下希望修改的内容，点击保存批注即可新增。'}批注不会改变功能定义或完成状态。</p><textarea id="feature-annotation" aria-label="批注" rows="3" maxlength="5000" placeholder="写下需要补充或修改的内容。" ${savingAnnotation ? 'disabled' : ''}>${esc(draft.text)}</textarea><div class="document-editor-actions"><span id="annotation-status" role="status"></span>${draft.editingId ? `<button class="button" type="button" data-annotation-edit-cancel ${savingAnnotation ? 'disabled' : ''}>取消编辑</button>` : ''}<button class="button" type="button" id="annotation-save" data-annotation-save>${draft.editingId ? '保存修改' : '保存批注'}</button></div><p class="annotation-help">使用实现 Skill 时，AI 会查找已修改的定义和已保存批注，整理需求并实现、验收和同步蓝图；有歧义时先确认，成功处理后删除对应批注。</p>${records.length ? `<details class="annotation-history" ${draft.editingId || annotationRemoval?.featureId === f.id ? 'open' : ''}><summary>待处理批注（${records.length}）</summary>${recordsMarkup}</details>` : ''}</section>`;
+  }
+  function updateAnnotationEditor() {
+    const field = $('feature-annotation');
+    if (!field) return;
+    const draft = annotationDraft(state.feature),
+      valid = Boolean(field.value.trim()) && field.value.length <= 5000;
+    $('annotation-save').disabled = !documentAvailable || savingAnnotation || !valid;
+    const saved = documentRecord(featureById(state.feature))?.annotations || [];
+    $('annotation-status').textContent = savingAnnotation
+      ? '保存中…'
+      : draft.text
+        ? draft.stored
+          ? draft.editingId
+            ? '修改未保存，点击保存修改'
+            : '已暂存到此浏览器，点击保存批注写回项目'
+          : '未保存，请保留输入并通过本机服务保存'
+        : documentAvailable
+          ? saved.length
+            ? '批注已保存，等待实现 Skill 处理'
+            : '保存后可由 AI 读取批注'
+          : '只读模式：批注暂存于浏览器，需通过本机服务保存';
+  }
+  async function saveAnnotation() {
+    const f = featureById(state.feature),
+      draft = annotationDraft(f.id);
+    if (!documentAvailable || savingAnnotation || !draft.text.trim()) return;
+    if (!draft.id) draft.id = 'annotation-' + crypto.randomUUID();
+    const sent = { ...draft },
+      r = documentRecord(f);
+    savingAnnotation = true;
+    renderFeature();
+    try {
+      const response = await fetch(
+        '/document/features/' +
+          encodeURIComponent(f.id) +
+          '/annotations' +
+          (sent.editingId ? '/' + encodeURIComponent(sent.editingId) : ''),
+        {
+          method: sent.editingId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            annotationId: sent.id,
+            text: sent.text,
+            expectedRevision: r.revision,
+            expectedEditRevision: r.editRevision ?? 0,
+          }),
+        },
+      );
+      const record = await readSaveResponse(response, '批注保存失败，输入仍保留。');
+      productDocument.features[f.id] = record;
+      applyProductDocument(productDocument);
+      draft.editingId = '';
+      rememberAnnotation(f.id, '');
+      toast('批注已保存，功能定义和完成状态保持原样。');
+    } catch (error) {
+      toast(error.message || '批注未保存，输入仍保留。');
+    } finally {
+      savingAnnotation = false;
+      if (state.view === 'feature') renderFeature();
+    }
+  }
+  function editAnnotation(annotationId) {
+    if (!documentAvailable || savingAnnotation) return;
+    const f = featureById(state.feature),
+      record = documentRecord(f)?.annotations?.find((item) => item.id === annotationId);
+    if (!record) return;
+    annotationDraft(f.id).editingId = annotationId;
+    rememberAnnotation(f.id, record.text);
+    annotationRemoval = null;
+    renderFeature();
+    $('feature-annotation').focus();
+  }
+  function cancelAnnotationEdit() {
+    if (savingAnnotation) return;
+    annotationDraft(state.feature).editingId = '';
+    rememberAnnotation(state.feature, '');
+    renderFeature();
+  }
+  async function removeAnnotation(annotationId) {
+    if (!documentAvailable || savingAnnotation) return;
+    const f = featureById(state.feature),
+      r = documentRecord(f);
+    savingAnnotation = true;
+    renderFeature();
+    try {
+      const response = await fetch(
+        '/document/features/' +
+          encodeURIComponent(f.id) +
+          '/annotations/' +
+          encodeURIComponent(annotationId),
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            expectedRevision: r.revision,
+            expectedEditRevision: r.editRevision ?? 0,
+          }),
+        },
+      );
+      const record = await readSaveResponse(response, '批注删除失败。');
+      productDocument.features[f.id] = record;
+      applyProductDocument(productDocument);
+      if (annotationDraft(f.id).editingId === annotationId) {
+        annotationDraft(f.id).editingId = '';
+        rememberAnnotation(f.id, '');
+      }
+      annotationRemoval = null;
+      toast('批注已删除。');
+    } catch (error) {
+      toast(error.message || '批注未删除，请重试。');
+    } finally {
+      savingAnnotation = false;
+      if (state.view === 'feature') renderFeature();
+    }
+  }
+  function updateDescriptionEditor() {
+    const f = featureById(state.feature),
+      field = $('feature-description');
+    if (!field) return;
+    const changed = field.value.trim() !== activeContent(f).description.trim(),
+      parts = parseGroupPath($('document-group-path').value),
+      groupChanged = JSON.stringify(parts) !== JSON.stringify(featureGroups(f)),
+      needsSave = changed || groupChanged || !documentRecord(f),
+      valid = validGroupPath(parts);
+    $('document-save').disabled =
+      !documentAvailable || savingDescription || !needsSave || !field.value.trim() || !valid;
+    $('document-discard').disabled = savingDescription || !(changed || groupChanged);
+    $('document-save-status').textContent = !documentAvailable
+      ? documentLoading
+        ? '正在连接保存服务…'
+        : '只读快照：需通过本机服务保存定义和批注'
+      : !valid
+        ? '分组最多 5 层，每层不超过 40 字'
+        : savingDescription
+          ? '保存中…'
+          : changed || groupChanged
+            ? '未保存'
+            : documentAvailable
+              ? documentRecord(f)
+                ? '已保存到项目文档'
+                : '尚未保存到项目文档'
+              : '项目文档暂不可保存';
+    $('feature-status').textContent = changed ? '定义未保存 · 实现待确认' : featureStatus(f);
+  }
+  async function saveDescription() {
+    const f = featureById(state.feature),
+      description = $('feature-description').value,
+      groupText = $('document-group-path').value,
+      groupPath = parseGroupPath(groupText),
+      definitionChanged = description.trim() !== activeContent(f).description.trim();
+    if (
+      !description.trim() ||
+      savingDescription ||
+      !documentAvailable ||
+      !validGroupPath(groupPath)
+    )
+      return;
+    savingDescription = true;
+    updateDescriptionEditor();
+    try {
+      const r = documentRecord(f),
+        response = await fetch('/document/features/' + encodeURIComponent(f.id), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            description,
+            groupPath,
+            expectedRevision: r?.revision ?? 0,
+            expectedEditRevision: r?.editRevision ?? 0,
+          }),
+        });
+      const result = await readSaveResponse(response, '保存失败，请重试。');
+      productDocument.features[f.id] = result;
+      applyProductDocument(productDocument);
+      if (descriptionEdits.get(f.id) === description) descriptionEdits.delete(f.id);
+      if (groupEdits.get(f.id) === groupText) groupEdits.delete(f.id);
+      openFeatureGroups(f);
+      if (state.feature === f.id && state.mode === 'business') render();
+      toast(definitionChanged ? '定义已保存为草稿，流程等待 AI 梳理。' : '分组已保存。');
+    } catch (error) {
+      toast(error.message || '保存失败，输入内容仍保留。');
+    } finally {
+      savingDescription = false;
+      updateDescriptionEditor();
+    }
+  }
+  const featureById = (id) => features.find((f) => f.id === id);
+  const depById = (id) => dependencies.find((d) => d.id === id);
+  const activeContent = (feature) => documentRecord(feature) || feature;
+  let toastTimer;
+  function toast(message) {
+    if (savedWarning) {
+      message = savedWarning;
+      savedWarning = '';
+    }
+    $('toast').textContent = message;
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('toast').classList.remove('show'), 3200);
+  }
+  function setFeature(id) {
+    if (!featureById(id)) return;
+    state.mode = 'business';
+    state.view = 'feature';
+    state.feature = id;
+    state.selectedStep = 0;
+    state.sequenceCase = 'success';
+    openFeatureGroups(featureById(id));
+    render();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function setDependency(id) {
+    if (!depById(id)) return;
+    state.mode = 'dependencies';
+    state.view = 'dependencies';
+    state.dependency = id;
+    render();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function navigate(mode) {
+    state.mode = mode;
+    state.view = mode === 'business' ? (features.length ? 'feature' : 'overview') : 'dependencies';
+    render();
+  }
+  function renderNavigation() {
+    $('business-tab').classList.toggle('active', state.mode === 'business');
+    $('business-tab').setAttribute('aria-selected', state.mode === 'business');
+    $('dependencies-tab').classList.toggle('active', state.mode === 'dependencies');
+    $('dependencies-tab').setAttribute('aria-selected', state.mode === 'dependencies');
+    $('workspace').setAttribute(
+      'aria-labelledby',
+      state.mode === 'business' ? 'business-tab' : 'dependencies-tab',
+    );
+    $('overview-button').classList.toggle('active', state.view === 'overview');
+    $('overview-button').textContent = '产品概览';
+    $('nav-label').textContent = state.mode === 'business' ? '功能目录' : '依赖目录';
+    $('navigation').innerHTML =
+      state.mode === 'business'
+        ? renderFeatureTree()
+        : dependencies
+            .map(
+              (d) =>
+                `<button type="button" class="nav-item ${state.dependency === d.id && state.view === 'dependencies' ? 'active' : ''}" data-dependency="${d.id}"><span>${esc(d.name)}</span></button>`,
+            )
+            .join('');
+    $('directory-scroll').setAttribute(
+      'aria-label',
+      state.mode === 'business' ? '功能目录' : '依赖目录',
+    );
+    updateTreeControls();
+    $('breadcrumb-section').textContent =
+      state.view === 'overview'
+        ? '产品概览'
+        : state.view === 'new-feature'
+          ? '新增功能'
+          : state.mode === 'business'
+            ? '业务功能 / ' +
+              [...featureGroups(featureById(state.feature)), featureById(state.feature).title].join(
+                ' / ',
+              )
+            : '系统依赖';
+  }
+  function pageHead(eyebrow, title) {
+    return `<div class="page-heading"><h1>${title}</h1></div>`;
+  }
+  function stepDetails(f, index) {
+    return (
+      documentRecord(f)?.stepDetails?.[index] || {
+        actor: '待补充',
+        description: f.flow[index]?.[1] || '',
+        rules: [],
+        dependencies: [],
+        result: '',
+        exception: '',
+        interactions: [],
+        acceptance: '',
+      }
+    );
+  }
+  function openStepDetails(index) {
+    const f = featureById(state.feature),
+      step = f.flow[index],
+      detail = stepDetails(f, index);
+    $('step-title').textContent = step[0];
+    $('step-context').innerHTML =
+      '<span class="badge green">步骤 ' +
+      String(index + 1).padStart(2, '0') +
+      '</span><span>' +
+      esc(f.title) +
+      '</span><span>由 ' +
+      esc(detail.actor) +
+      ' 处理</span>';
+    $('step-content').innerHTML =
+      `<p class="passport-description">${esc(detail.description)}</p><div class="passport-grid"><section class="passport-section"><h3>需要遵守的规则 <small>${detail.rules.length} 条</small></h3><ul class="passport-rules">${detail.rules.map((rule) => `<li><span>${esc(rule)}</span></li>`).join('')}</ul></section><section class="passport-section"><h3>依赖 <small>${detail.dependenciesPending ? '待确认' : detail.dependencies.length + ' 项'}</small></h3><div class="passport-dependencies">${detail.dependenciesPending ? '<p>依赖尚未确认。</p>' : ''}${detail.dependencies
+        .map((id) => {
+          const d = depById(id);
+          return `<button type="button" data-dependency="${id}"><span><strong>${esc(d.name)}</strong><small>${esc(d.purpose || '')}</small></span>${icon('chevron', 12)}</button>`;
+        })
+        .join(
+          '',
+        )}</div></section><section class="passport-section"><h3>完成之后</h3><p>${esc(detail.result)}</p></section><section class="passport-section passport-warning"><h3>如果没能完成</h3><p>${esc(detail.exception)}</p></section></div><section class="passport-section passport-traces"><h3>系统之间怎样交互</h3><ol>${detail.interactions.map(([from, to, message]) => `<li><span>${esc(from === to ? from + '执行' : from + ' → ' + to)}</span><span>${esc(message)}</span></li>`).join('')}</ol></section><div class="passport-check"><span><strong>验收：</strong>${esc(detail.acceptance)}</span></div>`;
+    $('step-modal').showModal();
+  }
+  function renderSharedSequence(f) {
+    const model = documentRecord(f)?.sequence;
+    if (!model) return '<div class="empty-state"><p>尚未记录时序交互。</p></div>';
+    const failed = state.sequenceCase === 'failure',
+      messages = [...model.base, ...(failed ? model.error || [] : model.normal || [])];
+    if (!messages.length) return '<div class="empty-state"><p>尚未记录该情形的交互。</p></div>';
+    const width = diagramWidth(),
+      columns = model.roles.map((_, i) => ((i + 0.5) * width) / model.roles.length),
+      start = 102,
+      gap = 44,
+      height = start + (messages.length - 1) * gap + 60,
+      marker = `shared-seq-${f.id}`;
+    if (width / model.roles.length < 120)
+      return `<div class="sequence-toolbar"><span class="sequence-title">交互顺序</span>${model.failure ? `<label class="sequence-scenario">情形<select id="shared-sequence-case"><option value="success" ${!failed ? 'selected' : ''}>${esc(model.success || '正常流程')}</option><option value="failure" ${failed ? 'selected' : ''}>${esc(model.failure)}</option></select></label>` : ''}</div><ol class="sequence-compact">${messages.map(([from, to, label, step, kind], i) => `<li><button type="button" data-step="${step}" aria-label="交互 ${i + 1}：${esc(label)}"><span class="document-status">${i + 1} · ${esc(model.roles[from])} → ${esc(model.roles[to])}</span><strong>${esc(label)}</strong></button></li>`).join('')}</ol>`;
+    const roles = model.roles
+      .map(
+        (role, i) =>
+          `<line class="seq-lifeline" x1="${columns[i]}" y1="62" x2="${columns[i]}" y2="${height - 26}" stroke="var(--theme-soft-surface,#dcdcdc)" stroke-dasharray="4 5"/><rect class="seq-role-box" x="${columns[i] - Math.min(62, width / model.roles.length / 2 - 6)}" y="9" width="${Math.min(124, width / model.roles.length - 12)}" height="43" rx="0" fill="var(--theme-soft-surface,#f5f5f5)" stroke="var(--theme-soft-surface,#e3e3e3)"/><text x="${columns[i]}" y="35" text-anchor="middle" class="seq-role">${esc(role)}</text>`,
+      )
+      .join('');
+    const arrows = messages
+      .map(([from, to, label, step, kind], i) => {
+        const x1 = columns[from],
+          x2 = columns[to],
+          y = start + i * gap,
+          response = kind === 'return' || kind === 'error',
+          error = kind === 'error',
+          selected = step === state.selectedStep;
+        const color = response ? 'var(--seq-return)' : 'var(--seq-request)',
+          arrow = error ? 'error' : response ? 'return' : 'request',
+          midpoint = from === to ? x1 : (x1 + x2) / 2;
+        const route =
+          from === to
+            ? `M ${x1 + 4} ${y} H ${x1 + 48} V ${y + 16} H ${x1 + 6}`
+            : `M ${x1 + (x2 > x1 ? 4 : -4)} ${y} H ${x2 + (x2 > x1 ? -7 : 7)}`;
+        const width = label.length * 12 + 17;
+        return `<g><text x="7" y="${y + 3}" class="seq-order">${String(i + 1).padStart(2, '0')}</text><path class="seq-connector ${response ? 'seq-return-line' : 'seq-request-line'}" d="${route}" fill="none" stroke="${color}" stroke-width="${selected ? 2.5 : 2}" vector-effect="non-scaling-stroke" ${response ? 'stroke-dasharray="7 5"' : ''} marker-end="url(#${marker}-${arrow})"/><rect x="${midpoint - width / 2}" y="${y - 26}" width="${width}" height="19" rx="0" fill="${selected ? 'var(--theme-soft-surface,#f3f3f3)' : 'var(--theme-paper,#ffffff)'}"/><text x="${midpoint}" y="${y - 12}" text-anchor="middle" class="seq-message ${error ? 'seq-error' : response ? 'seq-response' : ''}" ${selected ? 'font-weight="550"' : ''}>${esc(label)}</text></g>`;
+      })
+      .join('');
+    const selectors = f.flow
+      .map(
+        (step, i) =>
+          `<button type="button" class="sequence-step-button ${i === state.selectedStep ? 'active' : ''}" data-step="${i}" aria-label="步骤 ${String(i + 1).padStart(2, '0')}：${esc(step[0])}" aria-pressed="${i === state.selectedStep}" aria-controls="step-modal" aria-haspopup="dialog"><span>${String(i + 1).padStart(2, '0')}</span>${esc(step[0])}</button>`,
+      )
+      .join('');
+    return `<div class="shared-sequence"><div class="sequence-toolbar"><span class="sequence-title">交互顺序</span>${model.failure ? `<label class="sequence-scenario">查看情形<select id="shared-sequence-case"><option value="success" ${!failed ? 'selected' : ''}>${esc(model.success || '正常流程')}</option>${model.failure ? `<option value="failure" ${failed ? 'selected' : ''}>${esc(model.failure)}</option>` : ''}</select></label>` : ''}</div><div class="sequence-step-nav" role="group" aria-label="选择步骤详情">${selectors}</div><div class="sequence-scroll" role="region" aria-label="时序图，可在窄屏横向滚动"><svg class="sequence-svg" style="width:${width}px;min-width:0" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="${marker}-title"><title id="${marker}-title">${esc(f.title)}：${esc((failed ? model.failure : model.success) || '正常流程')}时序图</title><desc>横向每列是一个参与者，从上到下是发生顺序。点击上方步骤可查看规则和依赖，高亮消息对应选中步骤。</desc><defs><marker id="${marker}-request" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="6" refY="4" orient="auto"><path d="M1 1 7 4 1 7Z" fill="var(--seq-request)"/></marker><marker id="${marker}-return" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="6" refY="4" orient="auto"><path d="M1 1 7 4 1 7" fill="none" stroke="var(--seq-return)" stroke-width="1.6"/></marker><marker id="${marker}-error" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="6" refY="4" orient="auto"><path d="M1 1 7 4 1 7" fill="none" stroke="var(--seq-return)" stroke-width="1.6"/></marker></defs>${roles}${arrows}<text x="10" y="${height - 6}" class="seq-caption">时间向下推进 ↓ · 高亮消息对应选中步骤</text></svg></div><div class="sequence-legend"><span><i class="sequence-line"></i>请求或操作</span><span><i class="sequence-line return"></i>返回结果</span></div></div>`;
+  }
+  const diagramKinds = [
+    { id: 'flow', name: '业务流程图' },
+    { id: 'sequence', name: '时序图' },
+    { id: 'dataflow', name: '数据流图' },
+  ];
+  const projectDiagramKinds = [
+    { id: 'summary', name: '背景与功能' },
+    { id: 'architecture', name: '系统架构图' },
+    { id: 'entities', name: '数据关系图' },
+  ];
+  function activeDiagram() {
+    return state.view === 'overview' ? state.projectDiagram : state.diagramView;
+  }
+  function graphModel(f) {
+    const kind = activeDiagram();
+    return kind === 'architecture'
+      ? productDocument.diagrams?.architecture
+      : kind === 'entities'
+        ? productDocument.diagrams?.entities
+        : documentRecord(f)?.dataflow;
+  }
+  function layoutMap(model, width) {
+    const columns = Math.max(1, Math.min(3, Math.floor((width - 52) / 200))),
+      gap = 38,
+      nodeWidth = (width - 52 - gap * (columns - 1)) / columns,
+      ranks = new Map(),
+      incoming = new Map(model.nodes.map((n) => [n.id, 0]));
+    const outgoing = new Map(model.nodes.map((n) => [n.id, []]));
+    for (const e of model.edges) {
+      if (e.from !== e.to && incoming.has(e.to) && outgoing.has(e.from)) {
+        incoming.set(e.to, incoming.get(e.to) + 1);
+        outgoing.get(e.from).push(e.to);
+      }
+    }
+    const queue = model.nodes.filter((n) => incoming.get(n.id) === 0).map((n) => n.id);
+    queue.forEach((id) => ranks.set(id, 0));
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i];
+      for (const to of outgoing.get(id)) {
+        ranks.set(to, Math.max(ranks.get(to) || 0, (ranks.get(id) || 0) + 1));
+        incoming.set(to, incoming.get(to) - 1);
+        if (incoming.get(to) === 0) queue.push(to);
+      }
+    }
+    for (const n of model.nodes) if (!ranks.has(n.id)) ranks.set(n.id, 0);
+    const groups = new Map();
+    model.nodes.forEach((n) => {
+      const rank = ranks.get(n.id);
+      if (!groups.has(rank)) groups.set(rank, []);
+      groups.get(rank).push(n);
+    });
+    let top = 20;
+    const placed = new Map();
+    for (const [rank, nodes] of [...groups].sort((a, b) => a[0] - b[0])) {
+      const score = (n) => {
+        const parents = model.edges
+          .filter((e) => e.to === n.id)
+          .map((e) => placed.get(e.from))
+          .filter(Boolean);
+        return parents.length
+          ? parents.reduce((sum, p) => sum + p.x, 0) / parents.length
+          : model.nodes.indexOf(n) * nodeWidth;
+      };
+      nodes.sort((a, b) => score(a) - score(b));
+      for (let start = 0; start < nodes.length; start += columns) {
+        const row = nodes.slice(start, start + columns),
+          rowHeight = Math.max(...row.map((n) => (n.fields ? 82 + n.fields.length * 20 : 110)));
+        const rowWidth = row.length * nodeWidth + (row.length - 1) * gap,
+          left = (width - rowWidth) / 2;
+        row.forEach((n, i) =>
+          placed.set(n.id, {
+            ...n,
+            x: left + i * (nodeWidth + gap),
+            y: top,
+            w: nodeWidth,
+            h: rowHeight,
+          }),
+        );
+        top += rowHeight + 76;
+      }
+    }
+    return { nodes: model.nodes.map((n) => placed.get(n.id)), height: Math.max(160, top - 56) };
+  }
+  function renderMap(f) {
+    const model = graphModel(f),
+      marker = 'map-tip-' + activeDiagram();
+    if (!model || !model.nodes.length)
+      return '<div class="empty-state"><p>尚未记录该图表。</p></div>';
+    const width = diagramWidth(),
+      layout = layoutMap(model, width),
+      byId = new Map(layout.nodes.map((n) => [n.id, n]));
+    const edges = model.edges
+      .map((e, i) => {
+        const from = byId.get(e.from),
+          to = byId.get(e.to);
+        if (!from || !to) return '';
+        let path, x, y;
+        if (from.id === to.id) {
+          x = from.x + from.w + 12;
+          y = from.y + from.h / 2;
+          path = `M${from.x + from.w} ${y - 12} H${x + 5} V${y + 12} H${from.x + from.w + 4}`;
+        } else if (from.y === to.y) {
+          const right = from.x < to.x,
+            x1 = right ? from.x + from.w : from.x,
+            x2 = right ? to.x : to.x + to.w;
+          y = from.y + from.h / 2;
+          path = `M${x1} ${y} H${x2 + (right ? -5 : 5)}`;
+          x = (x1 + x2) / 2;
+        } else {
+          const down = from.y < to.y,
+            startX = from.x + from.w / 2,
+            startY = down ? from.y + from.h : from.y,
+            endX = to.x + to.w / 2,
+            endY = down ? to.y : to.y + to.h;
+          const laneY = down ? endY - 20 - (i % 3) * 18 : endY + 20 + (i % 3) * 18;
+          const hasMiddle = layout.nodes.some(
+            (n) =>
+              n.id !== from.id &&
+              n.id !== to.id &&
+              n.y > Math.min(from.y, to.y) &&
+              n.y < Math.max(from.y, to.y),
+          );
+          if (hasMiddle || !down) {
+            const gutter = i % 2 ? width - 10 : 10;
+            const outY = startY + (down ? 24 : -24);
+            path = `M${startX} ${startY} V${outY} H${gutter} V${laneY} H${endX} V${endY + (down ? -5 : 5)}`;
+            x = (gutter + endX) / 2;
+          } else {
+            path = `M${startX} ${startY} V${laneY} H${endX} V${endY - 5}`;
+            x = (startX + endX) / 2;
+          }
+          y = laneY;
+        }
+        return `<g><path d="${path}" fill="none" stroke="var(--theme-diagram-arrow)" stroke-width="1.5" ${e.dashed ? 'stroke-dasharray="5 4"' : ''} ${e.relation ? '' : `marker-end="url(#${marker})"`}/><rect x="${x - 10}" y="${y - 10}" width="20" height="18" fill="var(--paper)"/><text x="${x}" y="${y + 3}" text-anchor="middle">${i + 1}</text></g>`;
+      })
+      .join('');
+    const mapPaths = [...edges.matchAll(/<path\b[^>]*\/>/g)].map((m) => m[0]).join(''),
+      mapLabels = edges.replace(/<path\b[^>]*\/>/g, '');
+    const nodes = layout.nodes
+      .map(
+        (n) =>
+          `<button type="button" class="map-node" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px" data-map-node="${esc(n.id)}" aria-label="查看：${esc(n.title)}" aria-haspopup="dialog"><span class="map-node-type">${esc(n.type || '')}</span><strong title="${esc(n.title)}">${esc(n.title)}</strong>${n.fields ? `<span class="map-fields">${n.fields.map((field) => `<span>${esc(field)}</span>`).join('')}</span>` : `<span class="map-subtitle">${esc(n.subtitle || '')}</span>`}</button>`,
+      )
+      .join('');
+    const relations = model.edges
+      .map(
+        (e, i) =>
+          `<tr><td>${i + 1}</td><td>${esc(byId.get(e.from)?.title || e.from)} → ${esc(byId.get(e.to)?.title || e.to)}</td><td>${esc(e.label || '')}</td></tr>`,
+      )
+      .join('');
+    return `<div class="map-title">${esc(model.title)}</div><div class="graph-scroll"><div class="flow-graph map-canvas" style="width:${width}px;height:${layout.height}px"><svg class="graph-edges" viewBox="0 0 ${width} ${layout.height}" aria-hidden="true"><defs><marker id="${marker}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7" fill="var(--theme-diagram-arrow)"/></marker></defs>${mapPaths}${mapLabels}</svg>${nodes}</div></div>${relations ? `<table class="map-relations" aria-label="图表关系"><thead><tr><th>编号</th><th>连接</th><th>含义</th></tr></thead><tbody>${relations}</tbody></table>` : ''}`;
+  }
+  function openMapDetails(id) {
+    const f = featureById(state.feature),
+      model = graphModel(f),
+      n = model?.nodes.find((n) => n.id === id);
+    if (!n) return;
+    const d = n.dependency ? depById(n.dependency) : null,
+      kind = activeDiagram(),
+      global = kind === 'architecture' || kind === 'entities';
+    const rules = d ? [d.responsibility, d.failure].filter(Boolean) : n.rules || [];
+    const featureLinks = d ? (d.relations || []).map(featureById).filter(Boolean) : [];
+    const depLinks = (n.dependencies || []).map(depById).filter(Boolean);
+    const links = n.fields
+      ? n.fields.map((field) => `<p>${esc(field)}</p>`).join('')
+      : featureLinks.length
+        ? featureLinks
+            .map(
+              (item) =>
+                `<button type="button" data-feature="${esc(item.id)}">${esc(item.title)} →</button>`,
+            )
+            .join('')
+        : depLinks.length
+          ? depLinks
+              .map(
+                (item) =>
+                  `<button type="button" data-dependency="${esc(item.id)}">${esc(item.name)} →</button>`,
+              )
+              .join('')
+          : '';
+    $('step-title').textContent = n.title;
+    $('step-context').innerHTML =
+      `<span>${esc(n.type || '')}</span><span>${esc([...diagramKinds, ...projectDiagramKinds].find((k) => k.id === kind)?.name || '')}</span><span>${esc(global ? productDocument.product?.name || '整个项目' : f.title)}</span>`;
+    $('step-content').innerHTML =
+      `<p class="passport-description">${esc(d?.description || n.description || n.subtitle || '')}</p><div class="passport-grid">${rules.length ? `<section class="passport-section"><h3>${d ? '职责与故障影响' : '规则与关系'}</h3><ul class="passport-rules">${rules.map((rule) => `<li>${esc(rule)}</li>`).join('')}</ul></section>` : ''}${links ? `<section class="passport-section"><h3>${n.fields ? '包含的信息' : '关联范围'}</h3><div class="passport-dependencies">${links}</div></section>` : ''}</div>`;
+    $('step-modal').showModal();
+  }
+  function renderBusinessWorkspace(f) {
+    const content = activeContent(f),
+      text = descriptionEdits.has(f.id) ? descriptionEdits.get(f.id) : content.description,
+      r = documentRecord(f);
+    const summary = `<section class="document-summary"><div class="document-editor-heading"><label for="feature-description">功能定义</label><span id="feature-status" class="document-status">${featureStatus(f)}</span></div><div class="document-group-field"><label for="document-group-path">所属分组</label><input id="document-group-path" aria-label="所属分组" list="feature-group-options" maxlength="215" value="${esc(groupEdits.has(f.id) ? groupEdits.get(f.id) : groupPathText(f))}" placeholder="模块 / 子模块；留空为未分组">${groupOptions()}</div><textarea id="feature-description" aria-label="功能定义" rows="4" maxlength="5000" placeholder="用自然语言写清楚：谁来使用、每一步做什么、遵守哪些规则、异常时怎么办。">${esc(text || '')}</textarea><div class="document-editor-actions"><span id="document-save-status" role="status"></span><button class="button" id="document-discard" data-document-discard type="button" disabled>撤销修改</button><button class="button" id="document-save" data-document-save type="button" disabled>保存定义</button></div></section>`;
+    const stale = r && r.flowRevision !== r.revision;
+    const heading = `<div class="flow-version-bar"><h3>业务流程</h3>${f.flow.length ? '<span class="flow-version-hint">点击节点查看详情</span>' : ''}</div>`;
+    const flow = f.flow.length
+      ? renderClickableFlow(f)
+      : `<div class="empty-state"><p>尚未记录业务流程。</p></div>`;
+    return (
+      summary +
+      implementationStatusMarkup(f) +
+      annotationMarkup(f) +
+      (f.notes ? `<p class="document-note">${esc(f.notes)}</p>` : '') +
+      heading +
+      flow +
+      flowStatusMarkup(f)
+    );
+  }
+
+  function documentFeatures() {
+    return features;
+  }
+  function diagramWidth() {
+    const page = $('page'),
+      style = getComputedStyle(page);
+    return Math.max(
+      220,
+      Math.floor(
+        page.clientWidth -
+          parseFloat(style.paddingLeft) -
+          parseFloat(style.paddingRight) -
+          (state.view === 'feature' ? 42 : 0) -
+          2,
+      ),
+    );
+  }
+  function renderClickableFlow(f) {
+    const width = diagramWidth(),
+      count = f.flow.length,
+      columns = Math.max(1, Math.min(4, Math.floor((width - 24) / 190))),
+      gap = 38,
+      nodeWidth = (width - 24 - gap * (columns - 1)) / columns,
+      nodeHeight = 126,
+      rows = Math.ceil(count / columns),
+      height = 24 + rows * nodeHeight + (rows - 1) * 48;
+    const positions = f.flow.map((_, i) => {
+      const row = Math.floor(i / columns),
+        col = row % 2 ? columns - 1 - (i % columns) : i % columns;
+      return { x: 12 + col * (nodeWidth + gap), y: 12 + row * (nodeHeight + 48), row };
+    });
+    const edges = positions
+      .slice(1)
+      .map((to, i) => {
+        const from = positions[i];
+        const path =
+          from.row === to.row
+            ? from.x < to.x
+              ? `M${from.x + nodeWidth} ${from.y + nodeHeight / 2} H${to.x - 5}`
+              : `M${from.x} ${from.y + nodeHeight / 2} H${to.x + nodeWidth + 5}`
+            : `M${from.x + nodeWidth / 2} ${from.y + nodeHeight} V${to.y - 5}`;
+        return `<path d="${path}" fill="none" stroke="var(--theme-diagram-arrow)" stroke-width="1.6" marker-end="url(#flow-tip)"/>`;
+      })
+      .join('');
+    const nodes = f.flow
+      .map((s, i) => {
+        const d = stepDetails(f, i),
+          p = positions[i];
+        return `<button type="button" class="graph-node ${state.selectedStep === i ? 'selected' : ''}" style="left:${p.x}px;top:${p.y}px;width:${nodeWidth}px;height:${nodeHeight}px" data-step="${i}" aria-label="步骤 ${String(i + 1).padStart(2, '0')}：${esc(s[0])}" aria-haspopup="dialog"><span class="graph-node-head"><span class="mono">${i + 1}</span><span>${esc(d.actor)}</span></span><strong title="${esc(s[0])}">${esc(s[0])}</strong><span class="graph-node-copy">${esc(s[1])}</span><span class="graph-node-meta">${d.rules.length} 条规则 · ${d.dependenciesPending ? '依赖待确认' : d.dependencies.length + ' 项依赖'}</span></button>`;
+      })
+      .join('');
+    const exception = stepDetails(f, state.selectedStep).exception;
+    return `<div class="graph-scroll"><div class="flow-graph" style="width:${width}px;height:${height}px"><svg class="graph-edges" viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs><marker id="flow-tip" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7" fill="var(--theme-diagram-arrow)"/></marker></defs>${edges}</svg>${nodes}</div></div>${exception ? `<p class="flow-exception">异常：${esc(exception)}</p>` : ''}`;
+  }
+  function renderJourney(f) {
+    const kind = diagramKinds.find((k) => k.id === state.diagramView) || diagramKinds[0],
+      unconfirmed = !f.flow.length;
+    const tabs = `<div class="diagram-gallery-nav" role="group" aria-label="图表类型">${diagramKinds.map((k) => `<button class="diagram-tab ${state.diagramView === k.id ? 'active' : ''}" type="button" data-diagram="${k.id}" aria-pressed="${state.diagramView === k.id}">${k.name}</button>`).join('')}</div>`;
+    let body =
+      kind.id === 'flow'
+        ? renderBusinessWorkspace(f)
+        : unconfirmed
+          ? `<div class="empty-state"><p>尚未记录该图表。</p></div>`
+          : kind.id === 'sequence'
+            ? renderSharedSequence(f)
+            : renderMap(f);
+    return `<section class="journey-canvas" aria-label="产品图表"><div class="journey-head feature-name-editor"><h2 aria-label="${esc(f.title)}"><input id="feature-name" aria-label="功能名称" class="feature-name-field" type="text" maxlength="80" value="${esc(titleEdits.has(f.id) ? titleEdits.get(f.id) : f.title)}" title="点击修改功能名称"></h2><button class="button" id="feature-name-save" type="button" data-save-feature-title hidden>保存名称</button><button class="button" id="feature-name-cancel" type="button" data-cancel-feature-title hidden>取消</button><span id="feature-name-status" class="document-status" role="status"></span></div>${tabs}<div id="diagram-body" data-diagram-kind="${kind.id}">${body}</div></section>`;
+  }
+
+  function pendingMarkup(feature) {
+    const r = documentRecord(feature);
+    return r && feature.flow.length && r.flowRevision !== r.revision
+      ? `<div class="document-sync-note">定义已修改。以下图表仍对应上一版定义，等待 AI 梳理后同步。</div>`
+      : '';
+  }
+  function renderFeature() {
+    const f = featureById(state.feature);
+    if (!f) {
+      state.view = 'overview';
+      render();
+      return;
+    }
+    if (
+      !Number.isInteger(state.selectedStep) ||
+      state.selectedStep < 0 ||
+      state.selectedStep >= f.flow.length
+    )
+      state.selectedStep = 0;
+    $('page').innerHTML =
+      `<div class="journey-layout"><article class="journey-document">${pendingMarkup(f)}${renderJourney(f)}</article></div>`;
+    updateDescriptionEditor();
+    updateTitleEditor();
+    updateAnnotationEditor();
+  }
+
+  function renderDependencies() {
+    const d = depById(state.dependency);
+    if (!d) {
+      $('page').innerHTML = '<div class="empty-state"><p>尚未记录系统依赖。</p></div>';
+      return;
+    }
+    const related = documentFeatures().filter(
+      (f) => (d.relations || []).includes(f.id) || f.dependencies.includes(d.id),
+    );
+    const rows = related
+      .map((f) => {
+        const used = f.flow
+          .filter((step, i) => stepDetails(f, i).dependencies.includes(d.id))
+          .map((step) => step[0]);
+        return `<tr><td><button class="dep-text-link" type="button" data-dep-feature="${esc(f.id)}">${esc(f.title)}</button><span class="dep-text-status">${featureStatus(f)}</span></td><td>${used.length ? esc(used.join('、')) : '未记录参与步骤'}</td></tr>`;
+      })
+      .join('');
+    $('page').innerHTML =
+      `<article class="dep-document" aria-label="${esc(d.name)}依赖详情"><header class="dep-document-head"><h1>${esc(d.name)}</h1>${d.category ? `<p>${esc(d.category)}</p>` : ''}</header><section><h2>作用与职责</h2>${d.responsibility ? `<p class="dep-responsibility">${esc(d.responsibility)}</p>` : ''}${d.description ? `<p>${esc(d.description)}</p>` : ''}${!d.responsibility && !d.description ? '<p>尚未记录用途。</p>' : ''}</section><section><h2>关联功能 <small>${related.length} 项</small></h2>${rows ? `<table class="dep-function-table" aria-label="依赖关联的功能和步骤"><thead><tr><th scope="col">功能</th><th scope="col">参与步骤</th></tr></thead><tbody>${rows}</tbody></table>` : '<p>尚未确认关联功能。</p>'}</section><section><h2>故障影响</h2><p>${esc(d.failure || '尚未记录故障影响。')}</p></section>${d.openQuestions?.length ? `<section><h2>待确认事项</h2>${d.openQuestions.map((q) => `<p>${esc(q)}</p>`).join('')}</section>` : ''}</article>`;
+  }
+
+  function renderOverview() {
+    const p = productDocument.product || {},
+      tabs = `<div class="diagram-gallery-nav" role="group" aria-label="项目内容">${projectDiagramKinds.map((k) => `<button class="diagram-tab ${state.projectDiagram === k.id ? 'active' : ''}" type="button" data-project-diagram="${k.id}" aria-pressed="${state.projectDiagram === k.id}">${k.name}</button>`).join('')}</div>`;
+    const groups = new Map();
+    for (const f of documentFeatures()) {
+      const name = featureGroups(f).join(' / ') || '未分组';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(f);
+    }
+    const summary = `<div class="content-grid"><article><p class="overview-intro">${esc(p.background || '尚未记录产品背景。')}</p><div class="section-heading"><h2>功能</h2></div><div class="overview-list">${[...groups].map(([name, items]) => `<section class="overview-group"><h3>${esc(name)}</h3>${items.map((f) => `<button class="overview-feature" type="button" data-feature="${esc(f.id)}"><div class="overview-feature-title">${esc(f.title)} <span class="document-status">${featureStatus(f)}</span></div><div class="overview-feature-description">${esc(f.overview || f.description)}</div></button>`).join('')}</section>`).join('')}</div></article>${p.actors?.length ? `<aside class="aside"><div class="aside-heading">谁在使用</div>${p.actors.map((actor) => `<div class="person-row">${esc(actor)}</div>`).join('')}</aside>` : ''}</div>`;
+    $('page').innerHTML =
+      pageHead('', esc(p.name || '产品蓝图')) +
+      tabs +
+      (state.projectDiagram === 'summary' ? summary : renderMap());
+  }
+  function render() {
+    renderDocumentAccess();
+    renderSourceStatus();
+    $('page').classList.toggle(
+      'dependency-page',
+      state.mode === 'dependencies' && state.view === 'dependencies',
+    );
+    $('page').classList.toggle(
+      'journey-page',
+      state.view === 'feature' && state.mode === 'business',
+    );
+    renderNavigation();
+    if (state.view === 'new-feature') renderNewFeature();
+    else if (state.view === 'overview') renderOverview();
+    else if (state.mode === 'dependencies') renderDependencies();
+    else renderFeature();
+  }
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.hasAttribute('data-tree-open'))
+      setAllFeatureGroups(button.dataset.treeOpen === 'true');
+    else if (button.hasAttribute('data-source-check')) refreshSourceStatus();
+    else if (button.hasAttribute('data-annotation-save')) saveAnnotation();
+    else if (button.dataset.annotationEdit) editAnnotation(button.dataset.annotationEdit);
+    else if (button.hasAttribute('data-annotation-edit-cancel')) cancelAnnotationEdit();
+    else if (button.dataset.annotationRemove) {
+      annotationRemoval = {
+        featureId: state.feature,
+        annotationId: button.dataset.annotationRemove,
+      };
+      renderFeature();
+    } else if (button.dataset.annotationRemoveConfirm)
+      removeAnnotation(button.dataset.annotationRemoveConfirm);
+    else if (button.hasAttribute('data-annotation-remove-cancel')) {
+      annotationRemoval = null;
+      renderFeature();
+    } else if (button.hasAttribute('data-save-feature-title')) saveFeatureTitle();
+    else if (button.hasAttribute('data-cancel-feature-title')) {
+      titleEdits.delete(state.feature);
+      renderFeature();
+    } else if (button.hasAttribute('data-document-save')) saveDescription();
+    else if (button.hasAttribute('data-document-discard')) {
+      descriptionEdits.delete(state.feature);
+      groupEdits.delete(state.feature);
+      renderFeature();
+    } else if (button.dataset.feature) {
+      $('step-modal').close();
+      setFeature(button.dataset.feature);
+    } else if (button.dataset.depFeature) {
+      state.diagramView = 'flow';
+      setFeature(button.dataset.depFeature);
+    } else if (button.dataset.dependency) {
+      $('step-modal').close();
+      setDependency(button.dataset.dependency);
+    } else if (button.dataset.mode) navigate(button.dataset.mode);
+    else if (button.hasAttribute('data-new-feature')) openNewFeature();
+    else if (button.hasAttribute('data-cancel-new-feature')) {
+      if (!creatingFeature) {
+        newFeatureDraft = { id: '', title: '', description: '', groupPathText: '' };
+        state.view = features.length ? 'feature' : 'overview';
+        render();
+      }
+    } else if (button.dataset.mapNode) openMapDetails(button.dataset.mapNode);
+    else if (button.dataset.projectDiagram) {
+      state.projectDiagram = button.dataset.projectDiagram;
+      renderOverview();
+    } else if (button.dataset.diagram) {
+      state.diagramView = button.dataset.diagram;
+      renderFeature();
+    } else if (button.hasAttribute('data-step')) {
+      state.selectedStep = Number(button.dataset.step);
+      renderFeature();
+      openStepDetails(state.selectedStep);
+    } else if (button.dataset.close) $(button.dataset.close).close();
+  });
+  document.addEventListener('input', (event) => {
+    const el = event.target;
+    if (el.id === 'feature-annotation') {
+      rememberAnnotation(state.feature, el.value);
+      updateAnnotationEditor();
+    } else if (el.id === 'feature-name') {
+      titleEdits.set(state.feature, el.value);
+      updateTitleEditor();
+    } else if (el.id === 'new-feature-title') {
+      newFeatureDraft.title = el.value;
+      updateNewFeatureForm();
+    } else if (el.id === 'new-feature-group') {
+      newFeatureDraft.groupPathText = el.value;
+      updateNewFeatureForm();
+    } else if (el.id === 'new-feature-definition') {
+      newFeatureDraft.description = el.value;
+      updateNewFeatureForm();
+    } else if (el.id === 'document-group-path') {
+      groupEdits.set(state.feature, el.value);
+      updateDescriptionEditor();
+    } else if (el.id === 'feature-description') {
+      descriptionEdits.set(state.feature, el.value);
+      updateDescriptionEditor();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.target.id === 'feature-name') {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (!$('feature-name-save').disabled) saveFeatureTitle();
+      } else if (event.key === 'Escape') {
+        titleEdits.delete(state.feature);
+        renderFeature();
+      }
+    }
+  });
+  document.addEventListener('change', (event) => {
+    if (event.target.id === 'shared-sequence-case') {
+      state.sequenceCase = event.target.value;
+      renderFeature();
+    }
+  });
+  document.addEventListener(
+    'toggle',
+    (event) => {
+      if (event.target.isConnected && event.target.classList?.contains('feature-group')) {
+        expandedGroups.set(event.target.dataset.featureGroup, event.target.open);
+        updateTreeControls();
+      }
+    },
+    true,
+  );
+  document.addEventListener('submit', (event) => {
+    if (event.target.id === 'new-feature-form') {
+      event.preventDefault();
+      createDocumentFeature();
+    }
+  });
+  $('overview-button').addEventListener('click', () => {
+    state.mode = 'business';
+    state.view = 'overview';
+    render();
+  });
+  $('step-modal').addEventListener('click', (e) => {
+    if (e.target === $('step-modal')) {
+      const box = e.target.getBoundingClientRect();
+      if (
+        e.clientX < box.left ||
+        e.clientX > box.right ||
+        e.clientY < box.top ||
+        e.clientY > box.bottom
+      )
+        e.target.close();
+    }
+  });
+  document
+    .querySelectorAll('.icon-button[data-close]')
+    .forEach((button) => (button.innerHTML = icon('close', 17)));
+  function renderThemeToggle() {
+    const dark = document.documentElement.dataset.theme === 'dark',
+      button = $('theme-toggle');
+    button.innerHTML = icon(dark ? 'sun' : 'moon', 16);
+    button.setAttribute('aria-label', dark ? '切换为浅色主题' : '切换为深色主题');
+    button.title = (dark ? '当前为深色' : '当前为浅色') + '，点击切换';
+  }
+  $('theme-toggle').addEventListener('click', () => {
+    const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('product-workbench-theme', theme);
+    } catch {}
+    renderThemeToggle();
+  });
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (state.view === 'feature') renderFeature();
+      else if (state.view === 'overview' && state.projectDiagram !== 'summary') renderOverview();
+    }, 100);
+  });
+  renderThemeToggle();
+  applyProductDocument(embeddedDocument);
+  render();
+  loadProductDocument();
+})();
+
+    </script>
+  </body>
+</html>

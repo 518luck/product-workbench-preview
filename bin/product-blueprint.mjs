@@ -71,10 +71,11 @@ const commands = {
     description: '比较当前源码与功能验收快照，列出新增、修改、删除文件；不修改蓝图或执行代码。',
   },
   'document check': {
-    options: ['document', 'analysis-session', 'input'],
-    usage: 'document check [目录或文档.json] --analysis-session 会话 --input 交付审阅.json|-',
+    options: ['document', 'analysis-session', 'input', 'mode'],
+    usage:
+      'document check [目录或文档.json] --analysis-session 会话 --input 交付审阅.json|- [--mode source|verified]',
     description:
-      '只读检查分析、业务范围、分层验收、图表及最新 HTML；delivery v4 按预先保存的方案核验，v3 保留严格流程检查。',
+      '只读检查业务覆盖与源码依据；source 用于初始化交付，不执行或宣称运行验收；默认 verified 还要求分层验收证据。',
   },
   'verification plan': {
     options: ['document', 'analysis-session', 'input'],
@@ -292,6 +293,7 @@ const valueOptions = new Set([
   'kind',
   'id',
   'language',
+  'mode',
 ]);
 const mutations = new Set(['create', 'update', 'define', 'delete', 'sync', 'complete']);
 
@@ -631,7 +633,8 @@ try {
     if (command === 'business review')
       result = await business.reviewBusinessModel(options.session, inputObject());
     emit({ command, ...result }, JSON.stringify(result, null, 2));
-    if (result.valid === false) process.exitCode = 1;
+    if (command === 'business record' ? result.coverageValid === false : result.valid === false)
+      process.exitCode = 1;
   } else if (command === 'feature assess') {
     if (!options['analysis-session']) invalid('实现核对需要 --analysis-session。');
     const id = positional.shift();
@@ -689,6 +692,7 @@ try {
         delivery: 5,
         semanticReview: 'agent-submitted',
         linkage: 1,
+        coverage: 2,
         runtimeConnections: 'snapshot-bound-flow',
         adapters: {
           javascript: 'registration-and-bounded-dispatch',
@@ -712,6 +716,8 @@ try {
         },
       },
       reading: { filePacks: true, groupedClaims: true, storage: 'sqlite-rows' },
+      delivery: { modes: ['source', 'verified'], completion: 'explicit-claim-and-next-action' },
+      skills: ['product-blueprint-init', 'product-blueprint-verify', 'product-blueprint-implement'],
       incremental: {
         exactSnapshotResume: true,
         semanticRecords: 'verified-dependency-closure',
@@ -870,7 +876,11 @@ try {
       if (command === 'document check') {
         if (!options['analysis-session']) invalid('交付检查需要 --analysis-session。');
         const { checkDelivery } = await import('../lib/delivery.mjs');
-        result = await checkDelivery(filename, options['analysis-session'], inputObject());
+        if (options.mode && !['source', 'verified'].includes(options.mode))
+          invalid('--mode 仅支持 source 或 verified。');
+        result = await checkDelivery(filename, options['analysis-session'], inputObject(), {
+          mode: options.mode || 'verified',
+        });
         message = JSON.stringify(result, null, 2);
         if (!result.valid) process.exitCode = 1;
       } else if (command === 'document status') {

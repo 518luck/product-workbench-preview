@@ -1,4 +1,4 @@
 interface:
   display_name: '初始化产品书'
-  short_description: '从源码或需求建立产品书，核验后启动本机服务并打开可编辑页面'
-  default_prompt: '使用 $product-blueprint-init 为当前项目初始化产品书，自行完成验收、启动 serve 并打开页面，最终只回复可编辑保存的链接、产品定位和核心用户旅程。'
+  short_description: '从源码或需求生成产品书并打开编辑页面，运行验收由独立核验流程处理'
+  default_prompt: '使用 $product-blueprint-init 为当前项目生成产品书，按源码记录实现状态，完成 source 交付检查后自动打开可编辑页面。'

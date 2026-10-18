@@ -221,7 +221,7 @@ test('业务结果引用真实流程场景：未执行、错误场景和源码�
         reason: '规范化函数是提交旅程的共享处理步骤，此处限定核对提交公开入口。',
       })),
   };
-  assert.equal((await recordBusinessModel(f.session, input, f.filename)).valid, false);
+  assert.equal((await recordBusinessModel(f.session, input, f.filename)).coverageValid, false);
   await runVerification(
     f.filename,
     'stock-receipt',
@@ -231,10 +231,11 @@ test('业务结果引用真实流程场景：未执行、错误场景和源码�
     ),
   );
   const checked = checkBusinessModel(f.session, f.filename);
-  assert.equal(checked.valid, true, JSON.stringify(checked.gaps));
+  assert.equal(checked.coverageValid, true, JSON.stringify(checked.gaps));
+  assert.equal(checked.valid, false, '真实连接成立仍需独立业务审阅');
   assert.ok(checked.connections[0].links.some((l) => l.basis === 'observed-flow'));
   input.capabilities[0].results[0].via.scenarioId = 'missing';
-  assert.equal((await recordBusinessModel(f.session, input, f.filename)).valid, false);
+  assert.equal((await recordBusinessModel(f.session, input, f.filename)).coverageValid, false);
   fs.appendFileSync(path.join(f.root, 'main.mjs'), '\n// changed');
   assert.throws(() => checkBusinessModel(f.session, f.filename), { code: 'ANALYSIS_STALE' });
 });

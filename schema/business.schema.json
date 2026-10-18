@@ -202,6 +202,18 @@
                 "minLength": 1,
                 "pattern": "\\S",
                 "description": "必须完全等于 operation.registration.file 的相对路径，例如 service.mjs；行号和说明写入 reason。"
+              },
+              "kind": {
+                "enum": ["internal", "support", "false-positive"],
+                "description": "公开操作不能直接排除；support 须连接所属能力实际结果，false-positive 仅限未确认候选。"
+              },
+              "capabilityIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           }

@@ -15,7 +15,7 @@ const skill = path.join(root, 'skills/product-blueprint-init/SKILL.md');
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const access = "export function allowed(role) { return role === 'admin'; }\n";
 export const cases = [
-  { id: 'implemented', description: '已有管理员访问功能，应实际验收为完成。' },
+  { id: 'implemented', description: '已有管理员访问功能，应按源码判定已实现。' },
   {
     id: 'requested',
     description: '已有管理员访问与尚未实现的 CSV 导出需求，应区分完成与草稿。',
@@ -146,7 +146,7 @@ export async function gradeCase(directory, item, original) {
       /admin|管理员/i.test(JSON.stringify([f.description, f.rules, f.stepDetails])),
     );
     if (!item.collaboration && (!existing || featureStatus(existing) !== 'complete'))
-      errors.push('已有管理员访问未验收完成。');
+      errors.push('已有管理员访问未核对为已实现。');
     if (
       !item.collaboration &&
       existing &&
@@ -163,7 +163,7 @@ export async function gradeCase(directory, item, original) {
     );
     if (item.collaboration) {
       if (!features.length || features.some((feature) => featureStatus(feature) !== 'complete'))
-        errors.push('已有批注协作能力未实际验收完成。');
+        errors.push('已有批注协作能力未核对为已实现。');
       const journey = review.journeys?.find((journey) => {
         const steps = journey.steps
           ?.map((mapping) => document.features[mapping.featureId]?.flow?.[mapping.step])
@@ -195,7 +195,7 @@ export async function gradeCase(directory, item, original) {
     // Scope may legitimately exclude generated artifacts. Independently require every original
     // authored unit and configuration, rather than trusting a narrower scope chosen by the AI.
     errors.push(...checkOriginalScope(directory, original, baseline?.scope ?? {}));
-    delivery = await checkDelivery(filename, scan.session, review);
+    delivery = await checkDelivery(filename, scan.session, review, { mode: 'source' });
     if (!delivery.valid)
       errors.push(...delivery.gaps.map((g) => `${g.kind}: ${g.path}: ${g.message}`));
   } catch (error) {
@@ -237,7 +237,7 @@ export async function runSuite({
         path.join(directory, `${item.id}-${trial}.inputs.json`),
         JSON.stringify(original, null, 2) + '\n',
       );
-      const prompt = `使用 ${skill} 为当前临时项目初始化产品书，保留已有示例与源码。CLI 使用 ${process.execPath} ${cli}。读取实际协议及 references；已有功能实际验收完成，未来需求保留草稿。实际验收用 verification run 收集 executionId，完成批次使用 --require-verification 和 --analysis-session。最终按 schema --delivery 保存交付审阅并运行 document check，检查成功才宣布初始化完成。授权在临时项目执行必要验收；只需 CLI 产品书交付，不启动浏览器服务。分析缺口继续处理；任务不需要修改原项目源码。`;
+      const prompt = `使用 ${skill} 为当前临时项目初始化产品书，保留已有示例与源码。CLI 使用 ${process.execPath} ${cli}。读取实际协议及 references；已有功能按源码核对实现状态，未来需求保留草稿，不执行运行验收或生成 executionId。最终保存 v5 交付审阅并运行 document check --mode source，只有当前 completion.canDeliver:true 才宣布产品书生成完成；只需 CLI 产品书交付，不启动浏览器服务。分析缺口继续处理；任务不需要修改原项目源码。`;
       fs.writeFileSync(path.join(directory, `${item.id}-${trial}.prompt.txt`), prompt);
       const replace = (value) =>
         value

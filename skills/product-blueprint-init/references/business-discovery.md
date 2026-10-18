@@ -40,10 +40,18 @@
 
 产品书定义稳定后，给各能力填写实际 featureIds，重新执行 `business record --document BOOK --session SESSION --input 地图.json`，绑定当前定义。定义或地图变化需重新核对。
 
-运行 `business check BOOK --session SESSION` 查看操作遗漏、来源和版本绑定。valid/coverageValid 核对操作、引用、定义绑定及入口到结果的真实源码路径，仍不证明自然语言正确。同一分派器的其他命令/else 分支，以及仅注册但未调用的回调，不能证明此操作结果。结果可用 operationIds 限定对应操作；静态关系未知时，可用 via:{flowId,scenarioId} 引用当前产品书和源码下已实际通过、精确断言结果位置的流程。库入口与有明确真值守卫的分支可用此证据；直接调用 handler 不证明 HTTP/事件注册已触发，未支持的边界继续保留未核验。
+运行 `business check BOOK --session SESSION` 查看操作遗漏、来源和版本绑定。coverageValid 核对操作、引用、定义绑定及入口到结果的真实源码路径；valid 还要求能力和排除项审阅完成。保存 business record 不是通过检查，读取 stage 和 pendingExclusions。仍不宣称机器证明自然语言正确。同一分派器的其他命令/else 分支，以及仅注册但未调用的回调，不能证明此操作结果。结果可用 operationIds 限定对应操作；静态关系未知时，可用 via:{flowId,scenarioId} 引用当前产品书和源码下已实际通过、精确断言结果位置的流程。库入口与有明确真值守卫的分支可用此证据；直接调用 handler 不证明 HTTP/事件注册已触发，未支持的边界继续保留未核验。
 
 逐能力对原始入口、结果位置和工作流原文作语义审阅，用 `business review` 的 decisions 保存 supported、contradicted 或 unknown及具体原始依据。结果依据须指向实际结果；审阅还可引用条件、守卫等真实位置来核对结论。所有非业务分类也用 exclusions 逐操作引用其源码/上下文审阅，不能靠排除操作提高覆盖率；pendingExclusions 不为零时仍未审阅完成。条件允许时用独立上下文复核，向审阅者提供原始项目材料和地图，不给预设答案；对矛盾继续读源码。无独立复核能力时如实标记 reviewer来源，不编造另一个模型已确认。工具把审阅标为 agent-submitted，不宣称可信认证。
 
 验收预期从业务规则/明确需求制定，再选择执行边界；不从某个容易探测的返回值倒推业务。保存后从独立路径读回内容和版本，失败后检查原数据/输入是否保留。少量关键断言使用受控反例核对：禁用保存或绕过冲突后，原验收应失败。共享helper允许，不以重复观察冒充多项业务结果。
 
 新初始化使用 delivery v5。旧交付只保留原有范围，不能当作已完成新业务地图检查。业务地图、函数阅读和语义记录、功能实现状态、运行验收互不替代。
+
+## 公开操作与排除
+
+清单中的 requiresBusinessOwner 用于提醒公开 API、页面动作、命令、事件和工作流的业务归属。内部库导出可以按具体职责作 internal；公开操作应进入业务能力，或用 kind:support、capabilityIds 关联其实际源码结果。不能将页面/API/CLI 一律归到文档型 Skill 下。仅未确认的候选允许以 kind:false-positive 提交原始依据审阅，明确声明的操作不能这样排除。
+
+排除说明与 review.exclusions 逐项对应，完整读取并分析被排除单元。不同职责复用一条通用理由会被拒绝。多个操作可以同属一个用户目标，也可以共享函数，不按数量判断业务；业务覆盖、实现状态和运行验收分别记录。
+
+依赖的具体技术名称应核对 package 清单和真实 import；没有依据时保留未知，不凭常见技术栈补全。

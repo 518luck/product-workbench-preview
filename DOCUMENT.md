@@ -191,7 +191,7 @@ product-blueprint apply ./my-product --input changes.json --json
 
 ## 保存、并发与失败恢复
 
-`--dry-run` 显示字段、删除、版本和状态变化，不写文档及 HTML。首次初始化将它作为内部检查，通过后直接保存新定义并生成 HTML，核验已有功能后通过后续批次登记完成，完成后交付阅读。已有蓝图的维护按相应 Skill 预览确认后保存；用户明确只要求预览时不提交。CLI 不需要交互式确认。
+`--dry-run` 显示字段、删除、版本和状态变化，不写文档及 HTML。首次初始化将它作为内部检查，通过后直接保存新定义并生成 HTML，核验已有功能后通过后续批次登记完成，完成后交付阅读。已有定义由用户在页面修改保存，再选择核验或实现；用户明确只要求预览时不提交。CLI 不需要交互式确认。
 
 CLI 与页面服务共享保存逻辑。使用文档真实路径的队列及文件锁，整批先在内存合并并校验，提交前比较原始内容，再原子替换文件。哈希过时、其他写入占锁或任一步校验失败时不保存。若已存在锁文件，不擅自删除其他进程的锁；应先确认对应进程已经结束。
 
@@ -234,3 +234,9 @@ v4 的 valid:true、stage:ready 表示声明的逐业务步骤方案成立，不
 限定范围分析的 scopeCoverage 差异进入交付与页面范围缺口。默认补齐；确有用户局部范围授权时，review.scope 记录 reason 和 authorization:{source:user,text:原文}，并逐项列入 acknowledgedGaps，仍不能获得全项目 ready。范围声明的真实性由执行者遵守对话授权，工具核验机器遗漏清单。
 
 交付检查还对照分析扫描的文件清单报告之后新增且位于约定目录外的文件，标准 `.blueprint/` 内仅保留产品 JSON、HTML 和最终交付审阅。artifact 缺口需实际核对与处理，不能作为环境限制豁免；已有用户文件不自动删除。扫描之前已经存在的杂项不由此检查推定来源。
+
+## 初始化与运行核验的检查范围
+
+`document check BOOK --mode source --analysis-session SESSION --input REVIEW` 用于初始化：严格检查当前业务地图、排除审阅、完整源码依据、实现判断、内容与 HTML，不要求运行验收方案。审阅使用 v5，acceptance 可为空，不制造执行编号。源码实现完成与运行验收分别记录。
+
+默认 `--mode verified` 延续运行验收交付门禁。输出 `mode`、`runtimeVerified` 和 `completion`；canDeliver 为 false 时禁止使用完成结论，nextAction 与 blockers 指出待完成工作。source 的 claim 为 product-book-generated，不是运行验收通过。CLI 不能控制外部 AI 的回复，只提供当前文档/源码绑定的实际判定。

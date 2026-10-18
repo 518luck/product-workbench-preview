@@ -121,10 +121,10 @@ const detail = (rules) => ({
   interactions: [],
 });
 
-test('三个 Skill 独立引用有效；初始化、需求维护、实际实现验收的已知业务样例', async (t) => {
+test('三个 Skill 引用有效；文档变更与实现验收协议样例（不运行外部 AI）', async (t) => {
   for (const name of [
     'product-blueprint-init',
-    'product-blueprint-maintain',
+    'product-blueprint-verify',
     'product-blueprint-implement',
   ]) {
     const folder = path.join(skills, name),

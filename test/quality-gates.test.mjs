@@ -10,6 +10,7 @@ import {
   recordAnalysis,
   traceAnalysis,
   checkAnalysis,
+  updateSession,
 } from '../lib/analysis-session.mjs';
 import { createFeature } from '../lib/feature-operations.mjs';
 import { readSnapshot } from '../lib/document-operations.mjs';
@@ -212,12 +213,13 @@ const skip = {
   decision: 'skipped',
   reason: '隔离样例只进行单个内存资格判断，输入输出已在该步骤中说明。',
 };
-async function deliver(f) {
+async function deliver(f, { runtime = true, version = 4 } = {}) {
   const runs = {};
   for (const spec of f.specs) {
     await assessImplementation(f.filename, spec.id, f.session, f.input(spec));
-    await saveVerificationPlan(f.filename, f.session, plan(f, spec));
     runs[spec.id] = [];
+    if (!runtime) continue;
+    await saveVerificationPlan(f.filename, f.session, plan(f, spec));
     for (const kind of ['normal', 'exception']) {
       const r = await runVerification(f.filename, spec.id, f.session, command(f, spec, kind));
       assert.equal(r.valid, true, JSON.stringify(r));
@@ -247,9 +249,9 @@ async function deliver(f) {
       visit(feature[field], `/features/${spec.id}/${field}`);
   }
   await traceAnalysis(f.session, { traces });
-  await syncFlowStatus(f.filename, f.session);
+  if (runtime) await syncFlowStatus(f.filename, f.session);
   const review = {
-    version: 4,
+    version,
     documentHash: readSnapshot(f.filename).documentHash,
     flows: [],
     acknowledgedGaps: [],
@@ -275,8 +277,71 @@ async function deliver(f) {
     })),
     diagrams: { architecture: skip, entities: skip },
   };
-  return { review, report: await checkDelivery(f.filename, f.session, review) };
+  if (version === 5) {
+    const state = loadSession(f.session).state;
+    const capabilities = f.specs.map((s) => ({
+      id: s.id,
+      title: s.title,
+      actor: '业务使用者',
+      goal: s.meaning,
+      outcome: s.meaning,
+      featureIds: [s.id],
+      operationIds: state.facts.operations
+        .filter((o) => o.unitId === f.units[s.id].id)
+        .map((o) => o.id),
+      results: [
+        {
+          kind: 'code',
+          unitId: f.units[s.id].id,
+          pointId: f.units[s.id].reviewPoints.find((p) => p.kind === 'return').id,
+          detail: s.detail,
+        },
+      ],
+    }));
+    const saved = await recordBusinessModel(
+      f.session,
+      { version: 1, capabilities, dispositions: [] },
+      f.filename,
+    );
+    await reviewBusinessModel(f.session, {
+      modelHash: saved.model.recordHash,
+      reviewer: 'known-business-fixture',
+      decisions: capabilities.map((c) => ({
+        capabilityId: c.id,
+        verdict: 'supported',
+        reason: c.goal,
+        evidence: c.results,
+      })),
+    });
+  }
+  return {
+    review,
+    report: await checkDelivery(f.filename, f.session, review, {
+      mode: runtime ? 'verified' : 'source',
+    }),
+  };
 }
+
+test('初始化 source 交付无需运行验收，但缺分析/业务审阅仍阻断；不能冒充 verified', async (t) => {
+  const f = await fixture(t, booking);
+  const { review, report } = await deliver(f, { runtime: false, version: 5 });
+  assert.equal(report.valid, true, JSON.stringify(report.gaps));
+  assert.equal(report.completion.claim, 'product-book-generated');
+  assert.equal(report.runtimeVerified, false);
+  assert.equal(report.completion.canDeliver, true);
+  assert.equal(Object.keys(loadSession(f.session).state.verificationPlans || {}).length, 0);
+  const strict = await checkDelivery(f.filename, f.session, review);
+  assert.equal(strict.valid, false);
+  assert.equal(strict.completion.canDeliver, false);
+  assert.ok(strict.verification.gaps.some((g) => g.kind === 'plan'));
+  await updateSession(f.session, (s) => {
+    delete s.records[f.units[booking[0].id].id];
+  });
+  const incomplete = await checkDelivery(f.filename, f.session, review, { mode: 'source' });
+  assert.equal(incomplete.completion.canDeliver, false);
+  assert.equal(incomplete.completion.claim, null);
+  assert.equal(incomplete.completion.nextAction, 'continue-source-analysis');
+});
 for (const specs of [commerce, booking])
   test(`${specs === commerce ? '电商一项' : '预约两项'}实际业务可独立交付，功能名称和数量不绑定蓝图工具`, async (t) => {
     const f = await fixture(t, specs),
@@ -1317,7 +1382,7 @@ test('v5 业务地图、语义审阅与分层验收闭环；旧协议不声称�
     { version: 1, capabilities, dispositions: [] },
     f.filename,
   );
-  assert.equal(saved.valid, true, JSON.stringify(saved.gaps));
+  assert.equal(saved.coverageValid, true, JSON.stringify(saved.gaps));
   assert.equal(
     (await checkDelivery(f.filename, f.session, review)).valid,
     false,

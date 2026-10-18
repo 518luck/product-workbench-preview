@@ -1,4 +1,0 @@
-interface:
-  display_name: '维护需求与蓝图'
-  short_description: '整理需求与代码变化的业务影响，保留原文并更新蓝图，不实现代码'
-  default_prompt: '使用 $product-blueprint-maintain 整理本次需求或代码变化，预览并更新已有蓝图，本次只维护文档。'

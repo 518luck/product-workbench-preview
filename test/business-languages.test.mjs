@@ -359,7 +359,7 @@ test('四种语言共用地图与审阅协议；漏掉任一注册会报告缺�
           })),
       };
       const saved = await recordBusinessModel(f.session, input);
-      assert.equal(saved.valid, true);
+      assert.equal(saved.coverageValid, true);
       assert.equal(saved.semanticStatus, 'unreviewed');
       await reviewBusinessModel(f.session, {
         modelHash: saved.model.recordHash,

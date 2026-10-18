@@ -47,14 +47,21 @@ test('真实源码点不能证明无关入口；同一分派器的其他命令�
       .map((o) => ({
         operationId: o.id,
         source: o.registration.file,
-        reason: '本测试只核对 enable 分支；其他独立操作作为限定样例的非业务支撑保留。',
+        reason:
+          o.trigger.name === 'enable'
+            ? '同一启用函数的库导出，公开命令入口已归属启用业务。'
+            : o.trigger.name === 'disable'
+              ? '关闭标志的独立函数，在此单操作样例中单独保留。'
+              : o.trigger.name === 'snapshot'
+                ? '仅返回状态快照，不执行启用赋值。'
+                : '命令解析分发脚手架，具体启用分支已单独关联。',
       })),
   };
-  assert.equal((await recordBusinessModel(session, input)).valid, true);
+  assert.equal((await recordBusinessModel(session, input)).coverageValid, true);
   for (const wrong of ['disable', 'snapshot']) {
     input.capabilities[0].results = [evidence(wrong)];
     const saved = await recordBusinessModel(session, input);
-    assert.equal(saved.valid, false, wrong);
+    assert.equal(saved.coverageValid, false, wrong);
     assert.ok(saved.connections[0].gaps.length);
     await reviewBusinessModel(session, {
       modelHash: saved.model.recordHash,
@@ -105,15 +112,33 @@ test('注册回调不等于调用；确有已解析跨文件调用时能关联�
           operationIds: [op.id],
           results: [result],
         },
+        {
+          id: 'event-save',
+          title: '响应保存事件',
+          actor: '事件调用方',
+          goal: '保存事件到达处理函数后取得结果',
+          outcome: '返回持久化结果',
+          operationIds: state.facts.operations
+            .filter((o) => o.surface === 'event')
+            .map((o) => o.id),
+          results: [result],
+        },
       ],
       dispositions: state.facts.operations
-        .filter((o) => o.id !== op.id)
+        .filter((o) => o.id !== op.id && o.surface !== 'event')
         .map((o) => ({
           operationId: o.id,
           source: o.registration.file,
-          reason: '限定样例的独立操作，不用它扩大该入口的证明范围。',
+          reason:
+            o.trigger.name === 'save'
+              ? '保存包装将调用委托给持久化函数。'
+              : o.trigger.name === 'subscribe'
+                ? '订阅包装只登记事件监听，不证明持久化发生。'
+                : o.trigger.name === 'wrong'
+                  ? '调用被形参遮蔽的变量，无法静态确认实际处理目标。'
+                  : '持久化库函数导出由保存业务使用，返回保存后的结果。',
         })),
     };
-    assert.equal((await recordBusinessModel(session, input)).valid, name === 'save', name);
+    assert.equal((await recordBusinessModel(session, input)).coverageValid, name === 'save', name);
   }
 });

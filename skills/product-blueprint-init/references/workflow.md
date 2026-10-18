@@ -1,8 +1,6 @@
 # 初始化流程
 
-先运行 `analysis capabilities --json`，确认 `runtime.observationBinding` 为 `step-and-criterion`、`runtime.commandIsolation` 为 `temporary-project-copy`，并确认 `runtime.verificationPlan` 为 3、`runtime.resultScope` 为 `distinct-source-location-per-step`、`runtime.failureBinding` 为 `rejection-or-same-invocation-branch`；`schema --verification-plan` 应要求观测的 step 与 criterion。缺少这些能力时按下述方式换用或更新工具，不删除字段、改用返回类型或弱化断言来兼容旧协议。
-
-同时确认 `business.inventory`、`business.model` 为 1，`business.delivery` 为 5，`reading.filePacks` 与 `reading.groupedClaims` 为 true，并读取 `schema --business`。还须支持 `business.linkage:1`、`reading.storage:sqlite-rows` 和 `incremental.semanticRecords:verified-dependency-closure`。业务核对规则变化只要求重新核对地图；源码索引、源码或上下文未变时，不因此重写全部函数分析。
+先运行 `analysis capabilities --json`，确认 business.coverage:2、business.delivery:5、reading.filePacks、reading.groupedClaims 和 SQLite 行存储；delivery.modes 应包含 source 与 verified。读取当前 schema --analysis、schema --business、schema --delivery。不需要为源码初始化执行运行探针或准备整套联调环境。
 
 ## 选择工具与目标
 
@@ -15,13 +13,13 @@
 读取项目介绍、清单与配置，确定产品名称、目标用户、项目根目录和输出位置：
 
 - 同一任务的恢复或自动续跑：先按 [验收参考](verification.md) 的结束与恢复规则核对已有进度和交付；完成后不重建。
-- 其他已有目标蓝图：先 `document status /文档 --json`，转维护工作流，保留定义、编号、分组与历史。
+- 其他已有目标蓝图：先 `document status /文档 --json`，转核验工作流，保留定义、编号、分组与历史。
 - 只有其他产品的示例：保留示例，新产品书使用约定的 `.blueprint/`；该位置有真实冲突时再确定目标。
 - 新项目只有需求：根据需求建立定义，并明确记录尚未实现的具体内容；没有产品实现时不编造源码引用或完成结论。
 
 只有目标无法确定或需要覆盖现有内容时澄清，不要求用户先解释尚不了解的产品功能。
 
-先按 [业务流程核验](flow-verification.md) 查询语言能力、声明文本上下文、恢复当前分析与建立实际连接；以该参考的 v2 分析／v5 分层交付协议为准。
+查询 analysis capabilities 和 schema --analysis；显式纳入 Skill、工作流、配置及 HTML/CSS 上下文，按 v2 建立读取和函数分析。运行探针留给后续核验。
 
 ## 先发现业务，再完整阅读
 
@@ -33,7 +31,7 @@
 
 恢复先检查当前快照与分析；recordedCount、fullyReadCount、reviewedCount含义不同，均不证明业务理解正确。源码、解析配置及相关上下文变化使旧依据失效。动态调用和宿主行为保留未知，不能用同名函数连接。
 
-业务地图形成不等于初始化完成；继续完成约定范围阅读、记录、实现核对与运行验证。未读完、遗漏和错误映射属于待完成工作，不以时间盒或上下文不足豁免。
+业务地图形成不等于初始化完成；继续完成约定范围阅读、记录和源码实现核对；运行验证交给独立核验流程。未读完、遗漏和错误映射属于待完成工作，不以时间盒或上下文不足豁免。
 
 ## 归纳产品内容与业务地图绑定
 
@@ -59,10 +57,12 @@ dry-run 是内部检查。通过后提交同一批次，无须等待内容确认
 
 先修复可解决的读取与依据缺项。只有已核实且无法消除的文件读取、语言支持或环境问题，或用户明确接受部分范围时，才可在预检和保存同时使用 `--allow-partial-analysis` 交付标明具体缺口的产品书；这不允许绕过源码过期检查或登记完成。
 
-定义初次保存时实现状态待确认。随后按 [验收与交付检查](verification.md) 判断已有功能，完成核验、登记和最终交付。
+定义初次保存时实现状态待确认。随后按 [验收与交付检查](verification.md) 判断已有功能，完成源码核对和 source 模式交付。
 
-恢复时分别核对源码读取与分析、最终字段依据、真实验收、功能完成登记、流程核验及交付审阅。记录数量齐全或执行成功不表示后续阶段已完成；缺少 trace、实现核对或 delivery-review 时继续补齐；实际验收单独记录。先完成可独立验收的已有功能，再推进严格流程追踪，不因后者有缺口把所有功能停在草稿。
+恢复时分别核对源码读取与分析、最终字段依据、真实验收、功能完成登记、流程核验及交付审阅。记录数量齐全或执行成功不表示后续阶段已完成；缺少 trace、实现核对或 delivery-review 时继续补齐；实际验收单独记录。初始化不默认执行运行验收或流程追踪，不因未运行把已实现功能改为草稿。
 
 ## 阅读与记录的质量边界
 
 按 [业务发现与核对](business-discovery.md) 区分机器事实、源码已读、逐函数语义、业务地图与运行结果。每个函数仍完整读取并独立记录；语义断言可覆盖相关位置，不能套用一条职责解释全部无关行为。结构检查是底线，最终对照原始证据核对含义。
+
+当前协议还须支持 business.coverage:2 与 delivery.modes:[source,verified]。business check 的 valid 包含排除审阅，不能只查看 coverageValid；完整交付以 document check 的 completion 为准。

@@ -5,11 +5,12 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { readSnapshot, featureStatus } from '../lib/document-operations.mjs';
-import { savePageAnnotation } from '../lib/feature-operations.mjs';
+import { savePageAnnotation, featureDefinitionHash } from '../lib/feature-operations.mjs';
 import { updateDocument } from '../lib/document-store.mjs';
 import { renderSnapshot } from '../lib/document-operations.mjs';
 import { scanAnalysis } from '../lib/analysis-session.mjs';
 import { checkDelivery } from '../lib/delivery.mjs';
+import { checkVerificationPlans } from '../lib/verification-plan.mjs';
 
 const repository = fileURLToPath(new URL('../', import.meta.url));
 const hash = (content) => createHash('sha256').update(content).digest('hex');
@@ -19,7 +20,6 @@ export async function evaluateWorkflows(
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-workflow-ai-')),
     timeoutMs = 600000,
     existingProject,
-    resumeMaintenance = false,
   } = {},
 ) {
   if (
@@ -51,11 +51,11 @@ export async function evaluateWorkflows(
   }
   const filename = path.join(project, '.blueprint/product-document.json'),
     results = [];
-  const execute = async (mode, request) => {
+  const execute = async (mode, request, label = mode) => {
     const skill = path.join(repository, 'skills', `product-blueprint-${mode}`, 'SKILL.md');
     const prompt = `使用 ${skill}。目标仅为当前隔离项目 ${project}。CLI 是 ${process.execPath} ${path.join(repository, 'bin/product-blueprint.mjs')}。${request} 当前授权直接保存明确变更，不重复确认。按实际协议完成源码阅读、流程映射和验证；可解决缺口继续补齐，真实限制保留。此评测只需 CLI 产物，不启动服务和浏览器，不提交 Git。`;
-    fs.writeFileSync(path.join(directory, `${mode}.prompt.txt`), prompt);
-    const log = fs.openSync(path.join(directory, `${mode}.transcript.log`), 'wx', 0o600),
+    fs.writeFileSync(path.join(directory, `${label}.prompt.txt`), prompt);
+    const log = fs.openSync(path.join(directory, `${label}.transcript.log`), 'wx', 0o600),
       startedAt = Date.now();
     const execution = await new Promise((resolve) => {
       const child = spawn(agent.command, agent.args, {
@@ -85,7 +85,13 @@ export async function evaluateWorkflows(
       child.stdin.end(prompt);
     });
     fs.closeSync(log);
-    return { mode, durationMs: Date.now() - startedAt, ...execution, errors: [] };
+    return {
+      mode: label,
+      skill: mode,
+      durationMs: Date.now() - startedAt,
+      ...execution,
+      errors: [],
+    };
   };
   const save = () =>
     fs.writeFileSync(
@@ -94,9 +100,7 @@ export async function evaluateWorkflows(
     );
   const initialHash = hash(fs.readFileSync(path.join(project, 'access.mjs')));
   let init;
-  if (existingProject && resumeMaintenance)
-    init = { mode: 'init', reused: true, historicalCheck: true, exitCode: 0, errors: [] };
-  else if (existingProject) {
+  if (existingProject) {
     const document = readSnapshot(filename).document,
       baseline = Object.values(document.features)
         .map(
@@ -107,7 +111,7 @@ export async function evaluateWorkflows(
         .find(Boolean);
     const scan = await scanAnalysis(project, baseline?.scope || {}),
       review = JSON.parse(fs.readFileSync(path.join(project, '.blueprint/delivery-review.json')));
-    const report = await checkDelivery(filename, scan.session, review);
+    const report = await checkDelivery(filename, scan.session, review, { mode: 'source' });
     init = {
       mode: 'init',
       reused: true,
@@ -117,7 +121,7 @@ export async function evaluateWorkflows(
   } else
     init = await execute(
       'init',
-      '为现有访问管理功能初始化产品书，已有实现实际核验完成。不得修改源码。',
+      '为现有访问管理功能初始化产品书，按源码保存实现状态并完成 source 交付检查；本阶段不执行运行验收，不得修改源码。',
     );
   try {
     const snapshot = readSnapshot(filename);
@@ -147,34 +151,44 @@ export async function evaluateWorkflows(
     target = Object.values(before.document.features).find(
       (feature) => featureStatus(feature) === 'complete',
     );
-  const maintain = await execute(
-    'maintain',
-    `这是同一授权维护任务的继续，已有进度保留，补齐工具指出的缺项后完成保存。明确需求：viewer 与 admin 一样可以访问，其他角色仍拒绝。只更新现有功能 ${target.id} 的蓝图定义、规则和流程，源码保持原样，不登记新的完成。`,
-  );
-  try {
-    const feature = readSnapshot(filename).document.features[target.id];
-    if (hash(fs.readFileSync(path.join(project, 'access.mjs'))) !== initialHash)
-      maintain.errors.push('维护越权修改了源码。');
-    if (
-      feature.revision <= target.revision ||
-      featureStatus(feature) === 'complete' ||
-      !JSON.stringify(feature).includes('viewer')
-    )
-      maintain.errors.push('需求没有形成保留旧历史的待实现定义。');
-  } catch (error) {
-    maintain.errors.push(error.message);
-  }
-  maintain.valid = maintain.exitCode === 0 && !maintain.errors.length;
-  results.push(maintain);
-  save();
-  console.log(
-    JSON.stringify({
-      mode: 'maintain',
-      valid: maintain.valid,
-      report: path.join(directory, 'report.json'),
-    }),
-  );
-  if (!maintain.valid) return { directory, results };
+  const verify = async (label) => {
+    const original = readSnapshot(filename).document.features[target.id];
+    const source = hash(fs.readFileSync(path.join(project, 'access.mjs')));
+    const result = await execute(
+      'verify',
+      `仅核验功能 ${target.id}，范围已经选定，不重复询问。按当前已保存定义核对源码并保存和执行分层验收，不实现代码、不修改需求、不清理批注。`,
+      label,
+    );
+    try {
+      const current = readSnapshot(filename).document.features[target.id];
+      if (source !== hash(fs.readFileSync(path.join(project, 'access.mjs'))))
+        result.errors.push('核验越权修改业务源码。');
+      if (
+        featureDefinitionHash(current) !== featureDefinitionHash(original) ||
+        JSON.stringify(current.annotations) !== JSON.stringify(original.annotations)
+      )
+        result.errors.push('核验越权修改定义或批注。');
+      const baseline =
+        current.implementationAssessment?.sourceSnapshot || current.implementation?.sourceSnapshot;
+      const scan = await scanAnalysis(project, baseline?.scope || {});
+      const report = checkVerificationPlans(filename, scan.session);
+      if (
+        !report.features[target.id]?.scenarios.length ||
+        report.gaps.some(
+          (g) =>
+            g.path === `/features/${target.id}` || g.path?.startsWith(`/features/${target.id}/`),
+        )
+      )
+        result.errors.push('所选功能未取得当前有效的分层验收结果。');
+    } catch (error) {
+      result.errors.push(error.message);
+    }
+    result.valid = result.exitCode === 0 && !result.timedOut && !result.errors.length;
+    results.push(result);
+    save();
+    return result;
+  };
+  if (!(await verify('verify-after-init')).valid) return { directory, results };
   for (const [id, text] of [
     ['annotation-viewer', '实现 viewer 访问权限，保留 admin 允许，其余拒绝。'],
     ['annotation-later', '未来另行讨论 CSV 导出，本次不处理。'],
@@ -233,6 +247,7 @@ export async function evaluateWorkflows(
       report: path.join(directory, 'report.json'),
     }),
   );
+  if (implement.valid) await verify('verify-after-implement');
   return { directory, results };
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -244,7 +259,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const report = await evaluateWorkflows(JSON.parse(fs.readFileSync(config)), {
     directory: process.argv[3],
     existingProject: process.argv[4],
-    resumeMaintenance: process.argv[5] === '--resume-maintain',
     timeoutMs: 1200000,
   });
   if (report.results.some((result) => !result.valid)) process.exitCode = 1;

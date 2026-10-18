@@ -1,43 +1,14 @@
-先完成 [业务发现与核对](business-discovery.md) 的操作对账、当前定义绑定和逐能力语义审阅。新初始化使用 delivery v5；业务地图检查不能用旧 v4 绕过，运行结果也不能代替业务含义。
+# 初始化检查与打开页面
 
-# 验收与交付检查
+初始化使用源码交付模式，与运行核验分开。先完成当前范围的 analysis check、业务地图绑定与逐项审阅、feature assess、图表取舍和 HTML。recordedCount 齐全不表示 reviewedCount 合格，资源存在不表示功能实现。
 
-## 按功能判断实际状态
+保存 delivery-review.json（v5）绑定最终 documentHash，逐功能记录当前 revision、实现状态、具体未实现项、规则/依赖关联及图表适用性，acceptance 使用空数组，不制造运行凭据。
 
-先按 [实现情况](implementation-status.md) 对照当前定义、规则、条件和步骤保存逐项核对：实现全部满足为完成；有具体缺失为草稿，页面列出尚未实现内容；证据不足时为待确认。读取数量和资源存在不自动证明实现一致。
+由 AI 执行 `document check BOOK --mode source --analysis-session SESSION --input BOOK/delivery-review.json --json`，保留原始输出和退出码在 WORK。检查 mode 必须为 source；只有当前 `completion.canDeliver:true` 才继续打开页面。`claim:product-book-generated` 只表示产品书生成检查通过，不表示运行验收通过。
 
-运行验收独立推进。已实现但没有运行、没有测试全部分支或缺少探针时，如实记录未验证范围，不把它们写成缺失功能。真实业务断言、源码依据及当前执行记录仍用于交付检查；未执行的声明场景继续执行，只有客观限制才允许部分交付。
+如果 canDeliver:false，按 nextAction 与 blockers 继续补齐遗漏。不得为了成功版式、服务已启动、feature assess 显示完成、business record 已保存或取得 executionId 而停止。源码/定义变化后重新检查。真实能力限制只有工具允许的 partial 才可交付，并在产品书明确展示范围。
 
-## 执行验收并登记完成
-
-先按 [分层验收](layered-verification.md) 保存逐业务步骤方案，再读 `verification run --help`、`schema --verification` 和 `schema --changes`，按目标项目选择合适的现有测试、命令及界面交互。每个业务条件应有正常与适用异常路径的实际断言；同一执行记录可支持多个条件，无须逐条件重跑整套回归。
-
-1. 保存业务定义与完整流程，再确认本次目标 revision。若流程已与定义一致，可用 `feature.sync` 声明同步；该操作不会生成流程。
-2. 在当前源码快照下，通过以下命令实际运行带 scope 的验收。输入按 Schema 提供方案、场景、命令和参数，不经过 shell；超时等限制以当前帮助为准。
-
-   ```sh
-   product-blueprint verification run ID /文档 --analysis-session SESSION --input 命令.json --json
-   ```
-
-3. 只有返回 `valid:true` 才引用 `executionId`。将具体行为条件及对应编号写入 `implementation.checks`；`verifiedAt` 不早于实际执行结束时间，可选提交号也须真实取得。
-4. 读回 revision 和 documentHash，使用独立后续批次提交 `feature.sync`／`feature.complete`，预检和保存均带 `--require-verification --analysis-session SESSION`。完成批次不携带业务修改或 `affectedFeatureIds`，避免递增刚验收的版本。
-5. 工具自动将当前源码指纹、范围及清单写入 `implementation.sourceSnapshot`。不手填基线，不复用其他文档、功能、版本或快照的执行记录。源码或定义改变后重新分析并验收。
-
-失败、超时或被修改的执行结果不能支持验收通过；旧手动记录保留但不冒充真实执行。命令通过只证明执行结果，仍须审阅断言是否覆盖业务。文件存在和协议夹具不能替代真实 AI 协作验收。
-
-先依方案执行对应的组件／契约业务测试；选择端到端验证的场景再按 [业务流程核验](flow-verification.md) 建立调用与数据映射、flow check。通过 flow sync 保存各层级、步骤覆盖及实际缺口。普通验收只支持具体检查过的功能行为，不证明所有连接和分支均被追踪；带 flow 的执行还须满足对应流程核验才能引用。功能完成与流程核验分开，不要求先穷尽全书流程的每个条件再登记任何完成功能，也不将缺少流程追踪解释为代码尚未实现。严格交付仍要求相应流程证据；不能用普通命令成功冒充流程通过。
-
-## 最终交付检查
-
-先确认当前 `analysis check` 的读取、逐函数位置说明和业务依据均有效；有存储记录或旧的 valid 报告不能代替本次检查。再从各功能规则及异常反查实现函数，确认条件、调用后果和失败顺序与分析、图表一致，不能仅凭位置计数宣称理解完整。
-
-1. 运行 `document status /文档 --json`，确认本次已核验功能为 `current`。旧记录缺少基线时是 `unverified`；路径或读取问题需如实保留。
-2. 用浏览器核验实际 HTML 的流程、图表、正常／异常情景及详情入口。结构与来源检查不能代替业务审阅。
-3. 按 `schema --delivery` 保存同目录 `delivery-review.json`，使用 v5 绑定最终 documentHash；记录核心旅程、各功能当前 revision、状态判断、规则／依赖、验收映射及图表取舍。草稿有具体 reason 和 evidence，详细映射按 [内容审阅](content-review.md) 填写。
-4. 运行 `document check /文档 --analysis-session SESSION --input delivery-review.json --json`；只有 `valid:true` 才称严格通过。漏读、漏记录、漏映射继续补齐；真实能力限制可在缺口完整可见、deliverable:true 时部分交付，不将其称为严格通过。
-5. 按下节启动并核对本机编辑服务，打开页面。以上步骤均由 AI 内部执行，结果保存到相应记录，不要求用户验收或决定如何交付；最终回复按 SKILL.md 模板，只展示可编辑链接、产品定位与核心旅程。
-
-若 JSON 已保存而 HTML 生成失败，仅运行 `render` 恢复，不重复新增或完成登记。源码在交付期间变化时重新核验，不用新指纹替换旧基线来消除提示。
+初始化不调用 verification run、不强制 verification plan、flow sync 或全系统联调。用户要求后续核验时进入 product-blueprint-verify，选择范围；已明确范围时直接传入。运行验收与实现状态保持分离。
 
 ## 启动可编辑页面
 
@@ -56,8 +27,6 @@
 
 服务启动、能力核对或浏览器打开失败时，按 SKILL.md 分别说明实际结果；保留已生成文件，修复服务问题无需重新初始化。仅在用户要求静态交付或编辑服务暂不可用时提供绝对路径的只读 HTML 备用链接。
 
-## 结束与恢复核对
+## 恢复与结束
 
-文档交付检查通过、编辑服务与页面核对完成后，本次初始化即达到结束条件。若宿主已有对应的目标或计划，核对后将其标记完成，再按 SKILL.md 简短交付；没有目标时不为结束任务另建目标。保留服务进程，不把重复复核当作新的工作轮次。
-
-收到恢复、重复触发或自动续跑通知时，先读取现有文档及绑定当前哈希的审阅记录，检查源码状态与服务保存能力。已有交付有效且任务没有新增要求时，不再执行 init、变更批次、完成登记或验收命令；必要时恢复编辑服务，然后结束对应目标并简短回复。发现文档、源码或服务失效时，仅补做使交付失效的相应工作；涉及现有用户内容的业务修改仍按维护边界处理。
+核对当前 source 检查、业务地图及服务。成功且仍有效时结束同一初始化任务，不为结束任务另起目标或重跑初始化。未完成时保存进度继续处理，不使用成功回复。服务保留运行。

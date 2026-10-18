@@ -63,8 +63,10 @@ product-blueprint apply /文档 --input 批次.json --analysis-session SESSION -
 
 如最终行为需要改变已保存定义，先在授权范围内保存新版本，歧义先确认；整理完整流程，再用 `feature.sync` 声明流程与当前定义一致。业务变更和该功能的完成登记分批处理。
 
-随后按 [验收与完成登记](verification.md) 执行实际检查、保存完成记录及处理批注。
+随后调用 product-blueprint-verify，传入所选编号和目标 revision；核验范围已选定，不重复询问。按 [验收与完成登记](verification.md) 取得实际结果后保存完成记录及处理批注。
 
 ## 阅读与记录的质量边界
 
 源码正文和配置原文必须进入 AI 的当前分析上下文。脚本调用 read 后丢弃正文，再按文件名或语法类型填摘要，不算逐函数审阅。脚本只整理和提交已完成的分析，不自动生成业务解释。工具会跨记录比较模板与真实源码行为；同义包装函数可以共享准确说明，行为不同的函数不能只替换编号、函数名或源码前缀；职责和逐位置说明都会比较，无关汉字、标签及随机串不算业务解释。恢复旧记录需通过当前质量检查，位置和数量齐全仍不证明语义正确。
+
+当前协议还须支持 business.coverage:2 与 delivery.modes:[source,verified]。business check 的 valid 包含排除审阅，不能只查看 coverageValid；完整交付以 document check 的 completion 为准。

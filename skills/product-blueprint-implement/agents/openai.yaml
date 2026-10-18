@@ -1,4 +1,4 @@
 interface:
-  display_name: '实现与验收'
-  short_description: '处理蓝图定义、已保存批注和源码变化，实现并验收后同步产品书'
-  default_prompt: '使用 $product-blueprint-implement 处理当前项目蓝图中的明确需求和已保存批注，实现或核验后同步蓝图并清理已处理批注。'
+  display_name: '实现蓝图修改'
+  short_description: '选择产品书中单个或全部待办，实现后调用核验并同步已处理修改'
+  default_prompt: '使用 $product-blueprint-implement 处理页面已保存的修改、草稿或批注，先让我选择单个或全部待办，完成后核验所选功能并同步蓝图。'

@@ -170,7 +170,9 @@ export function gradeBusinessCase(directory, item, original) {
     if (sessions.length !== 1) throw Error('评测需要唯一当前分析会话。');
     const session = path.join(directory, '.blueprint-analysis', sessions[0]);
     const report = checkBusinessModel(session);
-    if (!report.valid) errors.push(...report.gaps.map((g) => g.message));
+    // This scorer judges the known operation/result mapping; review completion
+    // remains a separate gate and must not be implied by a mapping score.
+    if (!report.coverageValid) errors.push(...report.gaps.map((g) => g.message));
     const { state } = loadSession(session);
     model = report.model;
     operations = state.facts.operations;

@@ -1,0 +1,4 @@
+interface:
+  display_name: '核验产品书功能'
+  short_description: '选择单个或全部功能，核对源码实现与运行结果，保留需求与批注'
+  default_prompt: '使用 $product-blueprint-verify 检查当前产品书，先让我选择核验全部功能还是指定功能；我已指定范围时直接执行。'
