@@ -60,6 +60,8 @@ const commands = {
       'verification-plan',
       'assessment',
       'business',
+      'workflow',
+      'discovery',
     ],
     usage:
       'schema [--changes | --analysis | --business | --delivery | --verification | --flow | --verification-plan | --assessment]',
@@ -214,6 +216,32 @@ const commands = {
     usage: 'business inventory --session 会话 [--offset 0] [--limit 50]',
     description: '业务建模前读取候选外部操作及模块概览；按注册身份保留，不等同功能数量。',
   },
+  'workflow get': {
+    options: [],
+    usage: 'workflow get [项目目录]',
+    description: '读取项目工作流配置及哈希；无文件时保持原有完整工作流默认值。',
+  },
+  'workflow set': {
+    options: ['input', 'expected-hash'],
+    usage: 'workflow set [项目目录] --input 配置.json|- --expected-hash 哈希',
+    description: '在冲突保护下保存 Skill 开关和初始化阶段，不自动执行任务。',
+  },
+  'workflow plan': {
+    options: ['skill', 'stage'],
+    usage:
+      'workflow plan [项目目录] --skill init|verify|implement [--stage discover|analyze|compose]',
+    description: '检查本次任务是否启用、依赖是否可用及独立阶段支持范围；不启动模型。',
+  },
+  'discovery record': {
+    options: ['session', 'input'],
+    usage: 'discovery record --session 会话 --input 发现结果.json|-',
+    description: '独立保存全局业务目录及模块对账；不要求全仓函数分析，不修改最终地图或产品书。',
+  },
+  'discovery check': {
+    options: ['session'],
+    usage: 'discovery check --session 会话',
+    description: '检查已保存发现结果的来源、覆盖和配置/源码绑定；发现完成不表示初始化完成。',
+  },
   'business record': {
     options: ['session', 'input', 'document'],
     usage: 'business record --session 会话 --input 地图.json|- [--document 产品书]',
@@ -270,6 +298,8 @@ const booleanOptions = new Set([
   'verification-plan',
   'assessment',
   'business',
+  'workflow',
+  'discovery',
   'flow',
   'allow-partial-analysis',
   'require-verification',
@@ -294,6 +324,8 @@ const valueOptions = new Set([
   'id',
   'language',
   'mode',
+  'skill',
+  'stage',
 ]);
 const mutations = new Set(['create', 'update', 'define', 'delete', 'sync', 'complete']);
 
@@ -402,11 +434,29 @@ function parseArguments() {
     return [];
   }
   const top = positional.shift();
-  command = ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(top)
+  command = [
+    'feature',
+    'document',
+    'analysis',
+    'verification',
+    'flow',
+    'business',
+    'workflow',
+    'discovery',
+  ].includes(top)
     ? `${top}${positional[0] ? ` ${positional.shift()}` : ''}`
     : top;
   if (
-    ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) &&
+    [
+      'feature',
+      'document',
+      'analysis',
+      'verification',
+      'flow',
+      'business',
+      'workflow',
+      'discovery',
+    ].includes(command) &&
     options.help
   ) {
     for (const key of Object.keys(options))
@@ -435,6 +485,8 @@ function parseArguments() {
       'verification-plan',
       'assessment',
       'business',
+      'workflow',
+      'discovery',
     ].filter((key) => options[key]).length > 1
   )
     invalid('schema 格式选项不能同时使用。');
@@ -452,6 +504,7 @@ function checkPositionals(positional) {
   const maximum = hasId
     ? 2
     : (command.startsWith('business ') && command !== 'business check') ||
+        command.startsWith('discovery ') ||
         (command.startsWith('analysis ') &&
           !['analysis scan', 'analysis read', 'analysis pack'].includes(command)) ||
         command === 'schema' ||
@@ -470,8 +523,16 @@ function helpText() {
   }
   const entries = Object.entries(commands).filter(
     ([key]) =>
-      !['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) ||
-      key.startsWith(`${command} `),
+      ![
+        'feature',
+        'document',
+        'analysis',
+        'verification',
+        'flow',
+        'business',
+        'workflow',
+        'discovery',
+      ].includes(command) || key.startsWith(`${command} `),
   );
   return `产品蓝图 CLI ${version}\n\n${entries.map(([, detail]) => `  ${detail.usage}`).join('\n')}\n\n默认文档为当前目录的 product-document.json，默认 HTML 为同目录的 index.html。\nAI 在外部梳理业务、实现及验证；CLI 负责文档维护，不调用 AI。\n${global}\n  --version  查看版本\n`;
 }
@@ -584,7 +645,16 @@ try {
   if (command === 'version') emit({ command, version }, version);
   else if (command === 'help' || options.help) {
     if (
-      ['feature', 'document', 'analysis', 'verification', 'flow', 'business'].includes(command) &&
+      [
+        'feature',
+        'document',
+        'analysis',
+        'verification',
+        'flow',
+        'business',
+        'workflow',
+        'discovery',
+      ].includes(command) &&
       positional.length
     )
       invalid('帮助命令包含多余的位置参数。');
@@ -595,27 +665,51 @@ try {
     console.log(
       fs
         .readFileSync(
-          options.business
-            ? new URL('../schema/business.schema.json', import.meta.url)
-            : options.assessment
-              ? new URL('../schema/implementation-assessment.schema.json', import.meta.url)
-              : options['verification-plan']
-                ? new URL('../schema/verification-plan.schema.json', import.meta.url)
-                : options.flow
-                  ? new URL('../schema/flow.schema.json', import.meta.url)
-                  : options.delivery
-                    ? new URL('../schema/delivery.schema.json', import.meta.url)
-                    : options.verification
-                      ? new URL('../schema/verification.schema.json', import.meta.url)
-                      : options.analysis
-                        ? analysisSchemaPath
-                        : options.changes
-                          ? changesSchemaPath
-                          : schemaPath,
+          options.workflow
+            ? new URL('../schema/workflow.schema.json', import.meta.url)
+            : options.discovery
+              ? new URL('../schema/discovery.schema.json', import.meta.url)
+              : options.business
+                ? new URL('../schema/business.schema.json', import.meta.url)
+                : options.assessment
+                  ? new URL('../schema/implementation-assessment.schema.json', import.meta.url)
+                  : options['verification-plan']
+                    ? new URL('../schema/verification-plan.schema.json', import.meta.url)
+                    : options.flow
+                      ? new URL('../schema/flow.schema.json', import.meta.url)
+                      : options.delivery
+                        ? new URL('../schema/delivery.schema.json', import.meta.url)
+                        : options.verification
+                          ? new URL('../schema/verification.schema.json', import.meta.url)
+                          : options.analysis
+                            ? analysisSchemaPath
+                            : options.changes
+                              ? changesSchemaPath
+                              : schemaPath,
           'utf8',
         )
         .trim(),
     );
+  } else if (command.startsWith('workflow ')) {
+    const workflow = await import('../lib/workflow-config.mjs');
+    const project = positional[0] || '.';
+    const result =
+      command === 'workflow get'
+        ? workflow.getWorkflowConfig(project)
+        : command === 'workflow set'
+          ? await workflow.setWorkflowConfig(project, inputObject(), options['expected-hash'])
+          : workflow.workflowPlan(project, { skill: options.skill, stage: options.stage });
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+    if (result.valid === false) process.exitCode = 1;
+  } else if (command.startsWith('discovery ')) {
+    if (!options.session) invalid('业务发现需要 --session。');
+    const discovery = await import('../lib/discovery.mjs');
+    const result =
+      command === 'discovery record'
+        ? await discovery.recordDiscovery(options.session, inputObject())
+        : discovery.checkDiscovery(options.session);
+    emit({ command, ...result }, JSON.stringify(result, null, 2));
+    if (result.valid === false) process.exitCode = 1;
   } else if (command.startsWith('business ')) {
     if (!options.session) invalid('业务发现需要 --session。');
     const business = await import('../lib/business-model.mjs');
@@ -714,6 +808,12 @@ try {
             '需 httplib.h 与接收者类型；宏、模板包装、虚调用及跨文件 handler 保留未知',
           ],
         },
+      },
+      workflow: {
+        config: 1,
+        discovery: 1,
+        independentStages: ['discover'],
+        legacyFullWorkflow: true,
       },
       reading: { filePacks: true, groupedClaims: true, storage: 'sqlite-rows' },
       delivery: { modes: ['source', 'verified'], completion: 'explicit-claim-and-next-action' },

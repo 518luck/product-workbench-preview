@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "产品蓝图工作流配置 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["skills"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["init", "verify", "implement"],
+      "properties": {
+        "init": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "stages": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": ["discover", "analyze", "compose"]
+              },
+              "description": "discover 可独立运行；完整三阶段可使用兼容流程，其他独立组合当前拒绝执行。"
+            }
+          }
+        },
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "implement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

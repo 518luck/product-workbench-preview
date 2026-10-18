@@ -57,6 +57,8 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'lib/business-operations.mjs',
     'lib/business-foreign.mjs',
     'lib/business-model.mjs',
+    'lib/workflow-config.mjs',
+    'lib/discovery.mjs',
     'lib/business-coverage.mjs',
     'lib/business-links.mjs',
     'lib/business-flow-evidence.mjs',
@@ -94,6 +96,8 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
     'schema/changes.schema.json',
     'schema/analysis.schema.json',
     'schema/business.schema.json',
+    'schema/workflow.schema.json',
+    'schema/discovery.schema.json',
     'schema/verification.schema.json',
     'schema/verification-plan.schema.json',
     'schema/delivery.schema.json',
@@ -160,6 +164,61 @@ test('本机工具包只含白名单资源，解包后可在不同项目中独�
   assert.equal(capabilities.business.delivery, 5);
   assert.equal(capabilities.business.linkage, 1);
   assert.equal(capabilities.business.coverage, 3);
+  assert.deepEqual(capabilities.workflow.independentStages, ['discover']);
+  assert.equal(capabilities.workflow.discovery, 1);
+  assert.equal(
+    JSON.parse(command(process.execPath, [cli, 'schema', '--workflow'], directory)).properties
+      .skills.properties.init.properties.enabled.type,
+    'boolean',
+  );
+  const workflowRoot = path.join(directory, 'workflow-config-project');
+  fs.mkdirSync(workflowRoot);
+  const initialSettings = JSON.parse(
+    command(process.execPath, [cli, 'workflow', 'get', workflowRoot, '--json'], directory),
+  );
+  const settingsInput = path.join(directory, 'workflow-input.json');
+  fs.writeFileSync(
+    settingsInput,
+    JSON.stringify({
+      version: 1,
+      skills: {
+        init: { enabled: true, stages: ['discover'] },
+        verify: { enabled: false },
+        implement: { enabled: false },
+      },
+    }),
+  );
+  command(
+    process.execPath,
+    [
+      cli,
+      'workflow',
+      'set',
+      workflowRoot,
+      '--input',
+      settingsInput,
+      '--expected-hash',
+      initialSettings.configHash,
+      '--json',
+    ],
+    directory,
+  );
+  const selected = JSON.parse(
+    command(
+      process.execPath,
+      [cli, 'workflow', 'plan', workflowRoot, '--skill', 'init', '--json'],
+      directory,
+    ),
+  );
+  assert.equal(selected.executionMode, 'discovery-only');
+  assert.equal(selected.initializationComplete, false);
+  const disabledSkill = spawnSync(
+    process.execPath,
+    [cli, 'workflow', 'plan', workflowRoot, '--skill', 'verify', '--json'],
+    { encoding: 'utf8' },
+  );
+  assert.equal(disabledSkill.status, 1);
+  assert.equal(JSON.parse(disabledSkill.stdout).valid, false);
   assert.deepEqual(capabilities.delivery.modes, ['source', 'verified']);
   assert.deepEqual(capabilities.skills, [
     'product-blueprint-init',

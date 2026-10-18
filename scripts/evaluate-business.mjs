@@ -6,10 +6,51 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadSession } from '../lib/analysis-session.mjs';
 import { checkBusinessModel } from '../lib/business-model.mjs';
+import { checkDiscovery } from '../lib/discovery.mjs';
+import { getWorkflowConfig, setWorkflowConfig } from '../lib/workflow-config.mjs';
 
 // These references stay with the grader, outside the agent's project/prompt.
 // They grade operation/result identity, not arbitrary natural-language truth.
 export const businessCases = [
+  {
+    id: 'workflow-and-api',
+    files: {
+      'README.md':
+        '# 订单服务\n客户可以创建订单或取消订单；另有准备、核对、执行三个委托工作流。HTTP 操作可以独立使用，工作流不代替订单目录。\n',
+      'skills/prepare/SKILL.md': '# 准备委托\n整理委托材料，返回材料清单后结束。',
+      'skills/review/SKILL.md': '# 核对委托\n核对已有材料，返回差异清单后结束。',
+      'skills/execute/SKILL.md': '# 执行委托\n根据已确认材料执行委托，保留执行结果。',
+      'service.mjs': `import http from 'node:http';
+function createOrder(code){return {code,status:'created'};}
+function cancelOrder(code){return {code,status:'cancelled'};}
+http.createServer((req,res)=>{if(req.url==='/orders'&&req.method==='POST')return res.end(JSON.stringify(createOrder('order')));if(req.url==='/orders'&&req.method==='DELETE')return res.end(JSON.stringify(cancelOrder('order')));});`,
+    },
+    atoms: [
+      {
+        trigger: { method: 'POST', path: '/orders' },
+        result: { name: 'createOrder', contains: "status:'created'" },
+      },
+      {
+        trigger: { method: 'DELETE', path: '/orders' },
+        result: { name: 'cancelOrder', contains: "status:'cancelled'" },
+      },
+      {
+        surface: 'workflow',
+        file: 'skills/prepare/SKILL.md',
+        result: { file: 'skills/prepare/SKILL.md', quote: '返回材料清单后结束' },
+      },
+      {
+        surface: 'workflow',
+        file: 'skills/review/SKILL.md',
+        result: { file: 'skills/review/SKILL.md', quote: '返回差异清单后结束' },
+      },
+      {
+        surface: 'workflow',
+        file: 'skills/execute/SKILL.md',
+        result: { file: 'skills/execute/SKILL.md', quote: '保留执行结果' },
+      },
+    ],
+  },
   {
     id: 'notes',
     files: {
@@ -148,11 +189,13 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 export function prepareBusinessCase(directory, item) {
   fs.mkdirSync(directory, { recursive: true });
   if (fs.readdirSync(directory).length) throw Error('业务评测目录必须为空。');
-  for (const [file, value] of Object.entries(item.files))
+  for (const [file, value] of Object.entries(item.files)) {
+    fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
     fs.writeFileSync(path.join(directory, file), value);
+  }
   return Object.fromEntries(Object.entries(item.files).map(([k, v]) => [k, hash(v)]));
 }
-export function gradeBusinessCase(directory, item, original) {
+export function gradeBusinessCase(directory, item, original, { stage = 'business' } = {}) {
   const errors = [];
   for (const [file, digest] of Object.entries(original))
     if (
@@ -169,18 +212,20 @@ export function gradeBusinessCase(directory, item, original) {
       .filter((f) => f.startsWith('s-'));
     if (sessions.length !== 1) throw Error('评测需要唯一当前分析会话。');
     const session = path.join(directory, '.blueprint-analysis', sessions[0]);
-    const report = checkBusinessModel(session);
+    const report = stage === 'discover' ? checkDiscovery(session) : checkBusinessModel(session);
     // This scorer judges the known operation/result mapping; review completion
     // remains a separate gate and must not be implied by a mapping score.
-    if (!report.coverageValid) errors.push(...report.gaps.map((g) => g.message));
+    if (stage === 'discover' ? !report.valid : !report.coverageValid)
+      errors.push(...report.gaps.map((g) => g.message));
     const { state } = loadSession(session);
-    model = report.model;
+    model = stage === 'discover' ? state.businessModels.discovery.input.model : report.model;
     operations = state.facts.operations;
     const distinct = new Set();
     for (const atom of item.atoms) {
       const ops = operations.filter(
         (op) =>
           (!atom.surface || op.surface === atom.surface) &&
+          (!atom.file || op.file === atom.file) &&
           Object.entries(atom.trigger || {}).every(([k, v]) => op.trigger[k] === v),
       );
       const supported = model.capabilities.find(
@@ -230,6 +275,8 @@ export async function evaluateBusiness(
     trials = 1,
     timeoutMs = 300000,
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-business-eval-')),
+    caseIds = businessCases.map((c) => c.id),
+    stage = 'business',
   } = {},
 ) {
   if (
@@ -240,18 +287,39 @@ export async function evaluateBusiness(
     trials < 1 ||
     trials > 10 ||
     !Number.isSafeInteger(timeoutMs) ||
-    timeoutMs < 1
+    timeoutMs < 1 ||
+    !['business', 'discover'].includes(stage) ||
+    !Array.isArray(caseIds) ||
+    !caseIds.length ||
+    new Set(caseIds).size !== caseIds.length ||
+    caseIds.some((id) => !businessCases.some((c) => c.id === id))
   )
     throw Error('提供外部 agent command/args、1–10 次 trials 和正数 timeoutMs；不自动选择模型。');
   fs.mkdirSync(directory, { recursive: true });
   if (fs.readdirSync(directory).length) throw Error('评测输出目录必须为空。');
   const repository = fileURLToPath(new URL('../', import.meta.url)),
     results = [];
-  for (const item of businessCases)
+  for (const item of businessCases.filter((c) => caseIds.includes(c.id)))
     for (let trial = 1; trial <= trials; trial++) {
       const project = path.join(directory, `${item.id}-${trial}`),
         original = prepareBusinessCase(project, item);
-      const prompt = `在 ${project} 只做业务发现，使用 ${path.join(repository, 'skills/product-blueprint-init/references/business-discovery.md')}。CLI 入口 ${path.join(repository, 'bin/product-blueprint.mjs')}。读取当前项目原文和上下文，保存有依据的业务地图并检查。无需生成产品书、运行服务、修改源码或完成全部分析；不提交Git。`;
+      if (stage === 'discover') {
+        const settings = await setWorkflowConfig(
+          project,
+          {
+            version: 1,
+            skills: {
+              init: { enabled: true, stages: ['discover'] },
+              verify: { enabled: false },
+              implement: { enabled: false },
+            },
+          },
+          getWorkflowConfig(project).configHash,
+        );
+        original[path.basename(settings.filename)] = hash(fs.readFileSync(settings.filename));
+      }
+      const reference = stage === 'discover' ? 'discovery.md' : 'business-discovery.md';
+      const prompt = `在 ${project} 只做业务发现，使用 ${path.join(repository, 'skills/product-blueprint-init/references', reference)}。CLI 入口 ${path.join(repository, 'bin/product-blueprint.mjs')}。读取当前项目原文和上下文，保存有依据的${stage === 'discover' ? ' discovery record 结果并运行 discovery check' : '业务地图并检查'}。无需生成产品书、运行服务、修改源码或完成全部函数分析；不提交Git。`;
       const started = Date.now();
       const log = fs.openSync(path.join(directory, `${item.id}-${trial}.log`), 'wx', 0o600);
       const execution = await new Promise((resolve) => {
@@ -283,9 +351,10 @@ export async function evaluateBusiness(
         });
       });
       fs.closeSync(log);
-      const grade = gradeBusinessCase(project, item, original);
+      const grade = gradeBusinessCase(project, item, original, { stage });
       results.push({
         case: item.id,
+        stage,
         trial,
         ...execution,
         elapsedMs: Date.now() - started,
@@ -301,6 +370,21 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const file = process.argv[2];
   if (!file) throw Error('需要外部 agent 配置 JSON 路径；不在产品 CLI 内调用模型。');
   console.log(
-    JSON.stringify(await evaluateBusiness(JSON.parse(fs.readFileSync(file, 'utf8'))), null, 2),
+    JSON.stringify(
+      await (async () => {
+        const input = JSON.parse(fs.readFileSync(file, 'utf8'));
+        return input.agent
+          ? evaluateBusiness(input.agent, {
+              caseIds: input.caseIds,
+              stage: input.stage,
+              timeoutMs: input.timeoutMs,
+              trials: input.trials,
+              directory: input.directory,
+            })
+          : evaluateBusiness(input);
+      })(),
+      null,
+      2,
+    ),
   );
 }

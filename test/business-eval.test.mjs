@@ -9,8 +9,9 @@ import {
   gradeBusinessCase,
   evaluateBusiness,
 } from '../scripts/evaluate-business.mjs';
-import { scanAnalysis, loadSession } from '../lib/analysis-session.mjs';
+import { scanAnalysis, loadSession, readAnalysisPack } from '../lib/analysis-session.mjs';
 import { recordBusinessModel } from '../lib/business-model.mjs';
+import { recordDiscovery } from '../lib/discovery.mjs';
 
 test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改输入，不按功能名称打分', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-business-gold-'));
@@ -25,6 +26,7 @@ test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改�
       const op = state.facts.operations.find(
         (o) =>
           (!atom.surface || o.surface === atom.surface) &&
+          (!atom.file || o.file === atom.file) &&
           Object.entries(atom.trigger || {}).every(([k, v]) => o.trigger[k] === v),
       );
       const unit = atom.result.name && state.units.find((u) => u.name === atom.result.name);
@@ -46,7 +48,7 @@ test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改�
             : {
                 kind: 'context',
                 contextId: state.contexts.find((c) => c.file === atom.result.file).id,
-                quote: '不得实现项目代码',
+                quote: atom.result.quote,
               },
         ],
       };
@@ -82,6 +84,39 @@ test('跨领域预设操作/结果评分拒绝空产物、错 helper 和篡改�
     await recordBusinessModel(session, input);
     const grade = gradeBusinessCase(directory, item, original);
     assert.equal(grade.valid, true, item.id + JSON.stringify(grade.errors));
+    if (item.id === 'workflow-and-api') {
+      for (const file of Object.keys(item.files)) await readAnalysisPack(session, file);
+      const discovery = {
+        version: 1,
+        model: input,
+        modules: [
+          {
+            directory: '.',
+            status: 'mapped',
+            capabilityIds: capabilities.slice(0, 2).map((c) => c.id),
+            reason: '订单 HTTP 服务为客户分别创建订单和取消订单；委托工作流另有原文入口。',
+          },
+        ],
+      };
+      assert.equal((await recordDiscovery(session, discovery)).valid, true);
+      const stageGrade = gradeBusinessCase(directory, item, original, { stage: 'discover' });
+      assert.equal(stageGrade.valid, true, JSON.stringify(stageGrade.errors));
+      assert.equal(stageGrade.matchedAtoms, 5);
+      assert.equal(Object.keys(loadSession(session).state.records).length, 0);
+      discovery.model = { ...input, capabilities: capabilities.slice(2), dispositions: [] };
+      discovery.modules = [
+        {
+          directory: '.',
+          status: 'pending',
+          capabilityIds: [],
+          reason: '订单接口尚未归属用户目标。',
+        },
+      ];
+      assert.equal((await recordDiscovery(session, discovery)).valid, false);
+      const incomplete = gradeBusinessCase(directory, item, original, { stage: 'discover' });
+      assert.equal(incomplete.valid, false);
+      assert.equal(incomplete.matchedAtoms, 3);
+    }
     if (item.id === 'dispatch' || item.id.endsWith('-routes')) {
       const unit = state.units.find((u) => u.name === 'snapshot');
       input.capabilities[0].results = [
@@ -114,4 +149,25 @@ test('外部 AI 仅输出成功不通过业务评测，运行失败和结果评�
   assert.equal(result.passed, 0);
   assert.equal(result.total, businessCases.length);
   assert.ok(result.results.every((r) => r.exitCode === 0 && !r.valid));
+});
+
+test('评测只执行所选发现样例；预算耗尽为失败而非初始化完成', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-discovery-one-case-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const report = await evaluateBusiness(
+    { command: process.execPath, args: ['-e', 'setTimeout(()=>{},10000)'] },
+    { directory, caseIds: ['workflow-and-api'], stage: 'discover', timeoutMs: 100 },
+  );
+  assert.equal(report.total, 1);
+  assert.equal(report.passed, 0);
+  assert.equal(report.results[0].timedOut, true);
+  assert.equal(report.results[0].stage, 'discover');
+  assert.equal(fs.existsSync(path.join(directory, 'notes-1')), false);
+  assert.equal(fs.existsSync(path.join(directory, 'workflow-and-api-1', '.blueprint')), false);
+  assert.equal(
+    JSON.parse(
+      fs.readFileSync(path.join(directory, 'workflow-and-api-1', '.blueprint-workflow.json')),
+    ).skills.verify.enabled,
+    false,
+  );
 });

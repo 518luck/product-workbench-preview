@@ -32,6 +32,29 @@
 
 机器可读规范由 `product-blueprint schema`、`schema --changes`、`schema --analysis`、`schema --verification`、`schema --flow` 和 `schema --delivery` 提供。各命令的完整参数通过 `--help` 查询。
 
+## 工作流配置与独立发现
+
+项目根目录 `.blueprint-workflow.json` 控制允许使用的 Skill 和初始化阶段。开启表示可执行本次明确任务，不会自动运行模型或其他 Skill。AI 负责读取和维护配置，用户可直接说“本次只测试全局发现”。
+
+```json
+{
+  "version": 1,
+  "skills": {
+    "init": { "enabled": true, "stages": ["discover"] },
+    "verify": { "enabled": false },
+    "implement": { "enabled": false }
+  }
+}
+```
+
+本仓库采用以上配置，下一轮只测试业务发现。独立 discover 建全仓机器清单，读取相关入口与结果片段，保存候选业务目录及模块对账；不要求整仓逐函数记录，不生成或覆盖产品书，不启动服务。它的完成结论是 discovery-ready，initializationComplete、bookGenerated、runtimeVerified 始终为 false。候选目录仍需业务语义审阅，结构通过不表示任意项目业务已经理解正确。
+
+目前只有 discover 可独立运行。analyze、compose 可与 discover 一起选择完整三阶段，沿用兼容流程；其他独立阶段组合会明确报告尚未实现，不偷偷退回全量执行。没有配置文件时保留原完整初始化默认值。分功能展开及独立合并仍是后续阶段。
+
+工具入口：workflow get/set/plan，schema --workflow；独立发现输入见 schema --discovery，保存/恢复用 discovery record/check。配置保存使用当前 configHash 防覆盖，损坏配置拒绝执行；实现依赖的核验关闭时，计划在改代码之前阻止执行。这是产品工作流约定，不是宿主应用的 Skill 安装开关或操作系统权限控制；原有底层 CLI 命令仍保留，Skill 必须先检查计划。
+
+开发评测可只选一个样例和 discover 阶段：scripts/evaluate-business.mjs 接受配置 {agent:{command,args},caseIds:["workflow-and-api"],stage:"discover",trials:1,timeoutMs:300000}。夹具和评分真值隔离，超时/仅声称成功都失败，报告保留耗时与产物；不会自动选模型。本阶段无需启动整本书初始化。
+
 ## 从产品书开始使用
 
 在已安装对应 Skill 的 AI 会话中，按目标选择入口。以下目录和产品名称仅为示例：
@@ -153,7 +176,7 @@ pnpm check
 pnpm format:check
 pnpm package:check
 pnpm pack --pack-destination /你的输出目录
-pnpm add --global /你的输出目录/product-blueprint-0.12.1.tgz
+pnpm add --global /你的输出目录/product-blueprint-0.13.0.tgz
 product-blueprint --help
 ```
 

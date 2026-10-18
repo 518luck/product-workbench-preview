@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "独立业务发现结果 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "model", "modules"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "model": {
+      "$ref": "business.schema.json#/oneOf/0"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["directory", "status", "capabilityIds", "reason"],
+        "properties": {
+          "directory": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": ["mapped", "internal", "pending"]
+          },
+          "capabilityIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

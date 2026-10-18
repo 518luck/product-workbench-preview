@@ -1,6 +1,8 @@
-# 初始化流程
+# 完整初始化兼容流程
 
-先运行 `analysis capabilities --json`，确认 business.coverage:2、business.delivery:5、reading.filePacks、reading.groupedClaims 和 SQLite 行存储；delivery.modes 应包含 source 与 verified。读取当前 schema --analysis、schema --business、schema --delivery。不需要为源码初始化执行运行探针或准备整套联调环境。
+只在 workflow plan 返回 legacy-full 时读取本页；discovery-only 使用 discovery.md 后结束。独立发现的成功不是产品书初始化成功。
+
+先运行 `analysis capabilities --json`，确认 business.coverage:3、business.delivery:5、reading.filePacks、reading.groupedClaims 和 SQLite 行存储；delivery.modes 应包含 source 与 verified。读取当前 schema --analysis、schema --business、schema --delivery。不需要为源码初始化执行运行探针或准备整套联调环境。
 
 ## 选择工具与目标
 
@@ -65,4 +67,4 @@ dry-run 是内部检查。通过后提交同一批次，无须等待内容确认
 
 按 [业务发现与核对](business-discovery.md) 区分机器事实、源码已读、逐函数语义、业务地图与运行结果。每个函数仍完整读取并独立记录；语义断言可覆盖相关位置，不能套用一条职责解释全部无关行为。结构检查是底线，最终对照原始证据核对含义。
 
-当前协议还须支持 business.coverage:2 与 delivery.modes:[source,verified]。business check 的 valid 包含排除审阅，不能只查看 coverageValid；完整交付以 document check 的 completion 为准。
+当前协议还须支持 business.coverage:3 与 delivery.modes:[source,verified]。business check 的 valid 包含排除审阅，不能只查看 coverageValid；完整交付以 document check 的 completion 为准。

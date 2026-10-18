@@ -214,3 +214,11 @@ product-blueprint apply /文档 --input 批次.json --analysis-session /会话�
 初始化保留完整源码读取、逐函数分析、来源、操作和业务审阅，使用 document check --mode source 交付产品书。source 不要求 verification plan 或运行场景；完成表示代码已实现，运行状态另列。核验 Skill 可独立选择单个/全部功能；实现 Skill 只处理页面已保存的所选修改并复用核验。全书运行验收交付使用 mode verified。
 
 business coverage 协议为 3。coverageValid 仅表示操作和源码连接等结构成立，valid 还要求能力与排除项审阅完成。公开操作不可凭“支撑”排除，support 需 capabilityIds 和真实结果连接；候选不等于误识别；false-positive 只保存待确认判断，当前没有机器反证适配器，此分类不能使覆盖通过。无法确认时保留缺口，不能虚构功能消除它。读取、分析和审阅分别检查，批量模板理由不能消除缺口。更换触发器名称、文件名、函数名、源码关键词或裸序号，不构成不同的职责解释；跨记录检查须剥离这些来源标签。
+
+## 独立发现阶段
+
+workflow get/set/plan 使用项目根目录 .blueprint-workflow.json；读取 configHash 后才能保存配置。只选择 discover 时，初始化 Skill 读取独立 discovery 参考，不进入旧全量记录和 document check。无配置保持兼容完整工作流，独立 analyze/compose 尚未提供。
+
+discovery record/check 使用当前分析会话，将候选地图保存在 businessModels.discovery，保留 businessModels.current 和原审阅。输入是 {version:1,model:业务地图输入,modules:逐产品源码目录分类}，模块用 mapped/internal/pending。检查复用业务入口到结果规则、scopeCoverage、真实来源片段凭据、模块与能力关联；不遍历或要求所有函数 records，不用旧业务语义审阅冒充新发现。普通读取和解析缺口仍阻止 ready；深度语义工具边界另列 analysisBoundaries，并由实际源码连接检查决定是否影响候选映射。
+
+缺项结果可保存但返回 valid:false、needs-attention，明确入口/目录缺口。当前源码、发现规则、业务规则或配置变化后旧 ready 失效。只有本阶段有效才返回 discovery-ready；初始化、产品书生成和运行验收始终未完成。后续功能展开须独立深读及判断，候选归类不是最终非业务排除或功能完成凭据。

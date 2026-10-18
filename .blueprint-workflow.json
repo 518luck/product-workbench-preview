@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "init": {
+      "enabled": true,
+      "stages": ["discover"]
+    },
+    "verify": {
+      "enabled": false
+    },
+    "implement": {
+      "enabled": false
+    }
+  }
+}

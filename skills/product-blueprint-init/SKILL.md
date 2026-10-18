@@ -1,6 +1,6 @@
 ---
 name: product-blueprint-init
-description: 从目标项目源码或新产品需求首次建立产品书，生成并打开可编辑页面。已有产品书的功能核验使用 product-blueprint-verify，实现保存后的修改使用 product-blueprint-implement。
+description: 从目标项目源码或新产品需求首次建立产品书；支持按项目配置仅做全局业务发现，完整初始化生成并打开可编辑页面。已有产品书的功能核验使用 product-blueprint-verify，实现保存后的修改使用 product-blueprint-implement。
 ---
 
 # 初始化产品书
@@ -9,7 +9,17 @@ description: 从目标项目源码或新产品需求首次建立产品书，生�
 
 初始化负责源码理解和产品书生成。完成表示当前定义已实现；草稿必须列明实际缺失项；无法判断标待确认。运行验收独立显示为未核验，初始化不默认执行整套运行验收或冒充严格验收通过。
 
-## 流程
+## 配置与阶段
+
+先定位目标项目 PROJECT，执行 `workflow plan PROJECT --skill init --json`，读取项目根目录 `.blueprint-workflow.json` 的 Skill 开关和 stages。配置只控制任务，启用不表示自动执行。
+
+- valid:false：报告关闭项、缺失依赖或未提供的独立阶段，不擅自开启其他流程。
+- executionMode:discovery-only：只读取并执行 [独立全局发现](references/discovery.md)，保存候选目录后结束。不进入下方完整流程，不创建或改写产品书，不运行全量函数分析和验收。
+- executionMode:legacy-full：进入下方兼容的完整初始化流程。
+
+当前只有 discover 支持独立任务；单独 analyze/compose 及跳阶段组合会被明确阻止。没有配置文件时保留完整流程默认行为；用户明确指定本轮阶段时，由 AI 用 workflow get/set 保存配置后重新计划，不让用户手写命令。调整配置使用当前 configHash，冲突后重新读取，不能覆盖他人设置。已有产品书也可以单独做全局发现，不因此转成核验或重建旧书。
+
+## 完整流程
 
 1. 读取 [产物目录](references/artifacts.md)，定位目标项目。新产品书默认 `.blueprint/`，保留其他产品示例。已有本项目产品书时不覆盖重建；继续同一初始化任务可恢复，其余核验转核验 Skill。
 2. 读取 [初始化流程](references/workflow.md) 与 [业务发现](references/business-discovery.md)，先建立全仓操作和早期业务地图，再沿业务路径展开源码，并完整补齐约定范围的函数与上下文分析。 先检查早期地图的 coverageValid，修正遗漏操作、错误排除和断开的结果依据，再投入全量记录；不要用大批模板记录补齐数字后再发现业务方向错误。
